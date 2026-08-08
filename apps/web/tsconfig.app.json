@@ -1,0 +1,11 @@
+{
+  "extends": "@taskmaster/config/tsconfig.web",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "noEmit": true
+  },
+  "include": ["src", "vite.config.ts"]
+}

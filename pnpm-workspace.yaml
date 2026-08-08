@@ -1,0 +1,16 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm 11 only runs dependency build scripts for packages listed here.
+allowBuilds:
+  esbuild: true
+  prisma: true
+  "@prisma/client": true
+  "@tailwindcss/oxide": true
+  bcrypt: true
+  sharp: true
+  "@parcel/watcher": true
+  "@prisma/engines": set this to true or false
+
+strictDepBuilds: false

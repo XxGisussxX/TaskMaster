@@ -1,0 +1,40 @@
+{
+  "name": "taskmaster-next",
+  "version": "0.0.0",
+  "private": true,
+  "description": "TaskMaster rebuild — monorepo",
+  "license": "MIT",
+  "packageManager": "pnpm@11.20.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @taskmaster/web --filter @taskmaster/api dev",
+    "dev:web": "pnpm --filter @taskmaster/web dev",
+    "dev:api": "pnpm --filter @taskmaster/api dev",
+    "build": "pnpm -r --filter \"./packages/**\" --filter \"./apps/**\" build",
+    "build:web": "pnpm --filter @taskmaster/web build",
+    "build:api": "pnpm --filter @taskmaster/api build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,css,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,css,md}\"",
+    "prepare": "husky",
+    "db:migrate": "pnpm --filter @taskmaster/api prisma:migrate",
+    "db:seed": "pnpm --filter @taskmaster/api prisma:seed"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^15.3.0",
+    "prettier": "^3.4.2"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "prettier --write"
+    ],
+    "*.{json,md,css,yaml,yml}": [
+      "prettier --write"
+    ]
+  }
+}

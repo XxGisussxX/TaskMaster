@@ -1,0 +1,10 @@
+{
+  "extends": "@taskmaster/config/tsconfig.base",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "types": []
+  },
+  "include": ["src"]
+}
