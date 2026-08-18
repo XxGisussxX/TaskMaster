@@ -2,11 +2,13 @@ import { Moon, Sun, Monitor, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
-import { Avatar } from "@/components/ui/avatar";
-import { useAuthStore } from "@/store/auth.store";
 import { useUiStore, type Theme } from "@/store/ui.store";
 import { useNavigate } from "react-router-dom";
 import { logout } from "@/features/auth/api/auth.api";
+import { MemberManagement } from "@/features/workspace/components/MemberManagement";
+import { WorkspaceManagement } from "@/features/workspace/components/WorkspaceManagement";
+import { ProfileForm } from "../components/ProfileForm";
+import { ChangePasswordForm } from "../components/ChangePasswordForm";
 
 const THEMES: { value: Theme; label: string; icon: typeof Sun }[] = [
   { value: "light", label: "Claro", icon: Sun },
@@ -15,7 +17,6 @@ const THEMES: { value: Theme; label: string; icon: typeof Sun }[] = [
 ];
 
 export function SettingsPage() {
-  const { user } = useAuthStore();
   const { theme, setTheme } = useUiStore();
   const navigate = useNavigate();
 
@@ -32,16 +33,17 @@ export function SettingsPage() {
         <CardHeader>
           <CardTitle className="text-base">Perfil</CardTitle>
         </CardHeader>
-        <CardContent className="flex items-center gap-4">
-          <Avatar
-            name={user?.name ?? "?"}
-            src={user?.avatarUrl}
-            className="h-12 w-12 text-sm"
-          />
-          <div>
-            <p className="font-medium">{user?.name}</p>
-            <p className="text-sm text-muted-foreground">{user?.email}</p>
-          </div>
+        <CardContent>
+          <ProfileForm />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Contraseña</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ChangePasswordForm />
         </CardContent>
       </Card>
 
@@ -60,6 +62,24 @@ export function SettingsPage() {
               {t.label}
             </Button>
           ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Miembros del workspace</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <MemberManagement />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Workspaces</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <WorkspaceManagement />
         </CardContent>
       </Card>
 

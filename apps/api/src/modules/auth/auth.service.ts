@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
@@ -150,6 +151,40 @@ export class AuthService {
       where: { id: userId },
     });
     return this.toPublicUser(user);
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{ success: true }> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+
+    const ok = await this.verifyPassword(currentPassword, user.passwordHash);
+    if (!ok) {
+      throw new BadRequestException("La contraseña actual es incorrecta");
+    }
+
+    if (currentPassword === newPassword) {
+      throw new BadRequestException(
+        "La nueva contraseña debe ser diferente a la actual",
+      );
+    }
+
+    const passwordHash = await this.hashPassword(newPassword);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+
+    return { success: true };
   }
 
   // ── helpers ──────────────────────────────────────────────────────────

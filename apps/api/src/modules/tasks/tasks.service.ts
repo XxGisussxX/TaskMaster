@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import {
@@ -10,6 +11,7 @@ import {
   TaskStatus,
   type CreateSubtaskInput,
   type CreateTaskInput,
+  type Recurrence,
   type Task,
   type TaskFilters,
   type UpdateTaskInput,
@@ -32,6 +34,8 @@ type TaskWithRelations = Prisma.TaskGetPayload<{
 
 @Injectable()
 export class TasksService {
+  private readonly logger = new Logger(TasksService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: WorkspaceAccessService,
@@ -225,6 +229,7 @@ export class TasksService {
 
     if (nextStatus === TaskStatus.DONE) {
       await this.markSubtreeDone(workspaceId, existing);
+      await this.createNextOccurrenceIfRecurring(workspaceId, existing);
     }
 
     await this.activity.log(
@@ -263,6 +268,7 @@ export class TasksService {
 
     if (status === TaskStatus.DONE) {
       await this.markSubtreeDone(workspaceId, existing);
+      await this.createNextOccurrenceIfRecurring(workspaceId, existing);
     }
 
     await this.activity.log(
@@ -463,6 +469,106 @@ export class TasksService {
       queue = childIds;
     }
     return ids;
+  }
+
+  private async createNextOccurrenceIfRecurring(
+    workspaceId: string,
+    completedTask: { id: string; isRecurring: boolean; recurrence: unknown },
+  ): Promise<void> {
+    if (!completedTask.isRecurring || !completedTask.recurrence) return;
+
+    const recurrence = completedTask.recurrence as Recurrence;
+    const baseDate = completedTask as unknown as { dueDate: Date | null };
+    const referenceDate = baseDate.dueDate ?? new Date();
+
+    const nextDate = this.computeNextOccurrence(recurrence, referenceDate);
+    if (!nextDate) {
+      this.logger.log(
+        `Recurring task ${completedTask.id} recurrence ended, not creating next occurrence`,
+      );
+      return;
+    }
+
+    const original = await this.prisma.task.findUnique({
+      where: { id: completedTask.id },
+      include: { tags: true, assignees: true },
+    });
+    if (!original) return;
+
+    const order = await this.nextOrder(workspaceId, original.parentId);
+
+    const nextTask = await this.prisma.task.create({
+      data: {
+        workspaceId,
+        creatorId: original.creatorId,
+        title: original.title,
+        description: original.description,
+        status: TaskStatus.TODO,
+        priority: original.priority,
+        dueDate: nextDate,
+        startDate: original.startDate,
+        order,
+        parentId: original.parentId,
+        categoryId: original.categoryId,
+        isRecurring: true,
+        recurrence: recurrence as unknown as Prisma.InputJsonValue,
+        tags: {
+          create: original.tags.map((t) => ({ tagId: t.tagId })),
+        },
+        assignees: {
+          create: original.assignees.map((a) => ({ userId: a.userId })),
+        },
+      },
+      include: TASK_INCLUDE,
+    });
+
+    await this.activity.log(
+      workspaceId,
+      original.creatorId,
+      EntityType.TASK,
+      nextTask.id,
+      Action.CREATED,
+      [
+        {
+          field: "title",
+          old: null,
+          new: `Tarea recurrente creada desde "${original.title}"`,
+        },
+      ],
+    );
+
+    this.logger.log(
+      `Created next recurring task ${nextTask.id} from completed task ${completedTask.id}, due ${nextDate.toISOString()}`,
+    );
+  }
+
+  private computeNextOccurrence(
+    recurrence: Recurrence,
+    baseDate: Date,
+  ): Date | null {
+    const next = new Date(baseDate);
+
+    switch (recurrence.frequency) {
+      case "DAILY":
+        next.setDate(next.getDate() + recurrence.interval);
+        break;
+      case "WEEKLY":
+        next.setDate(next.getDate() + recurrence.interval * 7);
+        break;
+      case "MONTHLY":
+        next.setMonth(next.getMonth() + recurrence.interval);
+        break;
+      case "YEARLY":
+        next.setFullYear(next.getFullYear() + recurrence.interval);
+        break;
+    }
+
+    if (recurrence.endDate) {
+      const end = new Date(recurrence.endDate);
+      if (next > end) return null;
+    }
+
+    return next;
   }
 
   private diffTask(before: PrismaTask, after: TaskWithRelations) {

@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { useUiStore } from "@/store/ui.store";
 import { useAuthStore } from "@/store/auth.store";
 import { Avatar } from "@/components/ui/avatar";
+import { WorkspaceSwitcher } from "@/features/workspace/components/WorkspaceSwitcher";
 
 const NAV_ITEMS = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -33,15 +34,10 @@ export function Sidebar() {
       )}
     >
       <div className="flex h-14 items-center gap-2 border-b px-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold">
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold shrink-0">
           T
         </div>
-        {sidebarOpen && (
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">TaskMaster</p>
-            <p className="truncate text-xs text-muted-foreground">Workspace</p>
-          </div>
-        )}
+        {sidebarOpen && <WorkspaceSwitcher sidebarOpen={sidebarOpen} />}
       </div>
 
       <nav className="flex-1 space-y-1 p-2">

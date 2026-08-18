@@ -5,6 +5,7 @@ import {
   Pencil,
   Trash2,
   Circle,
+  RotateCcw,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,14 @@ export function TaskCard({
 
       <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
         <PriorityBadge priority={task.priority} />
+        {task.isRecurring && (
+          <span
+            className="inline-flex items-center gap-0.5 text-xs text-muted-foreground"
+            title={`Recurrente: cada ${task.recurrence?.interval ?? 1} ${task.recurrence?.frequency?.toLowerCase() ?? ""}`}
+          >
+            <RotateCcw className="h-3 w-3" />
+          </span>
+        )}
         {task.dueDate && (
           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
             <CalendarDays className="h-3.5 w-3.5" />

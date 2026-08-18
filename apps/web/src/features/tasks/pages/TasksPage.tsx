@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Plus, LayoutGrid, Rows3, Kanban } from "lucide-react";
-import type { Task } from "@taskmaster/contracts";
+import type { Task, TaskStatus } from "@taskmaster/contracts";
 import { Button } from "@/components/ui/button";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -20,6 +20,7 @@ import { BoardView } from "../components/BoardView";
 import { TaskModal } from "../components/TaskModal";
 import type { TaskFormValues } from "../components/TaskForm";
 import { PageHeader } from "@/components/ui/page-header";
+import { http } from "@/services/http";
 
 export function TasksPage() {
   const workspaceId = useCurrentWorkspaceId();
@@ -51,23 +52,39 @@ export function TasksPage() {
   );
 
   const handleCreate = async (values: TaskFormValues) => {
-    await createTask.mutateAsync({
-      ...values,
-      dueDate: values.dueDate || null,
-      startDate: values.startDate || null,
+    const { subtasks: newSubtasks, ...taskInput } = values;
+    const created = await createTask.mutateAsync({
+      ...taskInput,
+      dueDate: taskInput.dueDate || null,
+      startDate: taskInput.startDate || null,
+      categoryId: taskInput.categoryId || null,
     });
+    for (const st of newSubtasks) {
+      await http.post(
+        `/workspaces/${workspaceId}/tasks/${created.id}/subtasks`,
+        { title: st.title },
+      );
+    }
   };
 
   const handleEdit = async (values: TaskFormValues) => {
     if (!editing) return;
+    const { subtasks: newSubtasks, ...taskInput } = values;
     await updateTask.mutateAsync({
       id: editing.id,
       input: {
-        ...values,
-        dueDate: values.dueDate || null,
-        startDate: values.startDate || null,
+        ...taskInput,
+        dueDate: taskInput.dueDate || null,
+        startDate: taskInput.startDate || null,
+        categoryId: taskInput.categoryId || null,
       },
     });
+    for (const st of newSubtasks) {
+      await http.post(
+        `/workspaces/${workspaceId}/tasks/${editing.id}/subtasks`,
+        { title: st.title },
+      );
+    }
   };
 
   const handleToggleComplete = (task: Task) => {
@@ -85,6 +102,16 @@ export function TasksPage() {
     if (window.confirm(`¿Eliminar la tarea "${task.title}"?`)) {
       deleteTask.mutate(task.id);
     }
+  };
+
+  const handleStatusChange = (taskId: string, newStatus: TaskStatus) => {
+    updateTask.mutate({
+      id: taskId,
+      input: {
+        status: newStatus,
+        completedAt: newStatus === "DONE" ? new Date().toISOString() : null,
+      },
+    });
   };
 
   const openCreate = () => {
@@ -173,7 +200,11 @@ export function TasksPage() {
       )}
 
       {filters.view === "board" && (
-        <BoardView tasks={tasks} onEdit={openEdit} />
+        <BoardView
+          tasks={tasks}
+          onEdit={openEdit}
+          onStatusChange={handleStatusChange}
+        />
       )}
 
       {(createTask.isPending || updateTask.isPending) && (

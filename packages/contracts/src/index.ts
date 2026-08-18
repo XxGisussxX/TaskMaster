@@ -7,4 +7,6 @@ export * from "./schemas/reminder.schema";
 export * from "./schemas/comment.schema";
 export * from "./schemas/common.schema";
 export * from "./schemas/notification.schema";
+export * from "./schemas/tag.schema";
+export * from "./schemas/category.schema";
 export * from "./types";

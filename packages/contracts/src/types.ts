@@ -41,6 +41,22 @@ export interface Workspace {
   createdAt: string;
 }
 
+export interface Tag {
+  id: string;
+  workspaceId: string;
+  name: string;
+  color: string | null;
+  createdAt: string;
+}
+
+export interface Category {
+  id: string;
+  workspaceId: string;
+  name: string;
+  color: string | null;
+  createdAt: string;
+}
+
 export interface Task {
   id: string;
   workspaceId: string;

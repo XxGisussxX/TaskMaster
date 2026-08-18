@@ -1,6 +1,7 @@
 import type { Task } from "@taskmaster/contracts";
 import { Dialog } from "@/components/ui/dialog";
 import { TaskForm, type TaskFormValues } from "./TaskForm";
+import { CommentSection } from "./CommentSection";
 
 export function TaskModal({
   open,
@@ -25,6 +26,7 @@ export function TaskModal({
           ? "Actualiza los detalles de la tarea"
           : "Crea una tarea y asígnala a tu equipo"
       }
+      className={task ? "max-w-2xl" : undefined}
     >
       <TaskForm
         task={task}
@@ -34,6 +36,13 @@ export function TaskModal({
         }}
         submitting={submitting}
       />
+
+      {task && (
+        <>
+          <hr className="my-5 border-border" />
+          <CommentSection taskId={task.id} />
+        </>
+      )}
     </Dialog>
   );
 }

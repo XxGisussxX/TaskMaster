@@ -12,6 +12,8 @@ export const workspacesApi = {
   update: (id: string, input: Record<string, unknown>) =>
     http.patch<Workspace>(`/workspaces/${id}`, input),
 
+  delete: (id: string) => http.delete<void>(`/workspaces/${id}`),
+
   members: (id: string) =>
     http.get<WorkspaceMember[]>(`/workspaces/${id}/members`),
 
@@ -22,4 +24,10 @@ export const workspacesApi = {
     http.patch<WorkspaceMember>(`/workspaces/${id}/members/${memberId}`, {
       role,
     }),
+
+  removeMember: (id: string, memberId: string) =>
+    http.delete<void>(`/workspaces/${id}/members/${memberId}`),
+
+  acceptInvite: (token: string) =>
+    http.post<Workspace>("/workspaces/invites/accept", { token }),
 };

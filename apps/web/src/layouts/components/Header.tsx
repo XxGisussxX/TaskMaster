@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useUiStore } from "@/store/ui.store";
 import { useAuthStore } from "@/store/auth.store";
 import { logout } from "@/features/auth/api/auth.api";
+import { NotificationBell } from "@/features/notifications/components/NotificationBell";
 
 export function Header() {
   const navigate = useNavigate();
@@ -39,6 +40,7 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-1">
+        <NotificationBell />
         <Button
           variant="ghost"
           size="icon"

@@ -1,8 +1,10 @@
 import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
 import {
+  changePasswordSchema,
   loginSchema,
   registerSchema,
   refreshTokenSchema,
+  type ChangePasswordInput,
   type LoginInput,
   type RegisterInput,
   type RefreshTokenInput,
@@ -45,5 +47,17 @@ export class AuthController {
   @Get("me")
   me(@CurrentUser() user: AuthUser) {
     return this.authService.me(user.sub);
+  }
+
+  @Post("change-password")
+  changePassword(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodPipe(changePasswordSchema)) dto: ChangePasswordInput,
+  ) {
+    return this.authService.changePassword(
+      user.sub,
+      dto.currentPassword,
+      dto.newPassword,
+    );
   }
 }

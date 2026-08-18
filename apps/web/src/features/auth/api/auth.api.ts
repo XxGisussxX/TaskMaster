@@ -22,3 +22,10 @@ export function logout(): void {
   void http.post("/auth/logout").catch(() => undefined);
   useAuthStore.getState().clear();
 }
+
+export async function changePassword(input: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<{ success: true }> {
+  return http.post<{ success: true }>("/auth/change-password", input);
+}

@@ -12,5 +12,9 @@ export const updateCommentSchema = z.object({
   body: z.string().trim().min(1).max(5000),
 });
 
+export const commentIdParamsSchema = z.object({
+  id: z.string().cuid("ID de comentario inválido"),
+});
+
 export type CreateCommentInput = z.infer<typeof createCommentSchema>;
 export type UpdateCommentInput = z.infer<typeof updateCommentSchema>;

@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useTasks } from "@/features/tasks/hooks/useTasks";
 import { formatDateISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
+import { ReminderList } from "@/features/reminders/components/ReminderList";
 
 const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -155,6 +156,10 @@ export function CalendarPage() {
           description="Asigna fechas a tus tareas para verlas aquí"
         />
       )}
+
+      <Card className="p-4">
+        <ReminderList />
+      </Card>
     </div>
   );
 }
