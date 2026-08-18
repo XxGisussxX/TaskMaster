@@ -19,6 +19,7 @@ import { CommentsModule } from "./modules/comments/comments.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { RemindersModule } from "./modules/reminders/reminders.module";
 import { SavedViewsModule } from "./modules/saved-views/saved-views.module";
+import { UploadsModule } from "./modules/uploads/uploads.module";
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { SavedViewsModule } from "./modules/saved-views/saved-views.module";
     NotificationsModule,
     RemindersModule,
     SavedViewsModule,
+    UploadsModule,
   ],
   providers: [
     {

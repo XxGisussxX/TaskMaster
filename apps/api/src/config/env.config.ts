@@ -9,6 +9,9 @@ const envSchema = z.object({
   JWT_ACCESS_SECRET: z.string().min(8, "JWT_ACCESS_SECRET requerido"),
   JWT_ACCESS_TTL: z.string().default("15m"),
   API_ORIGINS: z.string().default("*"),
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

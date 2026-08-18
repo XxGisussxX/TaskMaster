@@ -55,6 +55,9 @@ importers:
       class-transformer:
         specifier: ^0.5.1
         version: 0.5.1
+      cloudinary:
+        specifier: ^2.10.0
+        version: 2.10.0
       helmet:
         specifier: ^8.0.0
         version: 8.3.0
@@ -89,6 +92,9 @@ importers:
       "@types/express":
         specifier: ^5.0.0
         version: 5.0.6
+      "@types/multer":
+        specifier: ^2.2.0
+        version: 2.2.0
       "@types/node":
         specifier: ^22.10.5
         version: 22.20.1
@@ -2058,6 +2064,12 @@ packages:
         integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==,
       }
 
+  "@types/multer@2.2.0":
+    resolution:
+      {
+        integrity: sha512-3U1troeqGV8Ntp7Q3klwf4zr23VEoqYVocYXaswm9+8z3O9UHDYAqLxjJ/h550iRADTjKdOdhhasXw6gD6kYtg==,
+      }
+
   "@types/node@22.20.1":
     resolution:
       {
@@ -2844,6 +2856,13 @@ packages:
         integrity: sha512-JQHZ2QMW6l3aH/j6xCqQThY/9OH4D/9ls34cgkUBiEeocRTU04tHfKPBsUK1PqZCUQM7GiA0IIXJSuXHI64Kbg==,
       }
     engines: { node: ">=0.8" }
+
+  cloudinary@2.10.0:
+    resolution:
+      {
+        integrity: sha512-sY09kYg7wprkndAOjZBAYqFZqwL+SxnEGcAvksOvFA+5upnFn949UjkEkHKNSwkBtW/xRDd0p6NgbSXZcxkI3w==,
+      }
+    engines: { node: ">=9" }
 
   clsx@2.1.1:
     resolution:
@@ -6819,6 +6838,10 @@ snapshots:
 
   "@types/ms@2.1.0": {}
 
+  "@types/multer@2.2.0":
+    dependencies:
+      "@types/express": 5.0.6
+
   "@types/node@22.20.1":
     dependencies:
       undici-types: 6.21.0
@@ -7343,6 +7366,10 @@ snapshots:
   cli-width@4.1.0: {}
 
   clone@1.0.4: {}
+
+  cloudinary@2.10.0:
+    dependencies:
+      lodash: 4.18.1
 
   clsx@2.1.1: {}
 

@@ -2,6 +2,7 @@ import type { Task } from "@taskmaster/contracts";
 import { Dialog } from "@/components/ui/dialog";
 import { TaskForm, type TaskFormValues } from "./TaskForm";
 import { CommentSection } from "./CommentSection";
+import { FileUpload } from "@/features/attachments/components/FileUpload";
 
 export function TaskModal({
   open,
@@ -41,6 +42,9 @@ export function TaskModal({
         <>
           <hr className="my-5 border-border" />
           <CommentSection taskId={task.id} />
+          <hr className="my-5 border-border" />
+          <h4 className="mb-3 text-sm font-medium">Archivos adjuntos</h4>
+          <FileUpload taskId={task.id} />
         </>
       )}
     </Dialog>

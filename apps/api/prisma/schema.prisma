@@ -95,6 +95,7 @@ model User {
   assignedTasks  TaskAssignee[]
   noteCollab     NoteCollaborator[]
   savedViews     SavedView[]
+  attachments    Attachment[]
 }
 
 model RefreshToken {
@@ -146,6 +147,7 @@ model Workspace {
   invites       Invite[]
   notifications Notification[]
   savedViews    SavedView[]
+  attachments   Attachment[]
 
   @@index([ownerId])
 }
@@ -209,6 +211,7 @@ model Task {
   assignees  TaskAssignee[]
   comments   Comment[]
   reminders  Reminder[]
+  attachments Attachment[]
 
   @@index([workspaceId, status])
   @@index([workspaceId, priority])
@@ -293,6 +296,7 @@ model Note {
   items         ChecklistItem[]
   collaborators NoteCollaborator[]
   reminders     Reminder[]
+  attachments   Attachment[]
 
   @@index([workspaceId, pinned])
 }
@@ -406,4 +410,28 @@ model SavedView {
 
   @@unique([workspaceId, userId, name])
   @@index([workspaceId, userId])
+}
+
+// ── Attachments ───────────────────────────────────────────────────────
+
+model Attachment {
+  id          String   @id @default(cuid())
+  workspaceId String
+  taskId      String?
+  noteId      String?
+  userId      String
+  fileName    String
+  mimeType    String
+  fileSize    Int
+  url         String
+  publicId    String?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  task      Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  note      Note?     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, taskId])
+  @@index([workspaceId, noteId])
 }

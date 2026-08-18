@@ -36,8 +36,9 @@ async function refreshAccessToken(): Promise<string> {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const accessToken = useAuthStore.getState().getAccessToken();
+  const isFormData = options.body instanceof FormData;
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(!isFormData && { "Content-Type": "application/json" }),
     ...(options.headers as Record<string, string> | undefined),
   };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
@@ -84,4 +85,6 @@ export const http = {
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PUT", body: JSON.stringify(body ?? {}) }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  upload: <T>(path: string, formData: FormData) =>
+    request<T>(path, { method: "POST", body: formData }),
 };

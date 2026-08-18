@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { FileUpload } from "@/features/attachments/components/FileUpload";
 
 const formSchema = z.object({
   type: z.nativeEnum(NoteType),
@@ -112,6 +113,14 @@ export function NoteForm({
       <Button type="submit" className="w-full" disabled={submitting}>
         {submitting ? "Guardando…" : note ? "Guardar cambios" : "Crear nota"}
       </Button>
+
+      {note && (
+        <>
+          <hr className="my-4 border-border" />
+          <h4 className="mb-3 text-sm font-medium">Archivos adjuntos</h4>
+          <FileUpload noteId={note.id} />
+        </>
+      )}
     </form>
   );
 }

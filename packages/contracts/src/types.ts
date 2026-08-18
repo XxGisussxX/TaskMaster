@@ -204,3 +204,16 @@ export interface SavedView {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface Attachment {
+  id: string;
+  workspaceId: string;
+  taskId: string | null;
+  noteId: string | null;
+  userId: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  url: string;
+  createdAt: string;
+}
