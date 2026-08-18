@@ -9,7 +9,6 @@ export function useNotifications() {
     queryKey: ["notifications"],
     queryFn: () => notificationsApi.list({ pageSize: 20 }),
     enabled: !!user,
-    refetchInterval: 30_000,
   });
 }
 
@@ -19,7 +18,6 @@ export function useUnreadCount() {
     queryKey: ["notifications", "unread-count"],
     queryFn: () => notificationsApi.unreadCount(),
     enabled: !!user,
-    refetchInterval: 30_000,
   });
 }
 

@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import type { Notification, NotificationFilters } from "@taskmaster/contracts";
 import { PrismaService } from "../../prisma/prisma.service";
+import { EventsService } from "../websocket/events.service";
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventsService,
+  ) {}
 
   async list(
     userId: string,
@@ -91,7 +95,7 @@ export class NotificationsService {
       },
     });
 
-    return {
+    const result: Notification = {
       id: notification.id,
       userId: notification.userId,
       workspaceId: notification.workspaceId,
@@ -102,5 +106,12 @@ export class NotificationsService {
       readAt: notification.readAt?.toISOString() ?? null,
       createdAt: notification.createdAt.toISOString(),
     };
+
+    this.events.emit("notification.new", {
+      userId: input.userId,
+      notification: result,
+    });
+
+    return result;
   }
 }

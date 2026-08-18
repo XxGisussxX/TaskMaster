@@ -22,11 +22,14 @@
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.1",
+    "@nestjs/event-emitter": "^3.1.0",
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/passport": "^11.0.0",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/platform-socket.io": "^11.2.1",
     "@nestjs/schedule": "^6.1.3",
     "@nestjs/terminus": "^11.0.0",
+    "@nestjs/websockets": "^11.2.1",
     "@prisma/client": "^6.19.3",
     "@taskmaster/contracts": "workspace:*",
     "@taskmaster/domain": "workspace:*",
@@ -37,6 +40,7 @@
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "socket.io": "^4.8.3",
     "zod": "^3.24.1"
   },
   "devDependencies": {

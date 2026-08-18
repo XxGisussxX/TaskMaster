@@ -24,6 +24,7 @@ import { UploadsModule } from "./modules/uploads/uploads.module";
 import { TaskDependenciesModule } from "./modules/task-dependencies/task-dependencies.module";
 import { TimeEntriesModule } from "./modules/time-entries/time-entries.module";
 import { CustomFieldsModule } from "./modules/custom-fields/custom-fields.module";
+import { WebSocketModule } from "./modules/websocket/websocket.module";
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { CustomFieldsModule } from "./modules/custom-fields/custom-fields.module
     TaskDependenciesModule,
     TimeEntriesModule,
     CustomFieldsModule,
+    WebSocketModule,
   ],
   providers: [
     {

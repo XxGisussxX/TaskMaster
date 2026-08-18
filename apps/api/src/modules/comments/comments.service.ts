@@ -10,12 +10,14 @@ import type {
 } from "@taskmaster/contracts";
 import { PrismaService } from "../../prisma/prisma.service";
 import { WorkspaceAccessService } from "../workspaces/workspace-access.service";
+import { EventsService } from "../websocket/events.service";
 
 @Injectable()
 export class CommentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: WorkspaceAccessService,
+    private readonly events: EventsService,
   ) {}
 
   async listByTask(
@@ -68,7 +70,7 @@ export class CommentsService {
       include: { user: { select: { id: true, name: true, avatarUrl: true } } },
     });
 
-    return {
+    const result: Comment = {
       id: comment.id,
       taskId: comment.taskId,
       userId: comment.userId,
@@ -76,6 +78,14 @@ export class CommentsService {
       user: comment.user,
       createdAt: comment.createdAt.toISOString(),
     };
+
+    this.events.emit("comment.created", {
+      workspaceId,
+      taskId,
+      comment: result,
+    });
+
+    return result;
   }
 
   async update(
@@ -100,7 +110,7 @@ export class CommentsService {
       include: { user: { select: { id: true, name: true, avatarUrl: true } } },
     });
 
-    return {
+    const result: Comment = {
       id: comment.id,
       taskId: comment.taskId,
       userId: comment.userId,
@@ -108,6 +118,14 @@ export class CommentsService {
       user: comment.user,
       createdAt: comment.createdAt.toISOString(),
     };
+
+    this.events.emit("comment.updated", {
+      workspaceId,
+      taskId: comment.taskId,
+      comment: result,
+    });
+
+    return result;
   }
 
   async remove(
@@ -126,6 +144,13 @@ export class CommentsService {
     }
 
     await this.prisma.comment.delete({ where: { id: commentId } });
+
+    this.events.emit("comment.deleted", {
+      workspaceId,
+      taskId: existing.taskId,
+      commentId,
+    });
+
     return { id: commentId };
   }
 }

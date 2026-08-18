@@ -8,10 +8,12 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useUiStore } from "@/store/ui.store";
 import { useWorkspaceStore } from "@/store/workspace.store";
 import { useWorkspaces } from "@/features/workspace/hooks/useWorkspaces";
+import { useSocket } from "@/hooks/useSocket";
 
 export function AppShell() {
   useThemeSync();
   useGlobalHotkeys();
+  useSocket();
   const isDesktop = useMediaQuery("(min-width: 1024px)");
   const setSidebarOpen = useUiStore((s) => s.setSidebarOpen);
   const { currentWorkspaceId, setCurrentWorkspaceId } = useWorkspaceStore();

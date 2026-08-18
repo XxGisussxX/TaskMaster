@@ -22,6 +22,7 @@ import type { Task as PrismaTask } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { WorkspaceAccessService } from "../workspaces/workspace-access.service";
 import { ActivityService } from "../activity/activity.service";
+import { EventsService } from "../websocket/events.service";
 
 const TASK_INCLUDE = {
   tags: { include: { tag: true } },
@@ -41,6 +42,7 @@ export class TasksService {
     private readonly prisma: PrismaService,
     private readonly access: WorkspaceAccessService,
     private readonly activity: ActivityService,
+    private readonly events: EventsService,
   ) {}
 
   async list(
@@ -138,6 +140,11 @@ export class TasksService {
       Action.CREATED,
       [{ field: "title", old: null, new: task.title }],
     );
+
+    this.events.emit("task.created", {
+      workspaceId,
+      task: this.toTaskDto(task),
+    });
 
     return this.toTaskDto(task);
   }
@@ -242,6 +249,11 @@ export class TasksService {
       this.diffTask(existing, task),
     );
 
+    this.events.emit("task.updated", {
+      workspaceId,
+      task: this.toTaskDto(task),
+    });
+
     return this.toTaskDto(task);
   }
 
@@ -281,6 +293,13 @@ export class TasksService {
       [{ field: "status", old: existing.status, new: status }],
     );
 
+    this.events.emit("task.status-changed", {
+      workspaceId,
+      taskId: id,
+      oldStatus: existing.status,
+      newStatus: status,
+    });
+
     return this.toTaskDto(task);
   }
 
@@ -305,6 +324,8 @@ export class TasksService {
       id,
       Action.DELETED,
     );
+
+    this.events.emit("task.deleted", { workspaceId, taskId: id });
     for (const subtaskId of subtaskIds) {
       await this.activity.log(
         workspaceId,
