@@ -22,7 +22,9 @@ export function AppShell() {
   }, [isDesktop, setSidebarOpen]);
 
   useEffect(() => {
-    if (!currentWorkspaceId && workspaces && workspaces.length > 0) {
+    if (!workspaces || workspaces.length === 0) return;
+    const realIds = new Set(workspaces.map((w) => w.id));
+    if (!currentWorkspaceId || !realIds.has(currentWorkspaceId)) {
       setCurrentWorkspaceId(workspaces[0]!.id);
     }
   }, [currentWorkspaceId, workspaces, setCurrentWorkspaceId]);

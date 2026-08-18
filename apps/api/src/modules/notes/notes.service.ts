@@ -4,12 +4,14 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
-import type {
-  ChecklistItem,
-  CreateNoteInput,
-  Note,
-  NoteFilters,
-  UpdateNoteInput,
+import {
+  Action,
+  EntityType,
+  type ChecklistItem,
+  type CreateNoteInput,
+  type Note,
+  type NoteFilters,
+  type UpdateNoteInput,
 } from "@taskmaster/contracts";
 import { PrismaService } from "../../prisma/prisma.service";
 import { WorkspaceAccessService } from "../workspaces/workspace-access.service";
@@ -126,7 +128,13 @@ export class NotesService {
       include: NOTE_INCLUDE,
     });
 
-    await this.activity.log(workspaceId, userId, "note", note.id, "created");
+    await this.activity.log(
+      workspaceId,
+      userId,
+      EntityType.NOTE,
+      note.id,
+      Action.CREATED,
+    );
 
     return this.toNoteDto(note);
   }
@@ -186,7 +194,13 @@ export class NotesService {
       });
     });
 
-    await this.activity.log(workspaceId, userId, "note", id, "updated");
+    await this.activity.log(
+      workspaceId,
+      userId,
+      EntityType.NOTE,
+      id,
+      Action.UPDATED,
+    );
 
     return this.toNoteDto(note);
   }
@@ -283,7 +297,13 @@ export class NotesService {
     if (!existing) throw new NotFoundException("Nota no encontrada");
 
     await this.prisma.note.delete({ where: { id } });
-    await this.activity.log(workspaceId, userId, "note", id, "deleted");
+    await this.activity.log(
+      workspaceId,
+      userId,
+      EntityType.NOTE,
+      id,
+      Action.DELETED,
+    );
     return { id };
   }
 

@@ -47,9 +47,10 @@ export const tasksApi = {
   get: (workspaceId: string, id: string) =>
     isLocalWorkspace(workspaceId)
       ? Promise.resolve(
-          listLocalTasks(workspaceId).items.find(
-            (task) => task.id === id,
-          ) as Task,
+          listLocalTasks(workspaceId).items.find((task) => task.id === id) ??
+            (() => {
+              throw new Error("Tarea no encontrada");
+            })(),
         )
       : http.get<Task>(`/workspaces/${workspaceId}/tasks/${id}`),
 

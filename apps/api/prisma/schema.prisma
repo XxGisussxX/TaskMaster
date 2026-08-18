@@ -141,8 +141,9 @@ model Workspace {
   tags       Tag[]
   categories Category[]
   reminders  Reminder[]
-  activities ActivityLog[]
-  invites    Invite[]
+  activities    ActivityLog[]
+  invites       Invite[]
+  notifications Notification[]
 
   @@index([ownerId])
 }
@@ -361,7 +362,8 @@ model Notification {
   readAt      DateTime?
   createdAt   DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([userId, readAt])
 }

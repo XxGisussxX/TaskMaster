@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import type { ActivityEntry } from "@taskmaster/contracts";
+import type { Action, ActivityEntry, EntityType } from "@taskmaster/contracts";
 import { PrismaService } from "../../prisma/prisma.service";
 
 interface Change {
@@ -15,9 +15,9 @@ export class ActivityService {
   async log(
     workspaceId: string,
     userId: string,
-    entityType: string,
+    entityType: EntityType,
     entityId: string,
-    action: string,
+    action: Action,
     changes?: Change[],
   ): Promise<void> {
     await this.prisma.activityLog.create({
@@ -48,9 +48,9 @@ export class ActivityService {
       id: row.id,
       workspaceId: row.workspaceId,
       userId: row.userId,
-      entityType: row.entityType,
+      entityType: row.entityType as EntityType,
       entityId: row.entityId,
-      action: row.action,
+      action: row.action as Action,
       changes: row.changes as Change[] | null,
       user: row.user
         ? {

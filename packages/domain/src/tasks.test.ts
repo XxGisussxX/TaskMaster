@@ -57,6 +57,21 @@ describe("getTaskStats", () => {
     expect(stats.dueToday).toBe(1);
     expect(stats.completionRate).toBe(25);
   });
+
+  it("excludes ARCHIVED from active count", () => {
+    const archived = [
+      makeTask({ status: TaskStatus.TODO }),
+      makeTask({
+        status: TaskStatus.DONE,
+        completedAt: "2026-08-07T10:00:00Z",
+      }),
+      makeTask({ status: TaskStatus.ARCHIVED }),
+    ];
+    const stats = getTaskStats(archived, now);
+    expect(stats.active).toBe(1);
+    expect(stats.completed).toBe(1);
+    expect(stats.total).toBe(3);
+  });
 });
 
 describe("filterTasks", () => {
@@ -95,6 +110,10 @@ describe("filterTasks", () => {
   it("filters by assignee (onlyMine)", () => {
     expect(filterTasks(tasks, { onlyMine: true }, "u1").length).toBe(1);
     expect(filterTasks(tasks, { onlyMine: true }, "u2").length).toBe(0);
+  });
+
+  it("returns empty when onlyMine is true but no currentUserId", () => {
+    expect(filterTasks(tasks, { onlyMine: true })).toHaveLength(0);
   });
 
   it("searches title and description", () => {
@@ -161,5 +180,39 @@ describe("buildTaskTree", () => {
     const tree = buildTaskTree([child1, child2, parent]);
     expect(tree).toHaveLength(1);
     expect(tree[0]?.subtasks.map((s) => s.id)).toEqual(["c2", "c1"]);
+  });
+
+  it("nests grandchildren (3+ levels deep)", () => {
+    const root = makeTask({ id: "r1", title: "Root" });
+    const child = makeTask({
+      id: "c1",
+      title: "Child",
+      parentId: "r1",
+      order: 0,
+    });
+    const grandchild = makeTask({
+      id: "g1",
+      title: "Grandchild",
+      parentId: "c1",
+      order: 0,
+    });
+
+    const tree = buildTaskTree([grandchild, child, root]);
+    expect(tree).toHaveLength(1);
+    expect(tree[0]?.subtasks).toHaveLength(1);
+    expect(tree[0]?.subtasks[0]?.subtasks).toHaveLength(1);
+    expect(tree[0]?.subtasks[0]?.subtasks[0]?.id).toBe("g1");
+  });
+
+  it("handles orphaned children (parentId points to missing task)", () => {
+    const orphan = makeTask({
+      id: "o1",
+      title: "Orphan",
+      parentId: "nonexistent",
+    });
+    const tree = buildTaskTree([orphan]);
+    expect(tree).toHaveLength(1);
+    expect(tree[0]?.id).toBe("o1");
+    expect(tree[0]?.subtasks).toEqual([]);
   });
 });

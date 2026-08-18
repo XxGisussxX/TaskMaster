@@ -6,6 +6,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { useAuthStore } from "@/store/auth.store";
 import { useUiStore, type Theme } from "@/store/ui.store";
 import { useNavigate } from "react-router-dom";
+import { logout } from "@/features/auth/api/auth.api";
 
 const THEMES: { value: Theme; label: string; icon: typeof Sun }[] = [
   { value: "light", label: "Claro", icon: Sun },
@@ -14,12 +15,12 @@ const THEMES: { value: Theme; label: string; icon: typeof Sun }[] = [
 ];
 
 export function SettingsPage() {
-  const { user, clear } = useAuthStore();
+  const { user } = useAuthStore();
   const { theme, setTheme } = useUiStore();
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    clear();
+    logout();
     navigate("/login");
   };
 

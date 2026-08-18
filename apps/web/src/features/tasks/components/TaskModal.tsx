@@ -12,7 +12,7 @@ export function TaskModal({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   task?: Task | null;
-  onSubmit: (values: TaskFormValues) => void;
+  onSubmit: (values: TaskFormValues) => Promise<void>;
   submitting?: boolean;
 }) {
   return (
@@ -28,8 +28,8 @@ export function TaskModal({
     >
       <TaskForm
         task={task}
-        onSubmit={(values) => {
-          onSubmit(values);
+        onSubmit={async (values) => {
+          await onSubmit(values);
           onOpenChange(false);
         }}
         submitting={submitting}

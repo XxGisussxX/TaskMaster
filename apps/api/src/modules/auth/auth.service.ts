@@ -19,10 +19,8 @@ const scryptAsync = promisify(scrypt) as (
   keylen: number,
 ) => Promise<Buffer>;
 import { PrismaService } from "../../prisma/prisma.service";
+import { jwtConstants, parseDurationToSeconds } from "../../config/env.config";
 import type { JwtPayload } from "./types";
-
-const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const ACCESS_TTL_SECONDS = 15 * 60;
 
 interface RefreshValidation {
   user: PrismaUser;
@@ -104,14 +102,36 @@ export class AuthService {
 
   /** Rota el refresh token: revoca el actual y emite uno nuevo. */
   async rotateRefreshToken(token: string): Promise<AuthSession> {
-    const { user } = await this.validateRefreshToken(token);
+    const tokenHash = this.hashToken(token);
 
-    await this.prisma.refreshToken.update({
-      where: { tokenHash: this.hashToken(token) },
+    // Atomic validate + revoke: solo revoca si no fue revocado y no expiró.
+    // Si count === 0, otro request ya rotó este token.
+    const { count } = await this.prisma.refreshToken.updateMany({
+      where: {
+        tokenHash,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
       data: { revokedAt: new Date() },
     });
 
-    return this.issueSession(user);
+    if (count === 0) {
+      throw new UnauthorizedException("Refresh token inválido o ya utilizado");
+    }
+
+    const record = await this.prisma.refreshToken.findUniqueOrThrow({
+      where: { tokenHash },
+      select: { userId: true },
+    });
+
+    const newSession = await this.issueSessionForUser(record.userId);
+
+    await this.prisma.refreshToken.update({
+      where: { tokenHash },
+      data: { replacedBy: this.hashToken(newSession.refreshToken) },
+    });
+
+    return newSession;
   }
 
   async refresh(token: string): Promise<AuthSession> {
@@ -135,6 +155,14 @@ export class AuthService {
   // ── helpers ──────────────────────────────────────────────────────────
 
   private async issueSession(user: PrismaUser): Promise<AuthSession> {
+    return this.issueSessionForUser(user.id);
+  }
+
+  private async issueSessionForUser(userId: string): Promise<AuthSession> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -149,14 +177,14 @@ export class AuthService {
       data: {
         userId: user.id,
         tokenHash: this.hashToken(refreshToken),
-        expiresAt: new Date(Date.now() + REFRESH_TTL_MS),
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
     });
 
     return {
       accessToken,
       refreshToken,
-      expiresIn: ACCESS_TTL_SECONDS,
+      expiresIn: parseDurationToSeconds(jwtConstants.accessTtl()),
       user: this.toPublicUser(user),
     };
   }

@@ -11,6 +11,6 @@ allowBuilds:
   bcrypt: true
   sharp: true
   "@parcel/watcher": true
-  "@prisma/engines": set this to true or false
+  "@prisma/engines": true
 
 strictDepBuilds: false

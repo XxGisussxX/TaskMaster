@@ -54,7 +54,9 @@ export interface TaskStats {
 export function getTaskStats(tasks: Task[], now = new Date()): TaskStats {
   const total = tasks.length;
   const completed = tasks.filter((t) => t.status === TaskStatus.DONE).length;
-  const active = total - completed;
+  const active = tasks.filter(
+    (t) => t.status !== TaskStatus.DONE && t.status !== TaskStatus.ARCHIVED,
+  ).length;
   const overdue = tasks.filter((t) => isOverdue(t, now)).length;
   const dueToday = tasks.filter((t) => isDueToday(t, now)).length;
 
@@ -140,8 +142,9 @@ export function filterTasks(
     ) {
       return false;
     }
-    if (filters.onlyMine && currentUserId) {
-      if (!task.assignees.some((a) => a.id === currentUserId)) return false;
+    if (filters.onlyMine) {
+      if (!currentUserId || !task.assignees.some((a) => a.id === currentUserId))
+        return false;
     }
     if (filters.onlyOverdue && !isOverdue(task)) return false;
     if (filters.dueDateFrom && task.dueDate) {
@@ -180,19 +183,24 @@ export function getOverdueTasks(tasks: Task[], now = new Date()): Task[] {
 }
 
 export function buildTaskTree(tasks: Task[]): Task[] {
-  const byId = new Map(tasks.map((t) => [t.id, t]));
+  const byId = new Map(
+    tasks.map((t) => [t.id, { ...t, subtasks: [] as Task[] }]),
+  );
   const roots: Task[] = [];
 
-  for (const task of tasks) {
-    if (task.parentId && byId.has(task.parentId)) continue;
-    roots.push({ ...task, subtasks: [] });
+  for (const task of byId.values()) {
+    if (task.parentId && byId.has(task.parentId)) {
+      byId.get(task.parentId)!.subtasks.push(task);
+    } else {
+      roots.push(task);
+    }
   }
 
-  for (const root of roots) {
-    root.subtasks = tasks
-      .filter((t) => t.parentId === root.id)
-      .sort((a, b) => a.order - b.order);
-  }
+  const sortSubtasks = (node: Task): void => {
+    node.subtasks.sort((a, b) => a.order - b.order);
+    node.subtasks.forEach(sortSubtasks);
+  };
+  roots.forEach(sortSubtasks);
 
   return roots;
 }

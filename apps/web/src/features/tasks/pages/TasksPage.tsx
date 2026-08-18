@@ -34,7 +34,7 @@ export function TasksPage() {
     search,
     onlyMine: filters.onlyMine || undefined,
     onlyOverdue: filters.onlyOverdue || undefined,
-    pageSize: 200,
+    pageSize: 100,
   });
 
   const createTask = useCreateTask();
@@ -50,17 +50,17 @@ export function TasksPage() {
     [data?.items],
   );
 
-  const handleCreate = (values: TaskFormValues) => {
-    createTask.mutate({
+  const handleCreate = async (values: TaskFormValues) => {
+    await createTask.mutateAsync({
       ...values,
       dueDate: values.dueDate || null,
       startDate: values.startDate || null,
     });
   };
 
-  const handleEdit = (values: TaskFormValues) => {
+  const handleEdit = async (values: TaskFormValues) => {
     if (!editing) return;
-    updateTask.mutate({
+    await updateTask.mutateAsync({
       id: editing.id,
       input: {
         ...values,

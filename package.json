@@ -9,6 +9,7 @@
     "node": ">=20"
   },
   "scripts": {
+    "predev": "pnpm --filter @taskmaster/contracts --filter @taskmaster/domain build",
     "dev": "pnpm --parallel --filter @taskmaster/web --filter @taskmaster/api dev",
     "dev:web": "pnpm --filter @taskmaster/web dev",
     "dev:api": "pnpm --filter @taskmaster/api dev",

@@ -30,6 +30,19 @@ describe("computeKpis", () => {
     expect(kpis.activeTasks).toBe(2);
     expect(kpis.completionRate).toBe(50);
   });
+
+  it("excludes ARCHIVED from activeTasks", () => {
+    const tasks = [
+      makeTask({ status: TaskStatus.TODO }),
+      makeTask({
+        status: TaskStatus.DONE,
+        completedAt: "2026-08-07T09:00:00Z",
+      }),
+      makeTask({ status: TaskStatus.ARCHIVED }),
+    ];
+    const kpis = computeKpis(tasks, now);
+    expect(kpis.activeTasks).toBe(1);
+  });
 });
 
 describe("buildActivitySeries", () => {

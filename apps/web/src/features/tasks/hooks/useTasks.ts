@@ -1,13 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type { Task } from "@taskmaster/contracts";
 import { tasksApi, type TaskQuery } from "../api/tasks.api";
 import { useWorkspaceStore } from "@/store/workspace.store";
-import { getLocalWorkspaceId } from "../lib/localTasks";
 
 export function useCurrentWorkspaceId(): string | null {
-  return (
-    useWorkspaceStore((s) => s.currentWorkspaceId) ?? getLocalWorkspaceId()
-  );
+  return useWorkspaceStore((s) => s.currentWorkspaceId);
 }
 
 export function useTasks(query: Omit<TaskQuery, "workspaceId">) {
@@ -23,11 +21,16 @@ export function useCreateTask() {
   const workspaceId = useCurrentWorkspaceId();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: Record<string, unknown>) =>
-      tasksApi.create(workspaceId!, input),
+    mutationFn: (input: Record<string, unknown>) => {
+      if (!workspaceId) throw new Error("No hay workspace seleccionado");
+      return tasksApi.create(workspaceId, input);
+    },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["tasks", workspaceId] });
       void qc.invalidateQueries({ queryKey: ["dashboard", workspaceId] });
+    },
+    onError: (error: Error) => {
+      toast.error("No se pudo crear la tarea", { description: error.message });
     },
   });
 }
@@ -42,11 +45,19 @@ export function useUpdateTask() {
     }: {
       id: string;
       input: Record<string, unknown>;
-    }) => tasksApi.update(workspaceId!, id, input),
+    }) => {
+      if (!workspaceId) throw new Error("No hay workspace seleccionado");
+      return tasksApi.update(workspaceId, id, input);
+    },
     onSuccess: (updated: Task) => {
       void qc.invalidateQueries({ queryKey: ["tasks", workspaceId] });
       void qc.setQueryData(["task", workspaceId, updated.id], updated);
       void qc.invalidateQueries({ queryKey: ["dashboard", workspaceId] });
+    },
+    onError: (error: Error) => {
+      toast.error("No se pudo actualizar la tarea", {
+        description: error.message,
+      });
     },
   });
 }
@@ -55,10 +66,18 @@ export function useDeleteTask() {
   const workspaceId = useCurrentWorkspaceId();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => tasksApi.remove(workspaceId!, id),
+    mutationFn: (id: string) => {
+      if (!workspaceId) throw new Error("No hay workspace seleccionado");
+      return tasksApi.remove(workspaceId, id);
+    },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["tasks", workspaceId] });
       void qc.invalidateQueries({ queryKey: ["dashboard", workspaceId] });
+    },
+    onError: (error: Error) => {
+      toast.error("No se pudo eliminar la tarea", {
+        description: error.message,
+      });
     },
   });
 }

@@ -1,4 +1,5 @@
 import type { AuthSession } from "@taskmaster/contracts";
+import { useAuthStore } from "@/store/auth.store";
 
 export class ApiError extends Error {
   constructor(
@@ -11,29 +12,10 @@ export class ApiError extends Error {
   }
 }
 
-const TOKEN_KEYS = {
-  access: "taskmaster.accessToken",
-  refresh: "taskmaster.refreshToken",
-};
-
-export const tokenStore = {
-  getAccess: () => localStorage.getItem(TOKEN_KEYS.access),
-  getRefresh: () => localStorage.getItem(TOKEN_KEYS.refresh),
-  setSession: (session: AuthSession) => {
-    localStorage.setItem(TOKEN_KEYS.access, session.accessToken);
-    localStorage.setItem(TOKEN_KEYS.refresh, session.refreshToken);
-  },
-  setAccess: (token: string) => localStorage.setItem(TOKEN_KEYS.access, token),
-  clear: () => {
-    localStorage.removeItem(TOKEN_KEYS.access);
-    localStorage.removeItem(TOKEN_KEYS.refresh);
-  },
-};
-
 let refreshing: Promise<string> | null = null;
 
 async function refreshAccessToken(): Promise<string> {
-  const refreshToken = tokenStore.getRefresh();
+  const refreshToken = useAuthStore.getState().getRefreshToken();
   if (!refreshToken) throw new ApiError(401, "No session");
 
   const res = await fetch("/api/auth/refresh", {
@@ -43,17 +25,17 @@ async function refreshAccessToken(): Promise<string> {
   });
 
   if (!res.ok) {
-    tokenStore.clear();
+    useAuthStore.getState().clear();
     throw new ApiError(401, "Sesión expirada");
   }
 
   const session = (await res.json()) as AuthSession;
-  tokenStore.setSession(session);
+  useAuthStore.getState().setSession(session);
   return session.accessToken;
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const accessToken = tokenStore.getAccess();
+  const accessToken = useAuthStore.getState().getAccessToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string> | undefined),
@@ -62,7 +44,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   let res = await fetch(`/api${path}`, { ...options, headers });
 
-  if (res.status === 401 && tokenStore.getRefresh()) {
+  if (res.status === 401 && useAuthStore.getState().getRefreshToken()) {
     refreshing = refreshing ?? refreshAccessToken();
     try {
       const token = await refreshing;

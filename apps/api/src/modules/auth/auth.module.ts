@@ -5,7 +5,6 @@ import { jwtConstants } from "../../config/env.config";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { JwtStrategy } from "./jwt.strategy";
-import { UsersModule } from "../users/users.module";
 import { RefreshTokenGuard } from "../../common/guards/refresh-token.guard";
 
 @Module({
@@ -17,7 +16,6 @@ import { RefreshTokenGuard } from "../../common/guards/refresh-token.guard";
         expiresIn: jwtConstants.accessTtl() as JwtSignOptions["expiresIn"],
       },
     }),
-    UsersModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, RefreshTokenGuard],

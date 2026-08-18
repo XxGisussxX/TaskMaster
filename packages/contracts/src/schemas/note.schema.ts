@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { NoteType, StickyColor } from "../index";
+import { NoteType, StickyColor } from "../enums";
 
 export const checklistItemSchema = z.object({
   id: z.string().cuid().optional(),

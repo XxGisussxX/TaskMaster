@@ -3,15 +3,16 @@ import { Moon, Sun, LogOut, PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useUiStore } from "@/store/ui.store";
 import { useAuthStore } from "@/store/auth.store";
+import { logout } from "@/features/auth/api/auth.api";
 
 export function Header() {
   const navigate = useNavigate();
   const { toggleSidebar, setTheme, theme, setCommandPaletteOpen } =
     useUiStore();
-  const { user, clear } = useAuthStore();
+  const { user } = useAuthStore();
 
   const handleLogout = () => {
-    clear();
+    logout();
     navigate("/login");
   };
 

@@ -32,19 +32,23 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z.object({
   token: z.string().min(1, "Token requerido"),
-  password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres"),
+  password: z
+    .string()
+    .min(8, "La contraseña debe tener al menos 8 caracteres")
+    .max(128),
 });
 
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1),
   newPassword: z
     .string()
-    .min(8, "La contraseña debe tener al menos 8 caracteres"),
+    .min(8, "La contraseña debe tener al menos 8 caracteres")
+    .max(128),
 });
 
 export const updateProfileSchema = z.object({
   name: z.string().trim().min(2).max(80).optional(),
-  avatarUrl: z.string().url().optional().or(z.literal("")).optional(),
+  avatarUrl: z.string().url().or(z.literal("")).nullable().optional(),
 });
 
 export const updateUserSettingsSchema = z.object({

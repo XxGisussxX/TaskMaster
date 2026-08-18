@@ -5,6 +5,11 @@ import type {
   StickyColor,
   WorkspaceRole,
   SystemRole,
+  RecurrenceFrequency,
+  ReminderRepeat,
+  NotificationType,
+  EntityType,
+  Action,
 } from "./enums";
 
 export interface User {
@@ -61,7 +66,7 @@ export interface Task {
 }
 
 export interface Recurrence {
-  frequency: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+  frequency: RecurrenceFrequency;
   interval: number;
   endDate?: string | null;
 }
@@ -98,7 +103,7 @@ export interface Reminder {
   title: string;
   triggerAt: string;
   sentAt: string | null;
-  repeat: "NONE" | "DAILY" | "WEEKLY" | "MONTHLY";
+  repeat: ReminderRepeat;
   createdAt: string;
 }
 
@@ -106,7 +111,7 @@ export interface Notification {
   id: string;
   userId: string;
   workspaceId: string | null;
-  type: string;
+  type: NotificationType;
   title: string;
   body: string | null;
   data: unknown;
@@ -127,9 +132,9 @@ export interface ActivityEntry {
   id: string;
   workspaceId: string;
   userId: string;
-  entityType: string;
+  entityType: EntityType;
   entityId: string;
-  action: string;
+  action: Action;
   changes: { field: string; old: unknown; new: unknown }[] | null;
   user?: Pick<User, "id" | "name" | "avatarUrl">;
   createdAt: string;

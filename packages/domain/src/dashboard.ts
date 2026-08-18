@@ -1,4 +1,4 @@
-import { Priority } from "@taskmaster/contracts";
+import { Priority, TaskStatus } from "@taskmaster/contracts";
 import type { Task } from "@taskmaster/contracts";
 import { isOverdue, startOfDay, endOfDay } from "./tasks";
 import { toDate, toLocalDateKey } from "./date";
@@ -80,7 +80,7 @@ export interface DashboardKpis {
 }
 
 export function computeKpis(tasks: Task[], now = new Date()): DashboardKpis {
-  const completed = tasks.filter((t) => t.completedAt);
+  const completed = tasks.filter((t) => t.status === TaskStatus.DONE);
   const todayKey = toLocalDateKey(toDate(now));
   const completedToday = completed.filter((t) => {
     return toLocalDateKey(toDate(t.completedAt!)) === todayKey;
@@ -98,8 +98,11 @@ export function computeKpis(tasks: Task[], now = new Date()): DashboardKpis {
       : 0;
 
   const doneCount = completed.length;
+  const activeTasks = tasks.filter(
+    (t) => t.status !== TaskStatus.DONE && t.status !== TaskStatus.ARCHIVED,
+  ).length;
   return {
-    activeTasks: tasks.length - doneCount,
+    activeTasks,
     completedToday,
     overdueTasks: tasks.filter((t) => isOverdue(t, now)).length,
     avgCompletionDays: Math.round(avgCompletionDays * 10) / 10,

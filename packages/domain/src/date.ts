@@ -42,7 +42,7 @@ export function formatRelativeTime(
   locale = "es",
   now = new Date(),
 ): string {
-  const then = new Date(date).getTime();
+  const then = toDate(date).getTime();
   const diffSec = Math.round((then - now.getTime()) / 1000);
   const abs = Math.abs(diffSec);
 
@@ -69,8 +69,8 @@ export function formatRelativeTime(
 }
 
 export function daysBetween(from: Date | string, to: Date | string): number {
-  const a = new Date(from);
-  const b = new Date(to);
+  const a = toDate(from);
+  const b = toDate(to);
   a.setHours(0, 0, 0, 0);
   b.setHours(0, 0, 0, 0);
   return Math.round((b.getTime() - a.getTime()) / 86_400_000);

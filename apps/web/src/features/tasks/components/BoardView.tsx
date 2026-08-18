@@ -2,13 +2,20 @@ import type { Task } from "@taskmaster/contracts";
 import { cn } from "@/lib/utils";
 import { PriorityBadge } from "./PriorityBadge";
 
-const COLUMNS = ["TODO", "IN_PROGRESS", "IN_REVIEW", "DONE"] as const;
+const COLUMNS = [
+  "TODO",
+  "IN_PROGRESS",
+  "IN_REVIEW",
+  "DONE",
+  "ARCHIVED",
+] as const;
 
 const COLUMN_LABEL: Record<(typeof COLUMNS)[number], string> = {
   TODO: "Por hacer",
   IN_PROGRESS: "En curso",
   IN_REVIEW: "En revisión",
   DONE: "Completada",
+  ARCHIVED: "Archivada",
 };
 
 const COLUMN_ACCENT: Record<(typeof COLUMNS)[number], string> = {
@@ -16,6 +23,7 @@ const COLUMN_ACCENT: Record<(typeof COLUMNS)[number], string> = {
   IN_PROGRESS: "border-t-warning",
   IN_REVIEW: "border-t-secondary",
   DONE: "border-t-success",
+  ARCHIVED: "border-t-muted-foreground",
 };
 
 export function BoardView({
@@ -26,7 +34,7 @@ export function BoardView({
   onEdit: (task: Task) => void;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
       {COLUMNS.map((col) => {
         const columnTasks = tasks.filter((t) => t.status === col);
         return (

@@ -34,6 +34,7 @@ export class DashboardService {
         priority: true,
         dueDate: true,
         createdAt: true,
+        updatedAt: true,
         completedAt: true,
       },
     });
@@ -57,7 +58,7 @@ export class DashboardService {
       isRecurring: false,
       recurrence: null,
       createdAt: t.createdAt.toISOString(),
-      updatedAt: t.createdAt.toISOString(),
+      updatedAt: t.updatedAt.toISOString(),
       completedAt: t.completedAt ? t.completedAt.toISOString() : null,
     }));
 

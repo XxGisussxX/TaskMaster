@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { notesApi } from "../api/notes.api";
 import { useCurrentWorkspaceId } from "@/features/tasks/hooks/useTasks";
 
@@ -21,6 +22,9 @@ export function useCreateNote() {
       notesApi.create(workspaceId!, input),
     onSuccess: () =>
       void qc.invalidateQueries({ queryKey: ["notes", workspaceId] }),
+    onError: (error: Error) => {
+      toast.error("No se pudo crear la nota", { description: error.message });
+    },
   });
 }
 
@@ -37,6 +41,11 @@ export function useUpdateNote() {
     }) => notesApi.update(workspaceId!, id, input),
     onSuccess: () =>
       void qc.invalidateQueries({ queryKey: ["notes", workspaceId] }),
+    onError: (error: Error) => {
+      toast.error("No se pudo actualizar la nota", {
+        description: error.message,
+      });
+    },
   });
 }
 
@@ -47,5 +56,10 @@ export function useDeleteNote() {
     mutationFn: (id: string) => notesApi.remove(workspaceId!, id),
     onSuccess: () =>
       void qc.invalidateQueries({ queryKey: ["notes", workspaceId] }),
+    onError: (error: Error) => {
+      toast.error("No se pudo eliminar la nota", {
+        description: error.message,
+      });
+    },
   });
 }

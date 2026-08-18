@@ -4,6 +4,8 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import {
+  Action,
+  EntityType,
   Priority,
   TaskStatus,
   type CreateSubtaskInput,
@@ -123,9 +125,14 @@ export class TasksService {
       include: TASK_INCLUDE,
     });
 
-    await this.activity.log(workspaceId, userId, "task", task.id, "created", [
-      { field: "title", old: null, new: task.title },
-    ]);
+    await this.activity.log(
+      workspaceId,
+      userId,
+      EntityType.TASK,
+      task.id,
+      Action.CREATED,
+      [{ field: "title", old: null, new: task.title }],
+    );
 
     return this.toTaskDto(task);
   }
@@ -162,9 +169,9 @@ export class TasksService {
     await this.activity.log(
       workspaceId,
       userId,
-      "task",
+      EntityType.TASK,
       task.id,
-      "subtask.created",
+      Action.CREATED,
       [{ field: "title", old: null, new: task.title }],
     );
 
@@ -223,9 +230,9 @@ export class TasksService {
     await this.activity.log(
       workspaceId,
       userId,
-      "task",
+      EntityType.TASK,
       id,
-      "updated",
+      Action.UPDATED,
       this.diffTask(existing, task),
     );
 
@@ -258,9 +265,14 @@ export class TasksService {
       await this.markSubtreeDone(workspaceId, existing);
     }
 
-    await this.activity.log(workspaceId, userId, "task", id, "status.changed", [
-      { field: "status", old: existing.status, new: status },
-    ]);
+    await this.activity.log(
+      workspaceId,
+      userId,
+      EntityType.TASK,
+      id,
+      Action.STATUS_CHANGED,
+      [{ field: "status", old: existing.status, new: status }],
+    );
 
     return this.toTaskDto(task);
   }
@@ -276,8 +288,25 @@ export class TasksService {
     });
     if (!existing) throw new NotFoundException("Tarea no encontrada");
 
+    const subtaskIds = await this.findDescendantIds(id);
+
     await this.prisma.task.delete({ where: { id } });
-    await this.activity.log(workspaceId, userId, "task", id, "deleted");
+    await this.activity.log(
+      workspaceId,
+      userId,
+      EntityType.TASK,
+      id,
+      Action.DELETED,
+    );
+    for (const subtaskId of subtaskIds) {
+      await this.activity.log(
+        workspaceId,
+        userId,
+        EntityType.TASK,
+        subtaskId,
+        Action.DELETED,
+      );
+    }
     return { id };
   }
 
@@ -308,15 +337,17 @@ export class TasksService {
     if (filters.dueDateTo) dueRange.lte = filters.dueDateTo;
     if (Object.keys(dueRange).length > 0) where.dueDate = dueRange;
 
+    const and: Prisma.TaskWhereInput[] = [];
     if (filters.onlyOverdue) {
-      or.push({
+      and.push({
         dueDate: { lt: new Date() },
         status: { not: TaskStatus.DONE },
       });
     }
     if (filters.onlyMine) {
-      or.push({ assignees: { some: { userId } } });
+      and.push({ assignees: { some: { userId } } });
     }
+    if (and.length > 0) where.AND = and;
 
     if (or.length > 0) where.OR = or;
 
@@ -417,6 +448,21 @@ export class TasksService {
       });
       await this.markSubtreeDone(workspaceId, child);
     }
+  }
+
+  private async findDescendantIds(taskId: string): Promise<string[]> {
+    const ids: string[] = [];
+    let queue = [taskId];
+    while (queue.length > 0) {
+      const children = await this.prisma.task.findMany({
+        where: { parentId: { in: queue } },
+        select: { id: true },
+      });
+      const childIds = children.map((c) => c.id);
+      ids.push(...childIds);
+      queue = childIds;
+    }
+    return ids;
   }
 
   private diffTask(before: PrismaTask, after: TaskWithRelations) {
