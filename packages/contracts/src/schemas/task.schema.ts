@@ -57,8 +57,30 @@ export const createSubtaskSchema = z.object({
   title: z.string().trim().min(1).max(200),
 });
 
+const bulkTaskIds = z
+  .array(z.string().cuid())
+  .min(1, "Selecciona al menos una tarea")
+  .max(100, "Máximo 100 tareas por operación");
+
+export const bulkUpdateStatusSchema = z.object({
+  ids: bulkTaskIds,
+  status: z.nativeEnum(TaskStatus),
+});
+
+export const bulkUpdatePrioritySchema = z.object({
+  ids: bulkTaskIds,
+  priority: z.nativeEnum(Priority),
+});
+
+export const bulkDeleteSchema = z.object({
+  ids: bulkTaskIds,
+});
+
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 export type TaskFilters = z.infer<typeof taskFiltersSchema>;
 export type CreateSubtaskInput = z.infer<typeof createSubtaskSchema>;
 export type SetTaskStatusInput = z.infer<typeof setTaskStatusSchema>;
+export type BulkUpdateStatusInput = z.infer<typeof bulkUpdateStatusSchema>;
+export type BulkUpdatePriorityInput = z.infer<typeof bulkUpdatePrioritySchema>;
+export type BulkDeleteInput = z.infer<typeof bulkDeleteSchema>;

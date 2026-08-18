@@ -3,6 +3,7 @@ import type {
   Paginated,
   Priority,
   TaskStatus,
+  BulkActionResult,
 } from "@taskmaster/contracts";
 
 const LOCAL_WORKSPACE_ID = "local-demo-workspace";
@@ -161,4 +162,78 @@ export function removeLocalTask(workspaceId: string, taskId: string): void {
   const tasks = ensureWorkspaceTasks(store, workspaceId);
   store[workspaceId] = tasks.filter((task) => task.id !== taskId);
   writeStore(store);
+}
+
+export function bulkUpdateLocalStatus(
+  workspaceId: string,
+  ids: string[],
+  status: string,
+): BulkActionResult {
+  const store = readStore();
+  const tasks = ensureWorkspaceTasks(store, workspaceId);
+  const idSet = new Set(ids);
+  const succeeded: string[] = [];
+  const failed: { id: string; error: string }[] = [];
+
+  for (const task of tasks) {
+    if (!idSet.has(task.id)) {
+      failed.push({ id: task.id, error: "Tarea no encontrada" });
+      continue;
+    }
+    task.status = status as TaskStatus;
+    task.completedAt = status === "DONE" ? new Date().toISOString() : null;
+    task.updatedAt = new Date().toISOString();
+    succeeded.push(task.id);
+  }
+
+  writeStore(store);
+  return { succeeded, failed };
+}
+
+export function bulkUpdateLocalPriority(
+  workspaceId: string,
+  ids: string[],
+  priority: string,
+): BulkActionResult {
+  const store = readStore();
+  const tasks = ensureWorkspaceTasks(store, workspaceId);
+  const idSet = new Set(ids);
+  const succeeded: string[] = [];
+  const failed: { id: string; error: string }[] = [];
+
+  for (const task of tasks) {
+    if (!idSet.has(task.id)) {
+      failed.push({ id: task.id, error: "Tarea no encontrada" });
+      continue;
+    }
+    task.priority = priority as Priority;
+    task.updatedAt = new Date().toISOString();
+    succeeded.push(task.id);
+  }
+
+  writeStore(store);
+  return { succeeded, failed };
+}
+
+export function bulkRemoveLocalTasks(
+  workspaceId: string,
+  ids: string[],
+): BulkActionResult {
+  const store = readStore();
+  const tasks = ensureWorkspaceTasks(store, workspaceId);
+  const idSet = new Set(ids);
+  const succeeded: string[] = [];
+  const failed: { id: string; error: string }[] = [];
+
+  for (const id of ids) {
+    if (tasks.some((t) => t.id === id)) {
+      succeeded.push(id);
+    } else {
+      failed.push({ id, error: "Tarea no encontrada" });
+    }
+  }
+
+  store[workspaceId] = tasks.filter((task) => !idSet.has(task.id));
+  writeStore(store);
+  return { succeeded, failed };
 }

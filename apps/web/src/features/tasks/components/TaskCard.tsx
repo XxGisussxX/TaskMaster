@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar } from "@/components/ui/avatar";
 import { PriorityBadge } from "./PriorityBadge";
 import { formatDate, formatRelativeTime } from "@/lib/date";
@@ -18,28 +19,41 @@ export function TaskCard({
   onToggleComplete,
   onEdit,
   onDelete,
+  selected,
+  onSelect,
 }: {
   task: Task;
   onToggleComplete: (task: Task) => void;
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
+  selected?: boolean;
+  onSelect?: (id: string) => void;
 }) {
   const done = task.status === "DONE";
 
   return (
     <Card className="group flex flex-col gap-2 p-4 transition-shadow hover:shadow-md">
       <div className="flex items-start justify-between gap-2">
-        <button
-          onClick={() => onToggleComplete(task)}
-          aria-label={done ? "Reabrir tarea" : "Completar tarea"}
-          className="mt-0.5 text-muted-foreground transition-colors hover:text-success"
-        >
-          {done ? (
-            <CheckCircle2 className="h-5 w-5 text-success" />
-          ) : (
-            <Circle className="h-5 w-5" />
+        <div className="flex items-center gap-2">
+          {onSelect && (
+            <Checkbox
+              checked={selected}
+              onChange={() => onSelect(task.id)}
+              aria-label={`Seleccionar tarea "${task.title}"`}
+            />
           )}
-        </button>
+          <button
+            onClick={() => onToggleComplete(task)}
+            aria-label={done ? "Reabrir tarea" : "Completar tarea"}
+            className="mt-0.5 text-muted-foreground transition-colors hover:text-success"
+          >
+            {done ? (
+              <CheckCircle2 className="h-5 w-5 text-success" />
+            ) : (
+              <Circle className="h-5 w-5" />
+            )}
+          </button>
+        </div>
         <p
           className={
             done

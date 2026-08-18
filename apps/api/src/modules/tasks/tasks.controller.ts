@@ -10,12 +10,18 @@ import {
 } from "@nestjs/common";
 import {
   TaskStatus,
+  bulkDeleteSchema,
+  bulkUpdatePrioritySchema,
+  bulkUpdateStatusSchema,
   createSubtaskSchema,
   createTaskSchema,
   setTaskStatusSchema,
   taskFiltersSchema,
   taskIdParamsSchema,
   updateTaskSchema,
+  type BulkDeleteInput,
+  type BulkUpdatePriorityInput,
+  type BulkUpdateStatusInput,
   type CreateSubtaskInput,
   type CreateTaskInput,
   type TaskFilters,
@@ -50,6 +56,43 @@ export class TasksController {
     @Body(new ZodPipe(createTaskSchema)) dto: CreateTaskInput,
   ) {
     return this.tasksService.create(workspaceId, user.sub, dto);
+  }
+
+  @Post("bulk/status")
+  bulkUpdateStatus(
+    @Param("workspaceId", workspaceIdPipe) workspaceId: string,
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodPipe(bulkUpdateStatusSchema)) dto: BulkUpdateStatusInput,
+  ) {
+    return this.tasksService.bulkUpdateStatus(
+      workspaceId,
+      user.sub,
+      dto.ids,
+      dto.status,
+    );
+  }
+
+  @Post("bulk/priority")
+  bulkUpdatePriority(
+    @Param("workspaceId", workspaceIdPipe) workspaceId: string,
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodPipe(bulkUpdatePrioritySchema)) dto: BulkUpdatePriorityInput,
+  ) {
+    return this.tasksService.bulkUpdatePriority(
+      workspaceId,
+      user.sub,
+      dto.ids,
+      dto.priority,
+    );
+  }
+
+  @Post("bulk/delete")
+  bulkDelete(
+    @Param("workspaceId", workspaceIdPipe) workspaceId: string,
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodPipe(bulkDeleteSchema)) dto: BulkDeleteInput,
+  ) {
+    return this.tasksService.bulkDelete(workspaceId, user.sub, dto.ids);
   }
 
   @Get(":id")

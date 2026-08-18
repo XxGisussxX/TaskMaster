@@ -9,6 +9,7 @@ import {
   EntityType,
   Priority,
   TaskStatus,
+  type BulkActionResult,
   type CreateSubtaskInput,
   type CreateTaskInput,
   type Recurrence,
@@ -314,6 +315,149 @@ export class TasksService {
       );
     }
     return { id };
+  }
+
+  // ── bulk actions ───────────────────────────────────────────────────
+
+  async bulkUpdateStatus(
+    workspaceId: string,
+    userId: string,
+    ids: string[],
+    status: TaskStatus,
+  ): Promise<BulkActionResult> {
+    await this.access.assertMembership(workspaceId, userId);
+
+    const tasks = await this.prisma.task.findMany({
+      where: { id: { in: ids }, workspaceId },
+      select: { id: true, status: true },
+    });
+
+    const foundIds = new Set(tasks.map((t) => t.id));
+    const failed = ids
+      .filter((id) => !foundIds.has(id))
+      .map((id) => ({ id, error: "Tarea no encontrada" }));
+
+    const toUpdate = tasks.filter((t) => t.status !== status);
+
+    await this.prisma.$transaction(
+      toUpdate.map((t) =>
+        this.prisma.task.update({
+          where: { id: t.id },
+          data: {
+            status,
+            completedAt: status === TaskStatus.DONE ? new Date() : null,
+          },
+        }),
+      ),
+    );
+
+    if (status === TaskStatus.DONE) {
+      for (const t of toUpdate) {
+        const existing = await this.prisma.task.findUnique({
+          where: { id: t.id },
+        });
+        if (existing) {
+          await this.markSubtreeDone(workspaceId, existing);
+          await this.createNextOccurrenceIfRecurring(workspaceId, existing);
+        }
+      }
+    }
+
+    for (const t of toUpdate) {
+      await this.activity.log(
+        workspaceId,
+        userId,
+        EntityType.TASK,
+        t.id,
+        Action.STATUS_CHANGED,
+        [{ field: "status", old: t.status, new: status }],
+      );
+    }
+
+    return { succeeded: toUpdate.map((t) => t.id), failed };
+  }
+
+  async bulkUpdatePriority(
+    workspaceId: string,
+    userId: string,
+    ids: string[],
+    priority: Priority,
+  ): Promise<BulkActionResult> {
+    await this.access.assertMembership(workspaceId, userId);
+
+    const tasks = await this.prisma.task.findMany({
+      where: { id: { in: ids }, workspaceId },
+      select: { id: true, priority: true },
+    });
+
+    const foundIds = new Set(tasks.map((t) => t.id));
+    const failed = ids
+      .filter((id) => !foundIds.has(id))
+      .map((id) => ({ id, error: "Tarea no encontrada" }));
+
+    const toUpdate = tasks.filter((t) => t.priority !== priority);
+
+    await this.prisma.$transaction(
+      toUpdate.map((t) =>
+        this.prisma.task.update({
+          where: { id: t.id },
+          data: { priority },
+        }),
+      ),
+    );
+
+    for (const t of toUpdate) {
+      await this.activity.log(
+        workspaceId,
+        userId,
+        EntityType.TASK,
+        t.id,
+        Action.UPDATED,
+        [{ field: "priority", old: t.priority, new: priority }],
+      );
+    }
+
+    return { succeeded: toUpdate.map((t) => t.id), failed };
+  }
+
+  async bulkDelete(
+    workspaceId: string,
+    userId: string,
+    ids: string[],
+  ): Promise<BulkActionResult> {
+    await this.access.assertMembership(workspaceId, userId);
+
+    const tasks = await this.prisma.task.findMany({
+      where: { id: { in: ids }, workspaceId },
+      select: { id: true },
+    });
+
+    const foundIds = new Set(tasks.map((t) => t.id));
+    const failed = ids
+      .filter((id) => !foundIds.has(id))
+      .map((id) => ({ id, error: "Tarea no encontrada" }));
+
+    const allIdsToDelete: string[] = [];
+    for (const t of tasks) {
+      const descendants = await this.findDescendantIds(t.id);
+      allIdsToDelete.push(t.id, ...descendants);
+    }
+
+    const uniqueIds = [...new Set(allIdsToDelete)];
+
+    await this.prisma.task.deleteMany({ where: { id: { in: uniqueIds } } });
+
+    for (const id of uniqueIds) {
+      await this.activity.log(
+        workspaceId,
+        userId,
+        EntityType.TASK,
+        id,
+        Action.DELETED,
+      );
+    }
+
+    return { succeeded: tasks.map((t) => t.id), failed };
   }
 
   // ── helpers ──────────────────────────────────────────────────────────

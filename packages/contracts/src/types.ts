@@ -181,6 +181,11 @@ export interface DashboardStats {
   activity: ActivityEntry[];
 }
 
+export interface BulkActionResult {
+  succeeded: string[];
+  failed: { id: string; error: string }[];
+}
+
 export interface Paginated<T> {
   items: T[];
   total: number;

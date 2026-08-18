@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useFiltersStore } from "@/store/filters.store";
+import { useSelectionStore } from "@/store/selection.store";
 import { useDebounce } from "@/hooks/useDebounce";
 import {
   useCreateTask,
@@ -18,6 +19,7 @@ import { TaskCard } from "../components/TaskCard";
 import { TaskTable } from "../components/TaskTable";
 import { BoardView } from "../components/BoardView";
 import { TaskModal } from "../components/TaskModal";
+import { BulkActionBar } from "../components/BulkActionBar";
 import type { TaskFormValues } from "../components/TaskForm";
 import { PageHeader } from "@/components/ui/page-header";
 import { http } from "@/services/http";
@@ -28,6 +30,7 @@ export function TasksPage() {
   const search = useDebounce(filters.search, 300);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
+  const { selectedIds, toggle, toggleAll } = useSelectionStore();
 
   const { data, isLoading, isError } = useTasks({
     status: filters.status === "ALL" ? undefined : filters.status,
@@ -124,6 +127,10 @@ export function TasksPage() {
     setModalOpen(true);
   };
 
+  const handleSelectAll = () => {
+    toggleAll(tasks.map((t) => t.id));
+  };
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -138,6 +145,8 @@ export function TasksPage() {
       />
 
       <TasksFilterBar />
+
+      <BulkActionBar />
 
       <div className="flex justify-end gap-1">
         {VIEWS.map((v) => (
@@ -185,6 +194,8 @@ export function TasksPage() {
               onToggleComplete={handleToggleComplete}
               onEdit={openEdit}
               onDelete={handleDelete}
+              selected={selectedIds.has(task.id)}
+              onSelect={toggle}
             />
           ))}
         </div>
@@ -196,6 +207,9 @@ export function TasksPage() {
           onToggleComplete={handleToggleComplete}
           onEdit={openEdit}
           onDelete={handleDelete}
+          selectedIds={selectedIds}
+          onToggleSelect={toggle}
+          onSelectAll={handleSelectAll}
         />
       )}
 

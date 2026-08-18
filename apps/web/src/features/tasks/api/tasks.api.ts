@@ -1,4 +1,4 @@
-import type { Task, Paginated } from "@taskmaster/contracts";
+import type { Task, Paginated, BulkActionResult } from "@taskmaster/contracts";
 import { http } from "@/services/http";
 import {
   createLocalTask,
@@ -6,6 +6,9 @@ import {
   listLocalTasks,
   removeLocalTask,
   updateLocalTask,
+  bulkUpdateLocalStatus,
+  bulkUpdateLocalPriority,
+  bulkRemoveLocalTasks,
 } from "../lib/localTasks";
 
 export interface TaskQuery {
@@ -68,4 +71,28 @@ export const tasksApi = {
     isLocalWorkspace(workspaceId)
       ? (removeLocalTask(workspaceId, id), Promise.resolve())
       : http.delete<void>(`/workspaces/${workspaceId}/tasks/${id}`),
+
+  bulkUpdateStatus: (workspaceId: string, ids: string[], status: string) =>
+    isLocalWorkspace(workspaceId)
+      ? Promise.resolve(bulkUpdateLocalStatus(workspaceId, ids, status))
+      : http.post<BulkActionResult>(
+          `/workspaces/${workspaceId}/tasks/bulk/status`,
+          { ids, status },
+        ),
+
+  bulkUpdatePriority: (workspaceId: string, ids: string[], priority: string) =>
+    isLocalWorkspace(workspaceId)
+      ? Promise.resolve(bulkUpdateLocalPriority(workspaceId, ids, priority))
+      : http.post<BulkActionResult>(
+          `/workspaces/${workspaceId}/tasks/bulk/priority`,
+          { ids, priority },
+        ),
+
+  bulkDelete: (workspaceId: string, ids: string[]) =>
+    isLocalWorkspace(workspaceId)
+      ? Promise.resolve(bulkRemoveLocalTasks(workspaceId, ids))
+      : http.post<BulkActionResult>(
+          `/workspaces/${workspaceId}/tasks/bulk/delete`,
+          { ids },
+        ),
 };

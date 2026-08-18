@@ -1,6 +1,7 @@
 import type { Task } from "@taskmaster/contracts";
 import { Pencil, Trash2, CheckCircle2, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PriorityBadge } from "./PriorityBadge";
 import { StatusBadge } from "./StatusBadge";
 import { formatDate } from "@/lib/date";
@@ -10,17 +11,37 @@ export function TaskTable({
   onToggleComplete,
   onEdit,
   onDelete,
+  selectedIds,
+  onToggleSelect,
+  onSelectAll,
 }: {
   tasks: Task[];
   onToggleComplete: (task: Task) => void;
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
+  onSelectAll?: () => void;
 }) {
+  const allSelected =
+    selectedIds &&
+    tasks.length > 0 &&
+    tasks.every((t) => selectedIds.has(t.id));
+
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            {onSelectAll && (
+              <th className="w-10 px-4 py-2 font-medium">
+                <Checkbox
+                  checked={allSelected}
+                  onChange={onSelectAll}
+                  aria-label="Seleccionar todas"
+                />
+              </th>
+            )}
             <th className="px-4 py-2 font-medium">Tarea</th>
             <th className="px-4 py-2 font-medium">Estado</th>
             <th className="px-4 py-2 font-medium">Prioridad</th>
@@ -37,6 +58,15 @@ export function TaskTable({
                 key={task.id}
                 className="border-b last:border-0 hover:bg-muted/40"
               >
+                {onToggleSelect && (
+                  <td className="w-10 px-4 py-2">
+                    <Checkbox
+                      checked={selectedIds?.has(task.id)}
+                      onChange={() => onToggleSelect(task.id)}
+                      aria-label={`Seleccionar tarea "${task.title}"`}
+                    />
+                  </td>
+                )}
                 <td className="px-4 py-2">
                   <div className="flex items-center gap-2">
                     <button
