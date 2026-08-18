@@ -18,6 +18,7 @@ import { CategoriesModule } from "./modules/categories/categories.module";
 import { CommentsModule } from "./modules/comments/comments.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { RemindersModule } from "./modules/reminders/reminders.module";
+import { SavedViewsModule } from "./modules/saved-views/saved-views.module";
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { RemindersModule } from "./modules/reminders/reminders.module";
     CommentsModule,
     NotificationsModule,
     RemindersModule,
+    SavedViewsModule,
   ],
   providers: [
     {

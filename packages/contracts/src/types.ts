@@ -193,3 +193,14 @@ export interface Paginated<T> {
   pageSize: number;
   totalPages: number;
 }
+
+export interface SavedView {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  name: string;
+  filters: Record<string, unknown>;
+  view: "cards" | "table" | "board";
+  createdAt: string;
+  updatedAt: string;
+}

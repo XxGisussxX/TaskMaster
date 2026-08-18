@@ -20,6 +20,7 @@ import { TaskTable } from "../components/TaskTable";
 import { BoardView } from "../components/BoardView";
 import { TaskModal } from "../components/TaskModal";
 import { BulkActionBar } from "../components/BulkActionBar";
+import { SavedViewBar } from "@/features/saved-views/components/SavedViewBar";
 import type { TaskFormValues } from "../components/TaskForm";
 import { PageHeader } from "@/components/ui/page-header";
 import { http } from "@/services/http";
@@ -145,6 +146,8 @@ export function TasksPage() {
       />
 
       <TasksFilterBar />
+
+      <SavedViewBar />
 
       <BulkActionBar />
 

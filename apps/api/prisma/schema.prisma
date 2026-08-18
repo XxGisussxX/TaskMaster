@@ -94,6 +94,7 @@ model User {
   comments       Comment[]
   assignedTasks  TaskAssignee[]
   noteCollab     NoteCollaborator[]
+  savedViews     SavedView[]
 }
 
 model RefreshToken {
@@ -144,6 +145,7 @@ model Workspace {
   activities    ActivityLog[]
   invites       Invite[]
   notifications Notification[]
+  savedViews    SavedView[]
 
   @@index([ownerId])
 }
@@ -385,4 +387,23 @@ model ActivityLog {
 
   @@index([workspaceId, entityType, entityId])
   @@index([workspaceId, createdAt])
+}
+
+// ── Saved views ───────────────────────────────────────────────────────
+
+model SavedView {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  name        String
+  filters     Json     @default("{}")
+  view        String   @default("cards")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId, name])
+  @@index([workspaceId, userId])
 }
