@@ -11,10 +11,10 @@ import { useEffect, useState } from "react";
 import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { useTags, useCreateTag } from "../hooks/useTags";
 import { useCategories, useCreateCategory } from "../hooks/useCategories";
 import { useMembers } from "@/features/workspace/hooks/useMembers";
@@ -23,7 +23,7 @@ import { RecurrenceFields } from "./RecurrenceFields";
 
 const formSchema = z.object({
   title: z.string().trim().min(1, "El título es requerido"),
-  description: z.string().optional(),
+  description: z.string().max(20000).optional(),
   status: z.nativeEnum(TaskStatus),
   priority: z.nativeEnum(Priority),
   dueDate: z.string().nullable().optional(),
@@ -48,10 +48,12 @@ const PRIORITY_OPTIONS = Object.values(Priority);
 
 export function TaskForm({
   task,
+  templateData,
   onSubmit,
   submitting,
 }: {
   task?: Task | null;
+  templateData?: Record<string, unknown> | null;
   onSubmit: (values: TaskFormValues) => void;
   submitting?: boolean;
 }) {
@@ -59,6 +61,8 @@ export function TaskForm({
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<TaskFormValues>({
     resolver: zodResolver(formSchema),
@@ -120,6 +124,30 @@ export function TaskForm({
       if (task.recurrence) setRecurrence(task.recurrence);
     }
   }, [task, reset]);
+
+  useEffect(() => {
+    if (templateData && !task) {
+      reset({
+        title: (templateData.title as string) ?? "",
+        description: (templateData.description as string) ?? "",
+        status: (templateData.status as TaskStatus) ?? TaskStatus.TODO,
+        priority: (templateData.priority as Priority) ?? Priority.MEDIUM,
+        dueDate: (templateData.dueDate as string) ?? null,
+        startDate: (templateData.startDate as string) ?? null,
+        categoryId: (templateData.categoryId as string) ?? null,
+      });
+      if (Array.isArray(templateData.tagIds))
+        setTagIds(templateData.tagIds as string[]);
+      if (Array.isArray(templateData.assigneeIds))
+        setAssigneeIds(templateData.assigneeIds as string[]);
+      if (templateData.categoryId)
+        setCategoryId(templateData.categoryId as string);
+      if (templateData.isRecurring)
+        setIsRecurring(templateData.isRecurring as boolean);
+      if (templateData.recurrence)
+        setRecurrence(templateData.recurrence as typeof recurrence);
+    }
+  }, [templateData, task, reset]);
 
   function handleFormSubmit(values: TaskFormValues) {
     onSubmit({
@@ -187,11 +215,11 @@ export function TaskForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="description">Descripción</Label>
-        <Textarea
-          id="description"
+        <Label>Descripción</Label>
+        <RichTextEditor
+          value={watch("description") ?? ""}
+          onChange={(val) => setValue("description", val)}
           placeholder="Detalles opcionales…"
-          {...register("description")}
         />
       </div>
 

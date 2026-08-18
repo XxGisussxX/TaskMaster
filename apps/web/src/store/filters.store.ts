@@ -7,13 +7,13 @@ export interface TaskFiltersState {
   search: string;
   onlyMine: boolean;
   onlyOverdue: boolean;
-  view: "cards" | "table" | "board";
+  view: "cards" | "table" | "board" | "gantt";
   setStatus: (status: TaskStatus | "ALL") => void;
   setPriority: (priority: Priority | "ALL") => void;
   setSearch: (search: string) => void;
   toggleOnlyMine: () => void;
   toggleOnlyOverdue: () => void;
-  setView: (view: "cards" | "table" | "board") => void;
+  setView: (view: "cards" | "table" | "board" | "gantt") => void;
   reset: () => void;
 }
 

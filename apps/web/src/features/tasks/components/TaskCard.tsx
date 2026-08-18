@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar } from "@/components/ui/avatar";
 import { PriorityBadge } from "./PriorityBadge";
+import { TimerButton } from "@/features/time-entries/components/TimerButton";
 import { formatDate, formatRelativeTime } from "@/lib/date";
 
 export function TaskCard({
@@ -64,6 +65,7 @@ export function TaskCard({
           {task.title}
         </p>
         <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <TimerButton taskId={task.id} taskTitle={task.title} />
           <Button
             variant="ghost"
             size="icon"

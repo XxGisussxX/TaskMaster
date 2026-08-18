@@ -6,15 +6,15 @@ import type { Note } from "@taskmaster/contracts";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { FileUpload } from "@/features/attachments/components/FileUpload";
 
 const formSchema = z.object({
   type: z.nativeEnum(NoteType),
   title: z.string().trim().max(200).optional().or(z.literal("")),
-  content: z.string().max(10000).optional().or(z.literal("")),
+  content: z.string().max(20000).optional().or(z.literal("")),
   color: z.nativeEnum(StickyColor).optional(),
   pinned: z.boolean().optional(),
 });
@@ -35,6 +35,7 @@ export function NoteForm({
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<NoteFormValues>({
     resolver: zodResolver(formSchema),
@@ -98,12 +99,11 @@ export function NoteForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="content">Contenido</Label>
-        <Textarea
-          id="content"
-          rows={6}
+        <Label>Contenido</Label>
+        <RichTextEditor
+          value={watch("content") ?? ""}
+          onChange={(val) => setValue("content", val)}
           placeholder="Escribe aquí…"
-          {...register("content")}
         />
         {errors.content && (
           <p className="text-sm text-destructive">{errors.content.message}</p>

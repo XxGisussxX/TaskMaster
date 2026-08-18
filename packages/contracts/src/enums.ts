@@ -106,3 +106,21 @@ export const Theme = {
   SYSTEM: "system",
 } as const;
 export type Theme = (typeof Theme)[keyof typeof Theme];
+
+export const DependencyType = {
+  BLOCKS: "BLOCKS",
+  BLOCKED_BY: "BLOCKED_BY",
+} as const;
+export type DependencyType =
+  (typeof DependencyType)[keyof typeof DependencyType];
+
+export const CustomFieldType = {
+  TEXT: "TEXT",
+  NUMBER: "NUMBER",
+  DATE: "DATE",
+  SELECT: "SELECT",
+  MULTI_SELECT: "MULTI_SELECT",
+  CHECKBOX: "CHECKBOX",
+} as const;
+export type CustomFieldType =
+  (typeof CustomFieldType)[keyof typeof CustomFieldType];

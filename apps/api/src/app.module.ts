@@ -19,7 +19,11 @@ import { CommentsModule } from "./modules/comments/comments.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { RemindersModule } from "./modules/reminders/reminders.module";
 import { SavedViewsModule } from "./modules/saved-views/saved-views.module";
+import { TaskTemplatesModule } from "./modules/task-templates/task-templates.module";
 import { UploadsModule } from "./modules/uploads/uploads.module";
+import { TaskDependenciesModule } from "./modules/task-dependencies/task-dependencies.module";
+import { TimeEntriesModule } from "./modules/time-entries/time-entries.module";
+import { CustomFieldsModule } from "./modules/custom-fields/custom-fields.module";
 
 @Module({
   imports: [
@@ -44,7 +48,11 @@ import { UploadsModule } from "./modules/uploads/uploads.module";
     NotificationsModule,
     RemindersModule,
     SavedViewsModule,
+    TaskTemplatesModule,
     UploadsModule,
+    TaskDependenciesModule,
+    TimeEntriesModule,
+    CustomFieldsModule,
   ],
   providers: [
     {

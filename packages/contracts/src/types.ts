@@ -10,6 +10,7 @@ import type {
   NotificationType,
   EntityType,
   Action,
+  CustomFieldType,
 } from "./enums";
 
 export interface User {
@@ -215,5 +216,60 @@ export interface Attachment {
   mimeType: string;
   fileSize: number;
   url: string;
+  createdAt: string;
+}
+
+export interface TaskDependency {
+  id: string;
+  workspaceId: string;
+  fromTaskId: string;
+  toTaskId: string;
+  fromTask?: Pick<Task, "id" | "title" | "status" | "priority">;
+  toTask?: Pick<Task, "id" | "title" | "status" | "priority">;
+  createdAt: string;
+}
+
+export interface TaskTemplate {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  name: string;
+  description: string;
+  data: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TimeEntry {
+  id: string;
+  workspaceId: string;
+  taskId: string;
+  userId: string;
+  description: string;
+  startedAt: string;
+  stoppedAt: string | null;
+  duration: number | null;
+  user?: Pick<User, "id" | "name" | "avatarUrl">;
+  createdAt: string;
+}
+
+export interface CustomFieldDefinition {
+  id: string;
+  workspaceId: string;
+  name: string;
+  type: CustomFieldType;
+  options: string[] | null;
+  order: number;
+  required: boolean;
+  createdAt: string;
+}
+
+export interface CustomFieldValue {
+  id: string;
+  definitionId: string;
+  entityId: string;
+  entityType: string;
+  value: unknown;
+  definition?: CustomFieldDefinition;
   createdAt: string;
 }

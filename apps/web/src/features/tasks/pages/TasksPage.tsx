@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, LayoutGrid, Rows3, Kanban } from "lucide-react";
+import { Plus, LayoutGrid, Rows3, Kanban, BarChart3 } from "lucide-react";
 import type { Task, TaskStatus } from "@taskmaster/contracts";
 import { Button } from "@/components/ui/button";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
@@ -18,6 +18,7 @@ import { TasksFilterBar } from "../components/TasksFilterBar";
 import { TaskCard } from "../components/TaskCard";
 import { TaskTable } from "../components/TaskTable";
 import { BoardView } from "../components/BoardView";
+import { GanttView } from "../components/GanttView";
 import { TaskModal } from "../components/TaskModal";
 import { BulkActionBar } from "../components/BulkActionBar";
 import { SavedViewBar } from "@/features/saved-views/components/SavedViewBar";
@@ -224,6 +225,10 @@ export function TasksPage() {
         />
       )}
 
+      {filters.view === "gantt" && (
+        <GanttView tasks={tasks} onEdit={openEdit} />
+      )}
+
       {(createTask.isPending || updateTask.isPending) && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner className="h-4 w-4" /> Guardando…
@@ -245,4 +250,5 @@ const VIEWS = [
   { value: "cards", label: "Tarjetas", icon: LayoutGrid },
   { value: "table", label: "Tabla", icon: Rows3 },
   { value: "board", label: "Board", icon: Kanban },
+  { value: "gantt", label: "Gantt", icon: BarChart3 },
 ] as const;

@@ -69,6 +69,20 @@ enum RecurrenceFrequency {
   YEARLY
 }
 
+enum DependencyType {
+  BLOCKS
+  BLOCKED_BY
+}
+
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  DATE
+  SELECT
+  MULTI_SELECT
+  CHECKBOX
+}
+
 // ── Users & Auth ──────────────────────────────────────────────────────
 
 model User {
@@ -96,6 +110,8 @@ model User {
   noteCollab     NoteCollaborator[]
   savedViews     SavedView[]
   attachments    Attachment[]
+  taskTemplates  TaskTemplate[]
+  timeEntries    TimeEntry[]
 }
 
 model RefreshToken {
@@ -148,6 +164,10 @@ model Workspace {
   notifications Notification[]
   savedViews    SavedView[]
   attachments   Attachment[]
+  taskDependencies TaskDependency[]
+  taskTemplates TaskTemplate[]
+  timeEntries   TimeEntry[]
+  customFieldDefs CustomFieldDefinition[]
 
   @@index([ownerId])
 }
@@ -212,6 +232,9 @@ model Task {
   comments   Comment[]
   reminders  Reminder[]
   attachments Attachment[]
+  blocking   TaskDependency[] @relation("BlockingTasks")
+  blockedBy  TaskDependency[] @relation("BlockedByTasks")
+  timeEntries TimeEntry[]
 
   @@index([workspaceId, status])
   @@index([workspaceId, priority])
@@ -434,4 +457,96 @@ model Attachment {
 
   @@index([workspaceId, taskId])
   @@index([workspaceId, noteId])
+}
+
+// ── Task Dependencies ────────────────────────────────────────────────
+
+model TaskDependency {
+  id          String   @id @default(cuid())
+  workspaceId String
+  fromTaskId  String
+  toTaskId    String
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  fromTask  Task      @relation("BlockingTasks", fields: [fromTaskId], references: [id], onDelete: Cascade)
+  toTask    Task      @relation("BlockedByTasks", fields: [toTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([fromTaskId, toTaskId])
+  @@index([workspaceId])
+  @@index([fromTaskId])
+  @@index([toTaskId])
+}
+
+// ── Task Templates ───────────────────────────────────────────────────
+
+model TaskTemplate {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  name        String
+  description String   @default("")
+  data        Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId, name])
+  @@index([workspaceId, userId])
+}
+
+// ── Time Tracking ────────────────────────────────────────────────────
+
+model TimeEntry {
+  id          String    @id @default(cuid())
+  workspaceId String
+  taskId      String
+  userId      String
+  description String    @default("")
+  startedAt   DateTime
+  stoppedAt   DateTime?
+  duration    Int?
+  createdAt   DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, taskId])
+  @@index([workspaceId, userId])
+}
+
+// ── Custom Fields ────────────────────────────────────────────────────
+
+model CustomFieldDefinition {
+  id          String           @id @default(cuid())
+  workspaceId String
+  name        String
+  type        CustomFieldType
+  options     Json?
+  order       Float            @default(0)
+  required    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  workspace Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  values     CustomFieldValue[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+model CustomFieldValue {
+  id           String   @id @default(cuid())
+  definitionId String
+  entityId     String
+  entityType   String
+  value        Json
+  createdAt    DateTime @default(now())
+
+  definition CustomFieldDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+
+  @@unique([definitionId, entityId])
+  @@index([entityId, entityType])
 }

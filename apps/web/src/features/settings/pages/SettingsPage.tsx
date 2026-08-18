@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { logout } from "@/features/auth/api/auth.api";
 import { MemberManagement } from "@/features/workspace/components/MemberManagement";
 import { WorkspaceManagement } from "@/features/workspace/components/WorkspaceManagement";
+import { CustomFieldDefinitionManager } from "@/features/custom-fields/components/CustomFieldDefinitionManager";
 import { ProfileForm } from "../components/ProfileForm";
 import { ChangePasswordForm } from "../components/ChangePasswordForm";
 
@@ -82,6 +83,8 @@ export function SettingsPage() {
           <WorkspaceManagement />
         </CardContent>
       </Card>
+
+      <CustomFieldDefinitionManager />
 
       <Card>
         <CardHeader>
