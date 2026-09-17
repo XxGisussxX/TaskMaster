@@ -1,4 +1,4 @@
-import {
+﻿import {
   ConflictException,
   Injectable,
   NotFoundException,
@@ -24,7 +24,7 @@ export class TaskTemplatesService {
     userId: string,
     dto: CreateTaskTemplateInput,
   ): Promise<TaskTemplate> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const existing = await this.prisma.taskTemplate.findUnique({
       where: {
@@ -67,7 +67,7 @@ export class TaskTemplatesService {
     id: string,
     dto: UpdateTaskTemplateInput,
   ): Promise<TaskTemplate> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const existing = await this.prisma.taskTemplate.findFirst({
       where: { id, workspaceId, userId },
@@ -106,7 +106,7 @@ export class TaskTemplatesService {
     userId: string,
     id: string,
   ): Promise<{ id: string }> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
     const existing = await this.prisma.taskTemplate.findFirst({
       where: { id, workspaceId, userId },
     });
@@ -121,7 +121,7 @@ export class TaskTemplatesService {
     userId: string,
     id: string,
   ): Promise<TaskTemplate> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
     const template = await this.prisma.taskTemplate.findFirst({
       where: { id, workspaceId, userId },
     });

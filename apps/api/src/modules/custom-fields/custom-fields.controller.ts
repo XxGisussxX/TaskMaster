@@ -13,10 +13,15 @@ import {
   createCustomFieldDefinitionSchema,
   customFieldDefinitionIdParamsSchema,
   customFieldValueFiltersSchema,
+  customFieldValuesManySchema,
+  workspaceIdParamsSchema,
   setCustomFieldValueSchema,
   updateCustomFieldDefinitionSchema,
+  reorderCustomFieldDefinitionsSchema,
   type CreateCustomFieldDefinitionInput,
   type SetCustomFieldValueInput,
+  type CustomFieldValuesManyInput,
+  type ReorderCustomFieldDefinitionsInput,
   type UpdateCustomFieldDefinitionInput,
 } from "@taskmaster/contracts";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
@@ -25,7 +30,7 @@ import { ZodPipe } from "../../common/pipes/zod.pipe";
 import type { AuthUser } from "../auth/types";
 import { CustomFieldsService } from "./custom-fields.service";
 
-const workspaceIdPipe = new ParseIdPipe(customFieldDefinitionIdParamsSchema);
+const workspaceIdPipe = new ParseIdPipe(workspaceIdParamsSchema);
 const definitionIdPipe = new ParseIdPipe(customFieldDefinitionIdParamsSchema);
 
 @Controller("workspaces/:workspaceId/custom-fields")
@@ -70,6 +75,20 @@ export class CustomFieldsController {
     );
   }
 
+  @Post("reorder")
+  reorderDefinitions(
+    @Param("workspaceId", workspaceIdPipe) workspaceId: string,
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodPipe(reorderCustomFieldDefinitionsSchema))
+    dto: ReorderCustomFieldDefinitionsInput,
+  ) {
+    return this.customFieldsService.reorderDefinitions(
+      workspaceId,
+      user.sub,
+      dto.orderedIds,
+    );
+  }
+
   @Delete(":id")
   removeDefinition(
     @Param("workspaceId", workspaceIdPipe) workspaceId: string,
@@ -87,6 +106,21 @@ export class CustomFieldsController {
     dto: SetCustomFieldValueInput,
   ) {
     return this.customFieldsService.setValue(workspaceId, user.sub, dto);
+  }
+
+  @Post("values/many")
+  getValuesMany(
+    @Param("workspaceId", workspaceIdPipe) workspaceId: string,
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodPipe(customFieldValuesManySchema))
+    dto: CustomFieldValuesManyInput,
+  ) {
+    return this.customFieldsService.getValuesForMany(
+      workspaceId,
+      user.sub,
+      dto.entityType,
+      dto.entityIds,
+    );
   }
 
   @Get("values")

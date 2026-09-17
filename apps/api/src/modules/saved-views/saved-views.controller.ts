@@ -13,6 +13,7 @@ import {
   updateSavedViewSchema,
   type CreateSavedViewInput,
   type UpdateSavedViewInput,
+  workspaceIdParamsSchema,
 } from "@taskmaster/contracts";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { ParseIdPipe } from "../../common/pipes/parse-id.pipe";
@@ -20,7 +21,7 @@ import { ZodPipe } from "../../common/pipes/zod.pipe";
 import type { AuthUser } from "../auth/types";
 import { SavedViewsService } from "./saved-views.service";
 
-const workspaceIdPipe = new ParseIdPipe(savedViewIdParamsSchema);
+const workspaceIdPipe = new ParseIdPipe(workspaceIdParamsSchema);
 const viewIdPipe = new ParseIdPipe(savedViewIdParamsSchema);
 
 @Controller("workspaces/:workspaceId/saved-views")

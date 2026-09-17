@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   ConflictException,
   Injectable,
@@ -23,12 +23,12 @@ export class TaskDependenciesService {
     userId: string,
     input: CreateTaskDependencyInput,
   ): Promise<TaskDependency> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const { fromTaskId, toTaskId } = input;
 
     if (fromTaskId === toTaskId) {
-      throw new BadRequestException("Una tarea no puede depender de sí misma");
+      throw new BadRequestException("Una tarea no puede depender de sÃ­ misma");
     }
 
     const [fromTask, toTask] = await Promise.all([
@@ -55,10 +55,10 @@ export class TaskDependenciesService {
       throw new ConflictException("Esta dependencia ya existe");
     }
 
-    const hasCycle = await this.detectCycle(fromTaskId, toTaskId);
+    const hasCycle = await this.detectCycle(workspaceId, fromTaskId, toTaskId);
     if (hasCycle) {
       throw new BadRequestException(
-        "Esta dependencia crearía un ciclo en el grafo de dependencias",
+        "Esta dependencia crearÃ­a un ciclo en el grafo de dependencias",
       );
     }
 
@@ -124,7 +124,7 @@ export class TaskDependenciesService {
     userId: string,
     id: string,
   ): Promise<{ id: string }> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const existing = await this.prisma.taskDependency.findFirst({
       where: { id, workspaceId },
@@ -138,6 +138,7 @@ export class TaskDependenciesService {
   }
 
   private async detectCycle(
+    workspaceId: string,
     fromTaskId: string,
     toTaskId: string,
   ): Promise<boolean> {
@@ -151,7 +152,7 @@ export class TaskDependenciesService {
       visited.add(current);
 
       const blockedByDeps = await this.prisma.taskDependency.findMany({
-        where: { toTaskId: current },
+        where: { toTaskId: current, workspaceId },
         select: { fromTaskId: true },
       });
 

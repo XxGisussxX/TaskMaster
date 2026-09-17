@@ -11,6 +11,7 @@ import {
   createTagSchema,
   tagIdParamsSchema,
   updateTagSchema,
+  workspaceIdParamsSchema,
   type CreateTagInput,
   type UpdateTagInput,
 } from "@taskmaster/contracts";
@@ -20,7 +21,7 @@ import { ZodPipe } from "../../common/pipes/zod.pipe";
 import type { AuthUser } from "../auth/types";
 import { TagsService } from "./tags.service";
 
-const workspaceIdPipe = new ParseIdPipe(tagIdParamsSchema);
+const workspaceIdPipe = new ParseIdPipe(workspaceIdParamsSchema);
 const tagIdPipe = new ParseIdPipe(tagIdParamsSchema);
 
 @Controller("workspaces/:workspaceId/tags")

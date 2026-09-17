@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+﻿import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import type {
   CreateReminderInput,
@@ -111,7 +111,12 @@ export class RemindersService {
     userId: string,
     dto: CreateReminderInput,
   ): Promise<Reminder> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
+
+    await this.assertTargetsInWorkspace(workspaceId, {
+      taskId: dto.taskId,
+      noteId: dto.noteId,
+    });
 
     const reminder = await this.prisma.reminder.create({
       data: {
@@ -145,7 +150,7 @@ export class RemindersService {
     userId: string,
     dto: UpdateReminderInput,
   ): Promise<Reminder> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const existing = await this.prisma.reminder.findUnique({
       where: { id: reminderId },
@@ -155,6 +160,13 @@ export class RemindersService {
     }
     if (existing.userId !== userId) {
       throw new NotFoundException("Recordatorio no encontrado");
+    }
+
+    if (dto.taskId !== undefined || dto.noteId !== undefined) {
+      await this.assertTargetsInWorkspace(workspaceId, {
+        taskId: dto.taskId,
+        noteId: dto.noteId,
+      });
     }
 
     const reminder = await this.prisma.reminder.update({
@@ -187,7 +199,7 @@ export class RemindersService {
     reminderId: string,
     userId: string,
   ): Promise<{ id: string }> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const existing = await this.prisma.reminder.findUnique({
       where: { id: reminderId },
@@ -201,6 +213,26 @@ export class RemindersService {
 
     await this.prisma.reminder.delete({ where: { id: reminderId } });
     return { id: reminderId };
+  }
+
+  private async assertTargetsInWorkspace(
+    workspaceId: string,
+    targets: { taskId?: string | null; noteId?: string | null },
+  ): Promise<void> {
+    if (targets.taskId) {
+      const task = await this.prisma.task.findFirst({
+        where: { id: targets.taskId, workspaceId },
+        select: { id: true },
+      });
+      if (!task) throw new NotFoundException("Tarea no encontrada");
+    }
+    if (targets.noteId) {
+      const note = await this.prisma.note.findFirst({
+        where: { id: targets.noteId, workspaceId },
+        select: { id: true },
+      });
+      if (!note) throw new NotFoundException("Nota no encontrada");
+    }
   }
 
   private async createNextOccurrence(

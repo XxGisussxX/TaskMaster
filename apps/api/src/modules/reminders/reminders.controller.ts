@@ -13,6 +13,7 @@ import {
   reminderFiltersSchema,
   taskIdParamsSchema,
   updateReminderSchema,
+  workspaceIdParamsSchema,
   type CreateReminderInput,
   type ReminderFilters,
   type UpdateReminderInput,
@@ -23,7 +24,7 @@ import { ZodPipe } from "../../common/pipes/zod.pipe";
 import type { AuthUser } from "../auth/types";
 import { RemindersService } from "./reminders.service";
 
-const workspaceIdPipe = new ParseIdPipe(taskIdParamsSchema);
+const workspaceIdPipe = new ParseIdPipe(workspaceIdParamsSchema);
 const reminderIdPipe = new ParseIdPipe(taskIdParamsSchema);
 
 @Controller("workspaces/:workspaceId/reminders")

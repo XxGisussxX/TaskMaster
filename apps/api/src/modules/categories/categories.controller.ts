@@ -11,6 +11,7 @@ import {
   categoryIdParamsSchema,
   createCategorySchema,
   updateCategorySchema,
+  workspaceIdParamsSchema,
   type CreateCategoryInput,
   type UpdateCategoryInput,
 } from "@taskmaster/contracts";
@@ -20,7 +21,7 @@ import { ZodPipe } from "../../common/pipes/zod.pipe";
 import type { AuthUser } from "../auth/types";
 import { CategoriesService } from "./categories.service";
 
-const workspaceIdPipe = new ParseIdPipe(categoryIdParamsSchema);
+const workspaceIdPipe = new ParseIdPipe(workspaceIdParamsSchema);
 const categoryIdPipe = new ParseIdPipe(categoryIdParamsSchema);
 
 @Controller("workspaces/:workspaceId/categories")

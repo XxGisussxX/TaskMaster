@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+﻿import { Injectable, NotFoundException } from "@nestjs/common";
 import type {
   CreateTimeEntryInput,
   TimeEntry,
@@ -19,7 +19,7 @@ export class TimeEntriesService {
     userId: string,
     input: CreateTimeEntryInput,
   ): Promise<TimeEntry> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const task = await this.prisma.task.findFirst({
       where: { id: input.taskId, workspaceId },
@@ -112,7 +112,7 @@ export class TimeEntriesService {
     userId: string,
     id: string,
   ): Promise<TimeEntry> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const existing = await this.prisma.timeEntry.findUnique({
       where: { id },
@@ -154,7 +154,7 @@ export class TimeEntriesService {
     id: string,
     input: UpdateTimeEntryInput,
   ): Promise<TimeEntry> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const existing = await this.prisma.timeEntry.findUnique({
       where: { id },
@@ -215,7 +215,7 @@ export class TimeEntriesService {
     userId: string,
     id: string,
   ): Promise<{ id: string }> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const existing = await this.prisma.timeEntry.findUnique({
       where: { id },

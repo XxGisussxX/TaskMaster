@@ -11,6 +11,7 @@ import {
   createTaskTemplateSchema,
   taskTemplateIdParamsSchema,
   updateTaskTemplateSchema,
+  workspaceIdParamsSchema,
   type CreateTaskTemplateInput,
   type UpdateTaskTemplateInput,
 } from "@taskmaster/contracts";
@@ -20,7 +21,7 @@ import { ZodPipe } from "../../common/pipes/zod.pipe";
 import type { AuthUser } from "../auth/types";
 import { TaskTemplatesService } from "./task-templates.service";
 
-const workspaceIdPipe = new ParseIdPipe(taskTemplateIdParamsSchema);
+const workspaceIdPipe = new ParseIdPipe(workspaceIdParamsSchema);
 const templateIdPipe = new ParseIdPipe(taskTemplateIdParamsSchema);
 
 @Controller("workspaces/:workspaceId/templates")

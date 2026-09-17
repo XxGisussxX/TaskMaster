@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   Injectable,
   NotFoundException,
@@ -97,7 +97,7 @@ export class NotesService {
     userId: string,
     dto: CreateNoteInput,
   ): Promise<Note> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
     await this.validateCollaborators(workspaceId, dto.collaborators);
 
     const note = await this.prisma.note.create({
@@ -145,7 +145,7 @@ export class NotesService {
     userId: string,
     dto: UpdateNoteInput,
   ): Promise<Note> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const existing = await this.prisma.note.findFirst({
       where: { id, workspaceId },
@@ -211,7 +211,7 @@ export class NotesService {
     userId: string,
     pinned: boolean,
   ): Promise<Note> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
     const note = await this.prisma.note.findFirst({
       where: { id, workspaceId },
     });
@@ -231,7 +231,7 @@ export class NotesService {
     userId: string,
     text: string,
   ): Promise<ChecklistItem> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
     const note = await this.prisma.note.findFirst({
       where: { id, workspaceId, type: "CHECKLIST" },
     });
@@ -255,7 +255,7 @@ export class NotesService {
     userId: string,
     done: boolean,
   ): Promise<ChecklistItem> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
     const item = await this.prisma.checklistItem.findFirst({
       where: { id: itemId, note: { workspaceId, id: noteId } },
     });
@@ -274,7 +274,7 @@ export class NotesService {
     itemId: string,
     userId: string,
   ): Promise<{ id: string }> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
     const item = await this.prisma.checklistItem.findFirst({
       where: { id: itemId, note: { workspaceId, id: noteId } },
     });
@@ -290,7 +290,7 @@ export class NotesService {
     id: string,
     userId: string,
   ): Promise<{ id: string }> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
     const existing = await this.prisma.note.findFirst({
       where: { id, workspaceId },
     });
@@ -307,7 +307,7 @@ export class NotesService {
     return { id };
   }
 
-  // ── helpers ──────────────────────────────────────────────────────────
+  // â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   private async validateCollaborators(
     workspaceId: string,

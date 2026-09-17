@@ -19,6 +19,7 @@ import {
   taskFiltersSchema,
   taskIdParamsSchema,
   updateTaskSchema,
+  workspaceIdParamsSchema,
   type BulkDeleteInput,
   type BulkUpdatePriorityInput,
   type BulkUpdateStatusInput,
@@ -33,7 +34,7 @@ import { ZodPipe } from "../../common/pipes/zod.pipe";
 import type { AuthUser } from "../auth/types";
 import { TasksService } from "./tasks.service";
 
-const workspaceIdPipe = new ParseIdPipe(taskIdParamsSchema);
+const workspaceIdPipe = new ParseIdPipe(workspaceIdParamsSchema);
 const taskIdPipe = new ParseIdPipe(taskIdParamsSchema);
 
 @Controller("workspaces/:workspaceId/tasks")

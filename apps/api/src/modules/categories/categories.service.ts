@@ -1,4 +1,4 @@
-import {
+﻿import {
   ConflictException,
   Injectable,
   NotFoundException,
@@ -38,13 +38,13 @@ export class CategoriesService {
     userId: string,
     dto: CreateCategoryInput,
   ): Promise<Category> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const existing = await this.prisma.category.findUnique({
       where: { workspaceId_name: { workspaceId, name: dto.name } },
     });
     if (existing) {
-      throw new ConflictException("Ya existe una categoría con ese nombre");
+      throw new ConflictException("Ya existe una categorÃ­a con ese nombre");
     }
 
     const category = await this.prisma.category.create({
@@ -70,19 +70,19 @@ export class CategoriesService {
     userId: string,
     dto: UpdateCategoryInput,
   ): Promise<Category> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const existing = await this.prisma.category.findFirst({
       where: { id, workspaceId },
     });
-    if (!existing) throw new NotFoundException("Categoría no encontrada");
+    if (!existing) throw new NotFoundException("CategorÃ­a no encontrada");
 
     if (dto.name && dto.name !== existing.name) {
       const conflict = await this.prisma.category.findUnique({
         where: { workspaceId_name: { workspaceId, name: dto.name } },
       });
       if (conflict) {
-        throw new ConflictException("Ya existe una categoría con ese nombre");
+        throw new ConflictException("Ya existe una categorÃ­a con ese nombre");
       }
     }
 
@@ -108,11 +108,11 @@ export class CategoriesService {
     id: string,
     userId: string,
   ): Promise<{ id: string }> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
     const existing = await this.prisma.category.findFirst({
       where: { id, workspaceId },
     });
-    if (!existing) throw new NotFoundException("Categoría no encontrada");
+    if (!existing) throw new NotFoundException("CategorÃ­a no encontrada");
 
     await this.prisma.category.delete({ where: { id } });
     return { id };

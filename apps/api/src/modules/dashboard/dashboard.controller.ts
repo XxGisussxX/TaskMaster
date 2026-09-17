@@ -1,11 +1,11 @@
 import { Controller, Get, Param } from "@nestjs/common";
-import { taskIdParamsSchema } from "@taskmaster/contracts";
+import { workspaceIdParamsSchema } from "@taskmaster/contracts";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { ParseIdPipe } from "../../common/pipes/parse-id.pipe";
 import type { AuthUser } from "../auth/types";
 import { DashboardService } from "./dashboard.service";
 
-const workspaceIdPipe = new ParseIdPipe(taskIdParamsSchema);
+const workspaceIdPipe = new ParseIdPipe(workspaceIdParamsSchema);
 
 @Controller("workspaces/:workspaceId/dashboard")
 export class DashboardController {

@@ -1,4 +1,4 @@
-import {
+﻿import {
   ConflictException,
   Injectable,
   NotFoundException,
@@ -46,7 +46,7 @@ export class SavedViewsService {
     userId: string,
     dto: CreateSavedViewInput,
   ): Promise<SavedView> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const existing = await this.prisma.savedView.findUnique({
       where: {
@@ -80,7 +80,7 @@ export class SavedViewsService {
     userId: string,
     dto: UpdateSavedViewInput,
   ): Promise<SavedView> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const existing = await this.prisma.savedView.findFirst({
       where: { id, workspaceId, userId },
@@ -119,7 +119,7 @@ export class SavedViewsService {
     id: string,
     userId: string,
   ): Promise<{ id: string }> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
     const existing = await this.prisma.savedView.findFirst({
       where: { id, workspaceId, userId },
     });

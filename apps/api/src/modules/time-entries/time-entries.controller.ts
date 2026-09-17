@@ -13,6 +13,7 @@ import {
   timeEntryFiltersSchema,
   timeEntryIdParamsSchema,
   updateTimeEntrySchema,
+  workspaceIdParamsSchema,
   type CreateTimeEntryInput,
   type UpdateTimeEntryInput,
   type TimeEntryFilters,
@@ -23,7 +24,7 @@ import { ZodPipe } from "../../common/pipes/zod.pipe";
 import type { AuthUser } from "../auth/types";
 import { TimeEntriesService } from "./time-entries.service";
 
-const workspaceIdPipe = new ParseIdPipe(timeEntryIdParamsSchema);
+const workspaceIdPipe = new ParseIdPipe(workspaceIdParamsSchema);
 const entryIdPipe = new ParseIdPipe(timeEntryIdParamsSchema);
 
 @Controller("workspaces/:workspaceId/time-entries")

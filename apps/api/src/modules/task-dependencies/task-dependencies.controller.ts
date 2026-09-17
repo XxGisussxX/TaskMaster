@@ -10,6 +10,7 @@ import {
 import {
   createTaskDependencySchema,
   taskDependencyIdParamsSchema,
+  workspaceIdParamsSchema,
   type CreateTaskDependencyInput,
 } from "@taskmaster/contracts";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
@@ -18,7 +19,7 @@ import { ZodPipe } from "../../common/pipes/zod.pipe";
 import type { AuthUser } from "../auth/types";
 import { TaskDependenciesService } from "./task-dependencies.service";
 
-const workspaceIdPipe = new ParseIdPipe(taskDependencyIdParamsSchema);
+const workspaceIdPipe = new ParseIdPipe(workspaceIdParamsSchema);
 const dependencyIdPipe = new ParseIdPipe(taskDependencyIdParamsSchema);
 
 @Controller("workspaces/:workspaceId/dependencies")

@@ -13,8 +13,8 @@ import {
   createNoteSchema,
   noteFiltersSchema,
   noteIdParamsSchema,
-  taskIdParamsSchema,
   toggleChecklistItemSchema,
+  workspaceIdParamsSchema,
   updateNoteSchema,
   type AddChecklistItemInput,
   type CreateNoteInput,
@@ -28,7 +28,7 @@ import { ZodPipe } from "../../common/pipes/zod.pipe";
 import type { AuthUser } from "../auth/types";
 import { NotesService } from "./notes.service";
 
-const workspaceIdPipe = new ParseIdPipe(taskIdParamsSchema);
+const workspaceIdPipe = new ParseIdPipe(workspaceIdParamsSchema);
 const noteIdPipe = new ParseIdPipe(noteIdParamsSchema);
 const itemIdPipe = new ParseIdPipe(noteIdParamsSchema);
 

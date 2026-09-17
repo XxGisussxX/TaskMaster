@@ -13,11 +13,10 @@ import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { ParseIdPipe } from "../../common/pipes/parse-id.pipe";
 import type { AuthUser } from "../auth/types";
 import { UploadsService } from "./uploads.service";
+import { workspaceIdParamsSchema } from "@taskmaster/contracts";
 import { z } from "zod";
 
-const workspaceIdPipe = new ParseIdPipe(
-  z.object({ id: z.string().cuid("ID de workspace inválido") }),
-);
+const workspaceIdPipe = new ParseIdPipe(workspaceIdParamsSchema);
 
 const attachmentIdPipe = new ParseIdPipe(
   z.object({ id: z.string().cuid("ID de archivo inválido") }),

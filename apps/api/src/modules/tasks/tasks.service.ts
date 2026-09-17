@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   Injectable,
   Logger,
@@ -102,7 +102,7 @@ export class TasksService {
     userId: string,
     dto: CreateTaskInput,
   ): Promise<Task> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
     await this.validateRelations(workspaceId, dto);
 
     const order = await this.nextOrder(workspaceId, dto.parentId);
@@ -155,7 +155,7 @@ export class TasksService {
     userId: string,
     dto: CreateSubtaskInput,
   ): Promise<Task> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const parent = await this.prisma.task.findFirst({
       where: { id: parentId, workspaceId },
@@ -196,7 +196,7 @@ export class TasksService {
     userId: string,
     dto: UpdateTaskInput,
   ): Promise<Task> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const existing = await this.prisma.task.findFirst({
       where: { id, workspaceId },
@@ -263,7 +263,7 @@ export class TasksService {
     userId: string,
     status: TaskStatus,
   ): Promise<Task> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const existing = await this.prisma.task.findFirst({
       where: { id, workspaceId },
@@ -308,13 +308,13 @@ export class TasksService {
     id: string,
     userId: string,
   ): Promise<{ id: string }> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
     const existing = await this.prisma.task.findFirst({
       where: { id, workspaceId },
     });
     if (!existing) throw new NotFoundException("Tarea no encontrada");
 
-    const subtaskIds = await this.findDescendantIds(id);
+    const subtaskIds = await this.findDescendantIds(workspaceId, id);
 
     await this.prisma.task.delete({ where: { id } });
     await this.activity.log(
@@ -338,7 +338,7 @@ export class TasksService {
     return { id };
   }
 
-  // ── bulk actions ───────────────────────────────────────────────────
+  // â”€â”€ bulk actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async bulkUpdateStatus(
     workspaceId: string,
@@ -346,7 +346,7 @@ export class TasksService {
     ids: string[],
     status: TaskStatus,
   ): Promise<BulkActionResult> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const tasks = await this.prisma.task.findMany({
       where: { id: { in: ids }, workspaceId },
@@ -404,7 +404,7 @@ export class TasksService {
     ids: string[],
     priority: Priority,
   ): Promise<BulkActionResult> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const tasks = await this.prisma.task.findMany({
       where: { id: { in: ids }, workspaceId },
@@ -446,7 +446,7 @@ export class TasksService {
     userId: string,
     ids: string[],
   ): Promise<BulkActionResult> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const tasks = await this.prisma.task.findMany({
       where: { id: { in: ids }, workspaceId },
@@ -460,13 +460,15 @@ export class TasksService {
 
     const allIdsToDelete: string[] = [];
     for (const t of tasks) {
-      const descendants = await this.findDescendantIds(t.id);
+      const descendants = await this.findDescendantIds(workspaceId, t.id);
       allIdsToDelete.push(t.id, ...descendants);
     }
 
     const uniqueIds = [...new Set(allIdsToDelete)];
 
-    await this.prisma.task.deleteMany({ where: { id: { in: uniqueIds } } });
+    await this.prisma.task.deleteMany({
+      where: { id: { in: uniqueIds }, workspaceId },
+    });
 
     for (const id of uniqueIds) {
       await this.activity.log(
@@ -481,7 +483,7 @@ export class TasksService {
     return { succeeded: tasks.map((t) => t.id), failed };
   }
 
-  // ── helpers ──────────────────────────────────────────────────────────
+  // â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   private buildWhere(
     workspaceId: string,
@@ -584,7 +586,7 @@ export class TasksService {
     const mismatch = results.some((count, i) => count !== expected[i]);
     if (mismatch) {
       throw new BadRequestException(
-        "Alguna relación (padre, categoría, etiqueta o asignado) no existe en este workspace",
+        "Alguna relaciÃ³n (padre, categorÃ­a, etiqueta o asignado) no existe en este workspace",
       );
     }
   }
@@ -621,12 +623,15 @@ export class TasksService {
     }
   }
 
-  private async findDescendantIds(taskId: string): Promise<string[]> {
+  private async findDescendantIds(
+    workspaceId: string,
+    taskId: string,
+  ): Promise<string[]> {
     const ids: string[] = [];
     let queue = [taskId];
     while (queue.length > 0) {
       const children = await this.prisma.task.findMany({
-        where: { parentId: { in: queue } },
+        where: { parentId: { in: queue }, workspaceId },
         select: { id: true },
       });
       const childIds = children.map((c) => c.id);

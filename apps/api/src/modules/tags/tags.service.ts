@@ -1,4 +1,4 @@
-import {
+﻿import {
   ConflictException,
   Injectable,
   NotFoundException,
@@ -38,7 +38,7 @@ export class TagsService {
     userId: string,
     dto: CreateTagInput,
   ): Promise<Tag> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const existing = await this.prisma.tag.findUnique({
       where: { workspaceId_name: { workspaceId, name: dto.name } },
@@ -70,7 +70,7 @@ export class TagsService {
     userId: string,
     dto: UpdateTagInput,
   ): Promise<Tag> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const existing = await this.prisma.tag.findFirst({
       where: { id, workspaceId },
@@ -108,7 +108,7 @@ export class TagsService {
     id: string,
     userId: string,
   ): Promise<{ id: string }> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
     const existing = await this.prisma.tag.findFirst({
       where: { id, workspaceId },
     });

@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+﻿import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from "@nestjs/common";
 import type { Attachment } from "@taskmaster/contracts";
 import { PrismaService } from "../../prisma/prisma.service";
 import { WorkspaceAccessService } from "../workspaces/workspace-access.service";
@@ -40,7 +45,7 @@ export class UploadsService {
 
     if (!cloudName || !apiKey || !apiSecret) {
       this.logger.warn(
-        "Cloudinary no configurado. Los archivos se guardarán solo en la DB (sin almacenamiento real).",
+        "Cloudinary no configurado. Los archivos se guardarÃ¡n solo en la DB (sin almacenamiento real).",
       );
       return;
     }
@@ -62,7 +67,7 @@ export class UploadsService {
   validateFile(file: Express.Multer.File): void {
     if (file.size > MAX_FILE_SIZE) {
       throw new BadRequestException(
-        `El archivo excede el tamaño máximo de ${MAX_FILE_SIZE / 1024 / 1024} MB`,
+        `El archivo excede el tamaÃ±o mÃ¡ximo de ${MAX_FILE_SIZE / 1024 / 1024} MB`,
       );
     }
     if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
@@ -78,8 +83,9 @@ export class UploadsService {
     file: Express.Multer.File,
     context: { taskId?: string; noteId?: string },
   ): Promise<Attachment> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
     this.validateFile(file);
+    await this.assertTargetBelongsToWorkspace(workspaceId, context);
 
     let url = "";
     let publicId: string | null = null;
@@ -140,6 +146,26 @@ export class UploadsService {
     };
   }
 
+  private async assertTargetBelongsToWorkspace(
+    workspaceId: string,
+    context: { taskId?: string; noteId?: string },
+  ): Promise<void> {
+    if (context.taskId) {
+      const task = await this.prisma.task.findFirst({
+        where: { id: context.taskId, workspaceId },
+        select: { id: true },
+      });
+      if (!task) throw new NotFoundException("Tarea no encontrada");
+    }
+    if (context.noteId) {
+      const note = await this.prisma.note.findFirst({
+        where: { id: context.noteId, workspaceId },
+        select: { id: true },
+      });
+      if (!note) throw new NotFoundException("Nota no encontrada");
+    }
+  }
+
   async list(
     workspaceId: string,
     userId: string,
@@ -175,7 +201,7 @@ export class UploadsService {
     id: string,
     userId: string,
   ): Promise<{ id: string }> {
-    await this.access.assertMembership(workspaceId, userId);
+    await this.access.assertWriteRole(workspaceId, userId);
 
     const attachment = await this.prisma.attachment.findFirst({
       where: { id, workspaceId },
