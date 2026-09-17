@@ -1,8 +1,9 @@
-import type { Note } from "@taskmaster/contracts";
+import type { Note, CustomFieldValue } from "@taskmaster/contracts";
 import { NoteType } from "@taskmaster/contracts";
 import { Pin, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { CustomFieldChips } from "@/features/custom-fields/components/CustomFieldChips";
 import { getChecklistProgress, getContentSize } from "@taskmaster/domain";
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/date";
@@ -33,14 +34,18 @@ const COLOR_BG: Record<string, string> = {
 
 export function NoteCard({
   note,
+  customValues,
   onEdit,
   onDelete,
   onTogglePin,
+  disabled = false,
 }: {
   note: Note;
+  customValues?: CustomFieldValue[];
   onEdit: (note: Note) => void;
   onDelete: (note: Note) => void;
   onTogglePin: (note: Note) => void;
+  disabled?: boolean;
 }) {
   const size = getContentSize({
     type: note.type,
@@ -103,38 +108,44 @@ export function NoteCard({
         </div>
       )}
 
+      <CustomFieldChips values={customValues} max={3} />
+
       <div className="mt-auto flex items-center justify-between pt-2">
         <span className="text-xs text-muted-foreground">
           {formatRelativeTime(note.updatedAt)}
         </span>
         <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            aria-label="Fijar"
-            onClick={() => onTogglePin(note)}
-          >
-            <Pin className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            aria-label="Editar"
-            onClick={() => onEdit(note)}
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            aria-label="Eliminar"
-            onClick={() => onDelete(note)}
-          >
-            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-          </Button>
+          {disabled ? null : (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                aria-label="Fijar"
+                onClick={() => onTogglePin(note)}
+              >
+                <Pin className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                aria-label="Editar"
+                onClick={() => onEdit(note)}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                aria-label="Eliminar"
+                onClick={() => onDelete(note)}
+              >
+                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </article>

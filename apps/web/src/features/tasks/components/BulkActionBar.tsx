@@ -8,6 +8,7 @@ import {
   useBulkUpdatePriority,
   useBulkDeleteTasks,
 } from "../hooks/useTasks";
+import { useCurrentMembership } from "@/features/workspace/hooks/useMembers";
 
 const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: "TODO", label: "Por hacer" },
@@ -25,6 +26,7 @@ const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
 ];
 
 export function BulkActionBar() {
+  const { canWrite } = useCurrentMembership();
   const { selectedIds, clear } = useSelectionStore();
   const count = selectedIds.size;
   const bulkStatus = useBulkUpdateStatus();
@@ -33,7 +35,7 @@ export function BulkActionBar() {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showPriorityMenu, setShowPriorityMenu] = useState(false);
 
-  if (count === 0) return null;
+  if (!canWrite || count === 0) return null;
 
   const ids = Array.from(selectedIds);
 

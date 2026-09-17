@@ -13,6 +13,7 @@ interface FileUploadProps {
   taskId?: string;
   noteId?: string;
   className?: string;
+  readOnly?: boolean;
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -39,7 +40,12 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function FileUpload({ taskId, noteId, className }: FileUploadProps) {
+export function FileUpload({
+  taskId,
+  noteId,
+  className,
+  readOnly = false,
+}: FileUploadProps) {
   const context = { taskId, noteId };
   const { data: attachments = [] } = useAttachments(context);
   const uploadMutation = useUploadAttachment(context);
@@ -83,39 +89,41 @@ export function FileUpload({ taskId, noteId, className }: FileUploadProps) {
 
   return (
     <div className={cn("space-y-3", className)}>
-      <div
-        onDrop={onDrop}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onClick={() => inputRef.current?.click()}
-        className={cn(
-          "flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed p-6 text-center transition-colors",
-          isDragOver
-            ? "border-primary bg-primary/5"
-            : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50",
-        )}
-      >
-        <Upload className="size-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">
-          Arrastra archivos aquí o haz clic para seleccionar
-        </p>
-        <p className="text-xs text-muted-foreground/70">
-          Máx. 10 MB · Imágenes, PDF, documentos, CSV, JSON
-        </p>
-        <input
-          ref={inputRef}
-          type="file"
-          multiple
-          accept={ACCEPTED.join(",")}
-          className="hidden"
-          onChange={(e) => {
-            if (e.target.files?.length) handleFiles(e.target.files);
-            e.target.value = "";
-          }}
-        />
-      </div>
+      {!readOnly && (
+        <div
+          onDrop={onDrop}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onClick={() => inputRef.current?.click()}
+          className={cn(
+            "flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed p-6 text-center transition-colors",
+            isDragOver
+              ? "border-primary bg-primary/5"
+              : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50",
+          )}
+        >
+          <Upload className="size-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            Arrastra archivos aquí o haz clic para seleccionar
+          </p>
+          <p className="text-xs text-muted-foreground/70">
+            Máx. 10 MB · Imágenes, PDF, documentos, CSV, JSON
+          </p>
+          <input
+            ref={inputRef}
+            type="file"
+            multiple
+            accept={ACCEPTED.join(",")}
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files?.length) handleFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
+        </div>
+      )}
 
-      {uploadMutation.isPending && (
+      {uploadMutation.isPending && !readOnly && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" />
           Subiendo archivo...
@@ -129,6 +137,7 @@ export function FileUpload({ taskId, noteId, className }: FileUploadProps) {
               key={a.id}
               attachment={a}
               onDelete={() => deleteMutation.mutate(a.id)}
+              readOnly={readOnly}
             />
           ))}
         </ul>
@@ -140,9 +149,11 @@ export function FileUpload({ taskId, noteId, className }: FileUploadProps) {
 function AttachmentItem({
   attachment,
   onDelete,
+  readOnly = false,
 }: {
   attachment: Attachment;
   onDelete: () => void;
+  readOnly?: boolean;
 }) {
   const isImage = attachment.mimeType.startsWith("image/");
   return (
@@ -177,7 +188,10 @@ function AttachmentItem({
       <Button
         variant="ghost"
         size="icon"
-        className="size-6 shrink-0 opacity-0 group-hover:opacity-100"
+        className={cn(
+          "size-6 shrink-0 opacity-0 group-hover:opacity-100",
+          readOnly && "hidden",
+        )}
         onClick={onDelete}
       >
         <X className="size-3" />

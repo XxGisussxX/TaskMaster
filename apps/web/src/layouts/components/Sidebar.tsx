@@ -1,56 +1,46 @@
 import { NavLink } from "react-router-dom";
-import {
-  LayoutDashboard,
-  ListTodo,
-  StickyNote,
-  CalendarDays,
-  Settings,
-  Search,
-} from "lucide-react";
+import { PanelLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/store/ui.store";
 import { useAuthStore } from "@/store/auth.store";
 import { Avatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { WorkspaceSwitcher } from "@/features/workspace/components/WorkspaceSwitcher";
-
-const NAV_ITEMS = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/tasks", label: "Tareas", icon: ListTodo, end: false },
-  { to: "/notes", label: "Notas", icon: StickyNote, end: false },
-  { to: "/calendar", label: "Calendario", icon: CalendarDays, end: false },
-  { to: "/settings", label: "Ajustes", icon: Settings, end: false },
-];
+import { NAV_ITEMS } from "@/app/nav";
 
 export function Sidebar() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
-  const setCommandPaletteOpen = useUiStore((s) => s.setCommandPaletteOpen);
+  const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const user = useAuthStore((s) => s.user);
+
+  const navItems = NAV_ITEMS.filter((item) => {
+    if (!item.systemRoles) return true;
+    return !!user && item.systemRoles.includes(user.role);
+  });
 
   return (
     <aside
       className={cn(
-        "flex h-full flex-col border-r bg-card transition-all",
+        "flex h-full flex-col bg-card transition-all",
         sidebarOpen ? "w-60" : "w-16",
       )}
     >
-      <div className="flex h-14 items-center gap-2 border-b px-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold shrink-0">
-          T
-        </div>
+      <div className="flex h-14 items-center gap-2 px-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          onClick={toggleSidebar}
+          aria-label={sidebarOpen ? "Contraer sidebar" : "Expandir sidebar"}
+          title={sidebarOpen ? "Contraer sidebar" : "Expandir sidebar"}
+        >
+          <PanelLeft className="h-5 w-5" />
+        </Button>
         {sidebarOpen && <WorkspaceSwitcher sidebarOpen={sidebarOpen} />}
       </div>
 
       <nav className="flex-1 space-y-1 p-2">
-        <button
-          onClick={() => setCommandPaletteOpen(true)}
-          className="flex w-full items-center gap-2 rounded-md border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent"
-        >
-          <Search className="h-4 w-4" />
-          {sidebarOpen && <span className="flex-1 text-left">Buscar…</span>}
-          {sidebarOpen && <kbd className="text-xs">⌘K</kbd>}
-        </button>
-
-        {NAV_ITEMS.map((item) => (
+        {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

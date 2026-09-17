@@ -15,6 +15,7 @@ import { useTaskDependencies } from "@/features/task-dependencies/hooks/useTaskD
 import { useTasks } from "../hooks/useTasks";
 import { Button } from "@/components/ui/button";
 import { Link2, Clock, MessageSquare, SlidersHorizontal } from "lucide-react";
+import { useCurrentMembership } from "@/features/workspace/hooks/useMembers";
 
 type DetailTab = "comments" | "dependencies" | "time" | "fields";
 
@@ -39,6 +40,7 @@ export function TaskModal({
   const { data: deps } = useTaskDependencies(task?.id ?? null);
   const { data: allTasks } = useTasks({ pageSize: 100 });
   const taskList = allTasks?.items ?? [];
+  const { canWrite } = useCurrentMembership();
 
   const tabs: {
     value: DetailTab;
@@ -63,7 +65,7 @@ export function TaskModal({
       }
       className={task ? "max-w-2xl" : undefined}
     >
-      {!task && (
+      {!task && canWrite && (
         <div className="mb-3">
           <UseTemplateButton onSelect={(data) => setTemplateData(data)} />
         </div>
@@ -72,6 +74,7 @@ export function TaskModal({
       <TaskForm
         task={task}
         templateData={templateData}
+        disabled={!canWrite}
         onSubmit={async (values) => {
           await onSubmit(values);
           setTemplateData(null);
@@ -101,10 +104,10 @@ export function TaskModal({
 
           {activeTab === "comments" && (
             <div className="space-y-4">
-              <CommentSection taskId={task.id} />
+              <CommentSection taskId={task.id} readOnly={!canWrite} />
               <hr className="my-4 border-border" />
               <h4 className="mb-3 text-sm font-medium">Archivos adjuntos</h4>
-              <FileUpload taskId={task.id} />
+              <FileUpload taskId={task.id} readOnly={!canWrite} />
             </div>
           )}
 
@@ -112,46 +115,55 @@ export function TaskModal({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-medium">Dependencias</h4>
-                <AddDependencyButton
-                  taskId={task.id}
-                  tasks={taskList}
-                  direction="from"
-                />
+                {canWrite && (
+                  <AddDependencyButton
+                    taskId={task.id}
+                    tasks={taskList}
+                    direction="from"
+                  />
+                )}
               </div>
               <DependencyList
                 taskId={task.id}
                 dependencies={deps}
                 tasks={taskList}
+                readOnly={!canWrite}
               />
             </div>
           )}
 
           {activeTab === "time" && (
             <div className="space-y-4">
-              <TimeEntryList taskId={task.id} />
-              <TimeEntryForm taskId={task.id} />
+              <TimeEntryList taskId={task.id} readOnly={!canWrite} />
+              {canWrite && <TimeEntryForm taskId={task.id} />}
             </div>
           )}
 
           {activeTab === "fields" && (
-            <CustomFieldForm entityType="task" entityId={task.id} />
+            <CustomFieldForm
+              entityType="task"
+              entityId={task.id}
+              readOnly={!canWrite}
+            />
           )}
 
-          <div className="mt-4 flex justify-end">
-            <SaveAsTemplateButton
-              data={{
-                title: task.title,
-                description: task.description,
-                status: task.status,
-                priority: task.priority,
-                dueDate: task.dueDate,
-                startDate: task.startDate,
-                categoryId: task.categoryId,
-                tagIds: task.tags?.map((t) => t.id) ?? [],
-                assigneeIds: task.assignees?.map((a) => a.id) ?? [],
-              }}
-            />
-          </div>
+          {canWrite && (
+            <div className="mt-4 flex justify-end">
+              <SaveAsTemplateButton
+                data={{
+                  title: task.title,
+                  description: task.description,
+                  status: task.status,
+                  priority: task.priority,
+                  dueDate: task.dueDate,
+                  startDate: task.startDate,
+                  categoryId: task.categoryId,
+                  tagIds: task.tags?.map((t) => t.id) ?? [],
+                  assigneeIds: task.assignees?.map((a) => a.id) ?? [],
+                }}
+              />
+            </div>
+          )}
         </>
       )}
     </Dialog>

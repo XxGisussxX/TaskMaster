@@ -91,15 +91,21 @@ export function DonutChart({ data }: { data: Record<Priority, number> }) {
         </text>
       </svg>
 
-      <ul className="space-y-1.5 text-sm">
+      <ul className="space-y-1 text-sm">
         {(Object.keys(Priority) as Priority[]).map((p) => (
-          <li key={p} className="flex items-center gap-2">
+          <li
+            key={p}
+            className="flex items-center gap-2 rounded-md px-2 py-1"
+            style={{
+              backgroundColor: `color-mix(in oklch, ${COLORS[p]} 10%, transparent)`,
+            }}
+          >
             <span
               className="h-2.5 w-2.5 rounded-full"
               style={{ backgroundColor: COLORS[p] }}
             />
             <span className="text-muted-foreground">{LABELS[p]}</span>
-            <span className="ml-auto font-medium">{data[p]}</span>
+            <span className="ml-auto font-semibold">{data[p]}</span>
           </li>
         ))}
       </ul>

@@ -1,11 +1,36 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { CustomFieldType } from "@taskmaster/contracts";
+import type {
+  CustomFieldDefinition,
+  CustomFieldType,
+  CustomFieldValue,
+} from "@taskmaster/contracts";
 import { customFieldsApi } from "../api/custom-fields.api";
 import { useWorkspaceStore } from "@/store/workspace.store";
 
+const MANY_CHUNK_SIZE = 50;
+
 function useCurrentWorkspaceId(): string | null {
   return useWorkspaceStore((s) => s.currentWorkspaceId);
+}
+
+async function fetchValuesMany(
+  workspaceId: string,
+  entityType: string,
+  entityIds: string[],
+): Promise<Record<string, CustomFieldValue[]>> {
+  const chunks: string[][] = [];
+  for (let i = 0; i < entityIds.length; i += MANY_CHUNK_SIZE) {
+    chunks.push(entityIds.slice(i, i + MANY_CHUNK_SIZE));
+  }
+
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      customFieldsApi.getValuesMany(workspaceId, entityType, chunk),
+    ),
+  );
+
+  return Object.assign({}, ...results);
 }
 
 export function useCustomFieldDefinitions() {
@@ -84,6 +109,43 @@ export function useUpdateCustomFieldDefinition() {
   });
 }
 
+export function useReorderCustomFieldDefinitions() {
+  const workspaceId = useCurrentWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (orderedIds: string[]) => {
+      if (!workspaceId) throw new Error("No hay workspace seleccionado");
+      return customFieldsApi.reorderDefinitions(workspaceId, orderedIds);
+    },
+    onMutate: async (orderedIds) => {
+      const queryKey = ["customFieldDefinitions", workspaceId];
+      await qc.cancelQueries({ queryKey });
+      const previous = qc.getQueryData<CustomFieldDefinition[]>(queryKey) ?? [];
+      const byId = new Map(previous.map((d) => [d.id, d]));
+      const next = orderedIds
+        .map((id, index) => {
+          const def = byId.get(id);
+          return def ? { ...def, order: index + 1 } : null;
+        })
+        .filter((d): d is CustomFieldDefinition => d !== null);
+      qc.setQueryData(queryKey, next);
+      return { previous };
+    },
+    onError: (error: Error, _variables, context) => {
+      qc.setQueryData(
+        ["customFieldDefinitions", workspaceId],
+        context?.previous ?? [],
+      );
+      toast.error("No se pudo reordenar", { description: error.message });
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({
+        queryKey: ["customFieldDefinitions", workspaceId],
+      });
+    },
+  });
+}
+
 export function useDeleteCustomFieldDefinition() {
   const workspaceId = useCurrentWorkspaceId();
   const qc = useQueryClient();
@@ -116,6 +178,19 @@ export function useCustomFieldValues(entityType: string, entityId: string) {
   });
 }
 
+export function useCustomFieldValuesMany(
+  entityType: string,
+  entityIds: string[],
+) {
+  const workspaceId = useCurrentWorkspaceId();
+  const ids = [...new Set(entityIds)].sort();
+  return useQuery({
+    queryKey: ["customFieldValuesMany", workspaceId, entityType, ids],
+    queryFn: () => fetchValuesMany(workspaceId!, entityType, ids),
+    enabled: !!workspaceId && ids.length > 0,
+  });
+}
+
 export function useSetCustomFieldValue() {
   const workspaceId = useCurrentWorkspaceId();
   const qc = useQueryClient();
@@ -137,6 +212,9 @@ export function useSetCustomFieldValue() {
           variables.entityType,
           variables.entityId,
         ],
+      });
+      void qc.invalidateQueries({
+        queryKey: ["customFieldValuesMany", workspaceId, variables.entityType],
       });
     },
     onError: (error: Error) => {

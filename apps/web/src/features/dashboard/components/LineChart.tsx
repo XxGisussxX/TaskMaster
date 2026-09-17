@@ -44,7 +44,7 @@ export function LineChart({ series }: { series: SeriesPoint[] }) {
     )
     .join(" ");
 
-  const gridLines = 4;
+  const gridLines = Math.min(4, maxValue);
   const yTicks = Array.from(
     { length: gridLines + 1 },
     (_, i) => (maxValue / gridLines) * i,

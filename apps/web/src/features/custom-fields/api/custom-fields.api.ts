@@ -31,6 +31,12 @@ export const customFieldsApi = {
       input,
     ),
 
+  reorderDefinitions: (workspaceId: string, orderedIds: string[]) =>
+    http.post<CustomFieldDefinition[]>(
+      `/workspaces/${workspaceId}/custom-fields/reorder`,
+      { orderedIds },
+    ),
+
   removeDefinition: (workspaceId: string, id: string) =>
     http.delete<void>(`/workspaces/${workspaceId}/custom-fields/${id}`),
 
@@ -54,4 +60,14 @@ export const customFieldsApi = {
       `/workspaces/${workspaceId}/custom-fields/values?${params.toString()}`,
     );
   },
+
+  getValuesMany: (
+    workspaceId: string,
+    entityType: string,
+    entityIds: string[],
+  ) =>
+    http.post<Record<string, CustomFieldValue[]>>(
+      `/workspaces/${workspaceId}/custom-fields/values/many`,
+      { entityType, entityIds },
+    ),
 };

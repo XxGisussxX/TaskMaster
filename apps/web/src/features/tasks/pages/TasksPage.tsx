@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, LayoutGrid, Rows3, Kanban, BarChart3 } from "lucide-react";
 import type { Task, TaskStatus } from "@taskmaster/contracts";
 import { Button } from "@/components/ui/button";
@@ -25,14 +25,19 @@ import { SavedViewBar } from "@/features/saved-views/components/SavedViewBar";
 import type { TaskFormValues } from "../components/TaskForm";
 import { PageHeader } from "@/components/ui/page-header";
 import { http } from "@/services/http";
+import { useCurrentMembership } from "@/features/workspace/hooks/useMembers";
+import { useUiStore } from "@/store/ui.store";
 
 export function TasksPage() {
   const workspaceId = useCurrentWorkspaceId();
+  const { canWrite } = useCurrentMembership();
   const filters = useFiltersStore();
   const search = useDebounce(filters.search, 300);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
-  const { selectedIds, toggle, toggleAll } = useSelectionStore();
+  const { selectedIds, toggle } = useSelectionStore();
+  const taskModalRequest = useUiStore((s) => s.taskModalRequest);
+  const consumeTaskModalRequest = useUiStore((s) => s.consumeTaskModalRequest);
 
   const { data, isLoading, isError } = useTasks({
     status: filters.status === "ALL" ? undefined : filters.status,
@@ -129,9 +134,19 @@ export function TasksPage() {
     setModalOpen(true);
   };
 
-  const handleSelectAll = () => {
-    toggleAll(tasks.map((t) => t.id));
-  };
+  useEffect(() => {
+    if (!taskModalRequest) return;
+    if (taskModalRequest.mode === "create") {
+      if (canWrite) {
+        setEditing(null);
+        setModalOpen(true);
+      }
+    } else {
+      setEditing(taskModalRequest.task);
+      setModalOpen(true);
+    }
+    consumeTaskModalRequest();
+  }, [taskModalRequest, canWrite, consumeTaskModalRequest]);
 
   return (
     <div className="space-y-4">
@@ -139,10 +154,12 @@ export function TasksPage() {
         title="Tareas"
         description={workspaceId ? undefined : "Cargando workspace…"}
         action={
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4" />
-            Nueva tarea
-          </Button>
+          canWrite && (
+            <Button onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              Nueva tarea
+            </Button>
+          )
         }
       />
 
@@ -181,10 +198,12 @@ export function TasksPage() {
           title="Sin tareas"
           description="Crea tu primera tarea para empezar a organizarte"
           action={
-            <Button variant="outline" size="sm" onClick={openCreate}>
-              <Plus className="h-4 w-4" />
-              Crear tarea
-            </Button>
+            canWrite && (
+              <Button variant="outline" size="sm" onClick={openCreate}>
+                <Plus className="h-4 w-4" />
+                Crear tarea
+              </Button>
+            )
           }
         />
       )}
@@ -200,6 +219,7 @@ export function TasksPage() {
               onDelete={handleDelete}
               selected={selectedIds.has(task.id)}
               onSelect={toggle}
+              disabled={!canWrite}
             />
           ))}
         </div>
@@ -213,7 +233,7 @@ export function TasksPage() {
           onDelete={handleDelete}
           selectedIds={selectedIds}
           onToggleSelect={toggle}
-          onSelectAll={handleSelectAll}
+          disabled={!canWrite}
         />
       )}
 
@@ -222,11 +242,12 @@ export function TasksPage() {
           tasks={tasks}
           onEdit={openEdit}
           onStatusChange={handleStatusChange}
+          readOnly={!canWrite}
         />
       )}
 
       {filters.view === "gantt" && (
-        <GanttView tasks={tasks} onEdit={openEdit} />
+        <GanttView tasks={tasks} onEdit={openEdit} readOnly={!canWrite} />
       )}
 
       {(createTask.isPending || updateTask.isPending) && (

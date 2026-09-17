@@ -35,34 +35,38 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PageHeader title="Dashboard" description="Resumen de tu actividad" />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           label="Tareas activas"
           value={data.kpis.activeTasks}
           icon={ListTodo}
+          accent="primary"
         />
         <KpiCard
           label="Completadas hoy"
           value={data.kpis.completedToday}
           icon={CheckCircle2}
+          accent="success"
         />
         <KpiCard
           label="Vencidas"
           value={data.kpis.overdueTasks}
           icon={AlarmClock}
+          accent="danger"
         />
         <KpiCard
           label="Tiempo promedio"
           value={`${data.kpis.avgCompletionDays.toLocaleString("es")} días`}
           icon={Timer}
+          accent="warning"
         />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
-        <Card className="xl:col-span-3">
+        <Card className="overflow-hidden xl:col-span-3">
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-base">Creadas vs completadas</CardTitle>
             <ChartLegend />
@@ -72,7 +76,7 @@ export function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="xl:col-span-2">
+        <Card className="overflow-hidden xl:col-span-2">
           <CardHeader>
             <CardTitle className="text-base">Por prioridad</CardTitle>
           </CardHeader>
@@ -82,7 +86,7 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader>
           <CardTitle className="text-base">Actividad anual</CardTitle>
         </CardHeader>
@@ -91,7 +95,7 @@ export function DashboardPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Activity className="h-4 w-4" /> Actividad reciente

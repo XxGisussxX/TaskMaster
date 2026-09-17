@@ -68,12 +68,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     );
   }
 
-  const contentType = res.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
+  try {
     return (await res.json()) as T;
+  } catch {
+    return undefined as T;
   }
-
-  return undefined as T;
 }
 
 export const http = {

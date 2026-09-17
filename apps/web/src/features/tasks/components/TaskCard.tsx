@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Task } from "@taskmaster/contracts";
 import {
   CheckCircle2,
@@ -6,10 +7,11 @@ import {
   Trash2,
   Circle,
   RotateCcw,
+  Check,
+  ListChecks,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar } from "@/components/ui/avatar";
 import { PriorityBadge } from "./PriorityBadge";
 import { TimerButton } from "@/features/time-entries/components/TimerButton";
@@ -22,6 +24,7 @@ export function TaskCard({
   onDelete,
   selected,
   onSelect,
+  disabled = false,
 }: {
   task: Task;
   onToggleComplete: (task: Task) => void;
@@ -29,31 +32,77 @@ export function TaskCard({
   onDelete: (task: Task) => void;
   selected?: boolean;
   onSelect?: (id: string) => void;
+  disabled?: boolean;
 }) {
   const done = task.status === "DONE";
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <Card className="group flex flex-col gap-2 p-4 transition-shadow hover:shadow-md">
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
-          {onSelect && (
-            <Checkbox
-              checked={selected}
-              onChange={() => onSelect(task.id)}
-              aria-label={`Seleccionar tarea "${task.title}"`}
-            />
+        <div className="relative flex items-center gap-2">
+          {!disabled && (
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              aria-label="Opciones de tarea"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              className="mt-0.5 text-muted-foreground transition-colors hover:text-primary"
+            >
+              {done ? (
+                <CheckCircle2 className="h-5 w-5 text-success" />
+              ) : selected ? (
+                <Circle className="h-5 w-5 fill-current text-primary" />
+              ) : (
+                <Circle className="h-5 w-5" />
+              )}
+            </button>
           )}
-          <button
-            onClick={() => onToggleComplete(task)}
-            aria-label={done ? "Reabrir tarea" : "Completar tarea"}
-            className="mt-0.5 text-muted-foreground transition-colors hover:text-success"
-          >
-            {done ? (
-              <CheckCircle2 className="h-5 w-5 text-success" />
-            ) : (
-              <Circle className="h-5 w-5" />
-            )}
-          </button>
+          {disabled && (
+            <span className="mt-0.5 text-muted-foreground">
+              {done ? (
+                <CheckCircle2 className="h-5 w-5 text-success" />
+              ) : (
+                <Circle className="h-5 w-5" />
+              )}
+            </span>
+          )}
+          {menuOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setMenuOpen(false)}
+              />
+              <div className="absolute left-0 top-full z-20 mt-1 w-48 rounded-md border border-border bg-card py-1 shadow-md">
+                <button
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent"
+                  onClick={() => {
+                    onToggleComplete(task);
+                    setMenuOpen(false);
+                  }}
+                >
+                  {done ? (
+                    <RotateCcw className="h-4 w-4" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                  {done ? "Reabrir tarea" : "Completar tarea"}
+                </button>
+                {onSelect && (
+                  <button
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent"
+                    onClick={() => {
+                      onSelect(task.id);
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <ListChecks className="h-4 w-4" />
+                    {selected ? "Quitar selección" : "Seleccionar"}
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </div>
         <p
           className={
@@ -65,23 +114,27 @@ export function TaskCard({
           {task.title}
         </p>
         <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          <TimerButton taskId={task.id} taskTitle={task.title} />
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Editar"
-            onClick={() => onEdit(task)}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Eliminar"
-            onClick={() => onDelete(task)}
-          >
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
+          {disabled ? null : (
+            <>
+              <TimerButton taskId={task.id} taskTitle={task.title} />
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Editar"
+                onClick={() => onEdit(task)}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Eliminar"
+                onClick={() => onDelete(task)}
+              >
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </>
+          )}
         </div>
       </div>
 

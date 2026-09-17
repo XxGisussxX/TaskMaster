@@ -12,14 +12,17 @@ import { formatDateISO } from "@/lib/date";
 function DraggableTaskChip({
   task,
   onEdit,
+  readOnly,
 }: {
   task: Task;
   onEdit: (task: Task) => void;
+  readOnly?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: task.id,
       data: { task },
+      disabled: readOnly,
     });
 
   const style = transform
@@ -29,12 +32,13 @@ function DraggableTaskChip({
   return (
     <div
       ref={setNodeRef}
-      {...listeners}
-      {...attributes}
+      {...(readOnly ? {} : listeners)}
+      {...(readOnly ? {} : attributes)}
       style={style}
       className={cn(
-        "cursor-grab truncate rounded px-1.5 py-0.5 text-[11px] font-medium",
+        "truncate rounded px-1.5 py-0.5 text-[11px] font-medium",
         "bg-primary/10 text-primary hover:bg-primary/20",
+        readOnly ? "cursor-pointer" : "cursor-grab",
         isDragging && "opacity-50",
       )}
       onClick={(e) => {
@@ -76,12 +80,14 @@ export function WeekView({
   onDayClick,
   onTaskEdit,
   onDateDrop,
+  readOnly = false,
 }: {
   tasks: Task[];
   cursor: Date;
   onDayClick: (date: Date) => void;
   onTaskEdit: (task: Task) => void;
   onDateDrop: (taskId: string, newDate: string) => void;
+  readOnly?: boolean;
 }) {
   const today = formatDateISO(new Date());
 
@@ -111,6 +117,7 @@ export function WeekView({
   }, [tasks]);
 
   const handleDragEnd = (event: DragEndEvent) => {
+    if (readOnly) return;
     const { active, over } = event;
     if (!over) return;
     const taskId = active.id as string;
@@ -142,13 +149,16 @@ export function WeekView({
               <DroppableDay dateKey={dateKey}>
                 <div
                   className="cursor-pointer"
-                  onClick={() => onDayClick(date)}
+                  onClick={() => {
+                    if (!readOnly) onDayClick(date);
+                  }}
                 >
                   {dayTasks.map((task) => (
                     <DraggableTaskChip
                       key={task.id}
                       task={task}
                       onEdit={onTaskEdit}
+                      readOnly={readOnly}
                     />
                   ))}
                   {dayTasks.length === 0 && <div className="h-6" />}

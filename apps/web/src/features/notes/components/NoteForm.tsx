@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { FileUpload } from "@/features/attachments/components/FileUpload";
+import { CustomFieldForm } from "@/features/custom-fields/components/CustomFieldForm";
 
 const formSchema = z.object({
   type: z.nativeEnum(NoteType),
@@ -25,10 +26,12 @@ export function NoteForm({
   note,
   onSubmit,
   submitting,
+  disabled = false,
 }: {
   note?: Note | null;
   onSubmit: (values: NoteFormValues) => void;
   submitting?: boolean;
+  disabled?: boolean;
 }) {
   const {
     register,
@@ -104,21 +107,32 @@ export function NoteForm({
           value={watch("content") ?? ""}
           onChange={(val) => setValue("content", val)}
           placeholder="Escribe aquí…"
+          editable={!disabled}
         />
         {errors.content && (
           <p className="text-sm text-destructive">{errors.content.message}</p>
         )}
       </div>
 
-      <Button type="submit" className="w-full" disabled={submitting}>
-        {submitting ? "Guardando…" : note ? "Guardar cambios" : "Crear nota"}
-      </Button>
+      {!disabled && (
+        <Button type="submit" className="w-full" disabled={submitting}>
+          {submitting ? "Guardando…" : note ? "Guardar cambios" : "Crear nota"}
+        </Button>
+      )}
 
       {note && (
         <>
           <hr className="my-4 border-border" />
           <h4 className="mb-3 text-sm font-medium">Archivos adjuntos</h4>
-          <FileUpload noteId={note.id} />
+          <FileUpload noteId={note.id} readOnly={disabled} />
+
+          <hr className="my-4 border-border" />
+          <h4 className="mb-3 text-sm font-medium">Campos personalizados</h4>
+          <CustomFieldForm
+            entityType="note"
+            entityId={note.id}
+            readOnly={disabled}
+          />
         </>
       )}
     </form>

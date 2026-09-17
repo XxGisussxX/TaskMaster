@@ -14,6 +14,7 @@ import {
   useDeleteReminder,
 } from "../hooks/useReminders";
 import { formatDateISO } from "@/lib/date";
+import { useCurrentMembership } from "@/features/workspace/hooks/useMembers";
 
 type FormValues = {
   title: string;
@@ -110,6 +111,7 @@ function ReminderForm({
 export function ReminderList() {
   const { data: reminders = [], isLoading } = useReminders();
   const deleteReminder = useDeleteReminder();
+  const { canWrite } = useCurrentMembership();
   const [formOpen, setFormOpen] = useState(false);
 
   function handleDelete(id: string) {
@@ -124,10 +126,12 @@ export function ReminderList() {
         <h3 className="text-sm font-medium text-muted-foreground">
           Recordatorios ({reminders.length})
         </h3>
-        <Button size="sm" onClick={() => setFormOpen(true)}>
-          <Bell className="mr-1.5 h-3.5 w-3.5" />
-          Nuevo
-        </Button>
+        {canWrite && (
+          <Button size="sm" onClick={() => setFormOpen(true)}>
+            <Bell className="mr-1.5 h-3.5 w-3.5" />
+            Nuevo
+          </Button>
+        )}
       </div>
 
       {isLoading && (
@@ -161,14 +165,16 @@ export function ReminderList() {
                   {isSent && " · Enviado"}
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                onClick={() => handleDelete(reminder.id)}
-              >
-                <Trash2 className="h-3.5 w-3.5 text-destructive" />
-              </Button>
+              {canWrite && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => handleDelete(reminder.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                </Button>
+              )}
             </div>
           );
         })}

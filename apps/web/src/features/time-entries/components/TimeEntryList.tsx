@@ -14,9 +14,11 @@ function formatDuration(totalSeconds: number): string {
 function TimeEntryRow({
   entry,
   onDelete,
+  readOnly,
 }: {
   entry: TimeEntry;
   onDelete: (id: string) => void;
+  readOnly?: boolean;
 }) {
   return (
     <div className="flex items-center gap-3 rounded-md border px-3 py-2">
@@ -37,23 +39,29 @@ function TimeEntryRow({
           {entry.description ? ` · ${entry.description}` : ""}
         </p>
       </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8 shrink-0"
-        onClick={() => onDelete(entry.id)}
-      >
-        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-      </Button>
+      {!readOnly && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          onClick={() => onDelete(entry.id)}
+        >
+          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+        </Button>
+      )}
     </div>
   );
 }
 
 interface TimeEntryListProps {
   taskId: string;
+  readOnly?: boolean;
 }
 
-export function TimeEntryList({ taskId }: TimeEntryListProps) {
+export function TimeEntryList({
+  taskId,
+  readOnly = false,
+}: TimeEntryListProps) {
   const { data: entries = [], isLoading } = useTimeEntries({ taskId });
   const deleteEntry = useDeleteTimeEntry();
 
@@ -81,7 +89,12 @@ export function TimeEntryList({ taskId }: TimeEntryListProps) {
 
       <div className="space-y-2">
         {entries.map((entry) => (
-          <TimeEntryRow key={entry.id} entry={entry} onDelete={handleDelete} />
+          <TimeEntryRow
+            key={entry.id}
+            entry={entry}
+            onDelete={handleDelete}
+            readOnly={readOnly}
+          />
         ))}
       </div>
     </div>

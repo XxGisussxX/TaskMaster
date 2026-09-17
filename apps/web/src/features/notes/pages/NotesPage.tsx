@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { NoteType } from "@taskmaster/contracts";
 import type { Note } from "@taskmaster/contracts";
@@ -9,8 +9,11 @@ import { Select } from "@/components/ui/select";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageLoader } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useUiStore } from "@/store/ui.store";
 import { NoteCard } from "../components/NoteCard";
 import { NoteForm, type NoteFormValues } from "../components/NoteForm";
+import { useCustomFieldValuesMany } from "@/features/custom-fields/hooks/useCustomFields";
+import { useCurrentMembership } from "@/features/workspace/hooks/useMembers";
 import {
   useNotes,
   useCreateNote,
@@ -23,6 +26,9 @@ export function NotesPage() {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Note | null>(null);
+  const { canWrite } = useCurrentMembership();
+  const noteCreateRequest = useUiStore((s) => s.noteCreateRequest);
+  const consumeNoteCreate = useUiStore((s) => s.consumeNoteCreate);
 
   const { data, isLoading } = useNotes({
     type: typeFilter === "ALL" ? undefined : typeFilter,
@@ -34,6 +40,10 @@ export function NotesPage() {
   const deleteNote = useDeleteNote();
 
   const notes = data?.items ?? [];
+  const { data: valuesByNote = {} } = useCustomFieldValuesMany(
+    "note",
+    notes.map((n) => n.id),
+  );
 
   const handleSubmit = (values: NoteFormValues) => {
     if (editing) {
@@ -54,20 +64,31 @@ export function NotesPage() {
     updateNote.mutate({ id: note.id, input: { pinned: !note.pinned } });
   };
 
+  useEffect(() => {
+    if (!noteCreateRequest) return;
+    if (canWrite) {
+      setEditing(null);
+      setModalOpen(true);
+    }
+    consumeNoteCreate();
+  }, [noteCreateRequest, canWrite, consumeNoteCreate]);
+
   return (
     <div className="space-y-4">
       <PageHeader
         title="Notas"
         action={
-          <Button
-            onClick={() => {
-              setEditing(null);
-              setModalOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Nueva nota
-          </Button>
+          canWrite && (
+            <Button
+              onClick={() => {
+                setEditing(null);
+                setModalOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              Nueva nota
+            </Button>
+          )
         }
       />
 
@@ -100,17 +121,19 @@ export function NotesPage() {
           title="Sin notas"
           description="Crea una nota estándar, lista, idea, reunión o pegatina"
           action={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setEditing(null);
-                setModalOpen(true);
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              Crear nota
-            </Button>
+            canWrite && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEditing(null);
+                  setModalOpen(true);
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                Crear nota
+              </Button>
+            )
           }
         />
       )}
@@ -119,13 +142,16 @@ export function NotesPage() {
         {notes.map((note) => (
           <div key={note.id} className="mb-3 break-inside-avoid">
             <NoteCard
+              key={note.id}
               note={note}
+              customValues={valuesByNote[note.id]}
               onEdit={(n) => {
                 setEditing(n);
                 setModalOpen(true);
               }}
               onDelete={handleDelete}
               onTogglePin={handleTogglePin}
+              disabled={!canWrite}
             />
           </div>
         ))}
@@ -140,6 +166,7 @@ export function NotesPage() {
           note={editing}
           onSubmit={handleSubmit}
           submitting={createNote.isPending || updateNote.isPending}
+          disabled={!canWrite}
         />
       </Dialog>
     </div>

@@ -12,14 +12,17 @@ import { formatDateISO } from "@/lib/date";
 function DraggableTaskChip({
   task,
   onEdit,
+  readOnly,
 }: {
   task: Task;
   onEdit: (task: Task) => void;
+  readOnly?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: task.id,
       data: { task },
+      disabled: readOnly,
     });
 
   const style = transform
@@ -29,11 +32,12 @@ function DraggableTaskChip({
   return (
     <div
       ref={setNodeRef}
-      {...listeners}
-      {...attributes}
+      {...(readOnly ? {} : listeners)}
+      {...(readOnly ? {} : attributes)}
       style={style}
       className={cn(
-        "cursor-grab truncate rounded bg-primary/10 px-1 py-0.5 text-[10px] text-primary",
+        "truncate rounded bg-primary/10 px-1 py-0.5 text-[10px] text-primary",
+        readOnly ? "cursor-pointer" : "cursor-grab",
         "hover:bg-primary/20",
         isDragging && "opacity-50",
       )}
@@ -78,12 +82,14 @@ export function MonthView({
   onDayClick,
   onTaskEdit,
   onDateDrop,
+  readOnly = false,
 }: {
   tasks: Task[];
   cursor: Date;
   onDayClick: (date: Date) => void;
   onTaskEdit: (task: Task) => void;
   onDateDrop: (taskId: string, newDate: string) => void;
+  readOnly?: boolean;
 }) {
   const today = formatDateISO(new Date());
 
@@ -116,6 +122,7 @@ export function MonthView({
   }, [cursor]);
 
   const handleDragEnd = (event: DragEndEvent) => {
+    if (readOnly) return;
     const { active, over } = event;
     if (!over) return;
     const taskId = active.id as string;
@@ -144,7 +151,12 @@ export function MonthView({
 
           return (
             <DroppableCell key={key} dateKey={key}>
-              <div className="cursor-pointer" onClick={() => onDayClick(date)}>
+              <div
+                className="cursor-pointer"
+                onClick={() => {
+                  if (!readOnly) onDayClick(date);
+                }}
+              >
                 <span
                   className={cn(
                     "text-xs",
@@ -161,6 +173,7 @@ export function MonthView({
                       key={task.id}
                       task={task}
                       onEdit={onTaskEdit}
+                      readOnly={readOnly}
                     />
                   ))}
                   {dayTasks.length > 2 && (

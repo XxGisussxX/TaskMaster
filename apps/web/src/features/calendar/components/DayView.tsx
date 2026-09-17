@@ -14,14 +14,17 @@ import { StatusBadge } from "@/features/tasks/components/StatusBadge";
 function DraggableTaskRow({
   task,
   onEdit,
+  readOnly,
 }: {
   task: Task;
   onEdit: (task: Task) => void;
+  readOnly?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: task.id,
       data: { task },
+      disabled: readOnly,
     });
 
   const style = transform
@@ -31,11 +34,12 @@ function DraggableTaskRow({
   return (
     <div
       ref={setNodeRef}
-      {...listeners}
-      {...attributes}
+      {...(readOnly ? {} : listeners)}
+      {...(readOnly ? {} : attributes)}
       style={style}
       className={cn(
-        "flex cursor-grab items-center gap-3 rounded-md border px-3 py-2 transition-colors hover:bg-muted/50",
+        "flex items-center gap-3 rounded-md border px-3 py-2 transition-colors hover:bg-muted/50",
+        readOnly ? "cursor-pointer" : "cursor-grab",
         isDragging && "opacity-50",
       )}
       onClick={(e) => {
@@ -73,12 +77,14 @@ export function DayView({
   onDayClick,
   onTaskEdit,
   onDateDrop,
+  readOnly = false,
 }: {
   tasks: Task[];
   cursor: Date;
   onDayClick: (date: Date) => void;
   onTaskEdit: (task: Task) => void;
   onDateDrop: (taskId: string, newDate: string) => void;
+  readOnly?: boolean;
 }) {
   const dateKey = formatDateISO(cursor);
   const today = formatDateISO(new Date());
@@ -98,6 +104,7 @@ export function DayView({
   );
 
   const handleDragEnd = (event: DragEndEvent) => {
+    if (readOnly) return;
     const { active, over } = event;
     if (!over) return;
     const taskId = active.id as string;
@@ -141,7 +148,9 @@ export function DayView({
           </h3>
           <button
             className="text-sm text-muted-foreground hover:text-foreground"
-            onClick={() => onDayClick(cursor)}
+            onClick={() => {
+              if (!readOnly) onDayClick(cursor);
+            }}
           >
             + Nueva tarea
           </button>
@@ -154,7 +163,12 @@ export function DayView({
         ) : (
           <div className="space-y-2">
             {dayTasks.map((task) => (
-              <DraggableTaskRow key={task.id} task={task} onEdit={onTaskEdit} />
+              <DraggableTaskRow
+                key={task.id}
+                task={task}
+                onEdit={onTaskEdit}
+                readOnly={readOnly}
+              />
             ))}
           </div>
         )}

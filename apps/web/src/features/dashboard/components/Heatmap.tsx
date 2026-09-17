@@ -14,10 +14,10 @@ function level(count: number): number {
 
 const LEVEL_COLORS = [
   "var(--color-muted)",
-  "oklch(0.75 0.14 150)",
-  "oklch(0.65 0.16 150)",
-  "oklch(0.55 0.18 150)",
-  "oklch(0.45 0.2 150)",
+  "oklch(0.78 0.12 262)",
+  "oklch(0.68 0.16 262)",
+  "oklch(0.58 0.19 262)",
+  "oklch(0.48 0.21 262)",
 ];
 
 export function Heatmap({

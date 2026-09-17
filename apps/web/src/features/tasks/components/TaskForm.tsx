@@ -51,11 +51,13 @@ export function TaskForm({
   templateData,
   onSubmit,
   submitting,
+  disabled = false,
 }: {
   task?: Task | null;
   templateData?: Record<string, unknown> | null;
   onSubmit: (values: TaskFormValues) => void;
   submitting?: boolean;
+  disabled?: boolean;
 }) {
   const {
     register,
@@ -220,6 +222,7 @@ export function TaskForm({
           value={watch("description") ?? ""}
           onChange={(val) => setValue("description", val)}
           placeholder="Detalles opcionales…"
+          editable={!disabled}
         />
       </div>
 
@@ -275,6 +278,7 @@ export function TaskForm({
           variant="ghost"
           size="sm"
           className="h-7 text-xs"
+          disabled={disabled}
           onClick={() => {
             const name = prompt("Nombre de la nueva categoría:");
             if (name?.trim()) handleCreateCategory(name.trim());
@@ -291,7 +295,7 @@ export function TaskForm({
           selected={tagIds}
           onChange={setTagIds}
           placeholder="Seleccionar etiquetas…"
-          onCreateNew={handleCreateTag}
+          onCreateNew={disabled ? undefined : handleCreateTag}
           createLabel="Crear etiqueta"
         />
       </div>
@@ -351,9 +355,11 @@ export function TaskForm({
         )}
       </div>
 
-      <Button type="submit" className="w-full" disabled={submitting}>
-        {submitting ? "Guardando…" : task ? "Guardar cambios" : "Crear tarea"}
-      </Button>
+      {!disabled && (
+        <Button type="submit" className="w-full" disabled={submitting}>
+          {submitting ? "Guardando…" : task ? "Guardar cambios" : "Crear tarea"}
+        </Button>
+      )}
     </form>
   );
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -26,6 +26,8 @@ import { MonthView } from "../components/MonthView";
 import { WeekView } from "../components/WeekView";
 import { DayView } from "../components/DayView";
 import { http } from "@/services/http";
+import { useCurrentMembership } from "@/features/workspace/hooks/useMembers";
+import { useUiStore } from "@/store/ui.store";
 
 type ViewMode = "month" | "week" | "day";
 
@@ -42,6 +44,25 @@ export function CalendarPage() {
   const { data, isLoading } = useTasks({ pageSize: 500 });
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
+  const { canWrite } = useCurrentMembership();
+  const taskModalRequest = useUiStore((s) => s.taskModalRequest);
+  const consumeTaskModalRequest = useUiStore((s) => s.consumeTaskModalRequest);
+
+  useEffect(() => {
+    if (!taskModalRequest) return;
+    if (taskModalRequest.mode === "create") {
+      if (canWrite) {
+        setEditing(null);
+        setPrefilledDate(null);
+        setModalOpen(true);
+      }
+    } else {
+      setEditing(taskModalRequest.task);
+      setPrefilledDate(null);
+      setModalOpen(true);
+    }
+    consumeTaskModalRequest();
+  }, [taskModalRequest, canWrite, consumeTaskModalRequest]);
 
   const tasks = useMemo(() => data?.items ?? [], [data?.items]);
 
@@ -94,6 +115,7 @@ export function CalendarPage() {
   };
 
   const handleDateDrop = (taskId: string, newDate: string) => {
+    if (!canWrite) return;
     updateTask.mutate({
       id: taskId,
       input: { dueDate: newDate },
@@ -186,6 +208,7 @@ export function CalendarPage() {
               onDayClick={handleDayClick}
               onTaskEdit={handleTaskEdit}
               onDateDrop={handleDateDrop}
+              readOnly={!canWrite}
             />
           )}
           {viewMode === "week" && (
@@ -195,6 +218,7 @@ export function CalendarPage() {
               onDayClick={handleDayClick}
               onTaskEdit={handleTaskEdit}
               onDateDrop={handleDateDrop}
+              readOnly={!canWrite}
             />
           )}
           {viewMode === "day" && (
@@ -204,6 +228,7 @@ export function CalendarPage() {
               onDayClick={handleDayClick}
               onTaskEdit={handleTaskEdit}
               onDateDrop={handleDateDrop}
+              readOnly={!canWrite}
             />
           )}
         </Card>

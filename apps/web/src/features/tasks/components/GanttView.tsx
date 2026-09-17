@@ -6,9 +6,10 @@ import { useUpdateTask } from "../hooks/useTasks";
 interface GanttViewProps {
   tasks: Task[];
   onEdit: (task: Task) => void;
+  readOnly?: boolean;
 }
 
-export function GanttView({ tasks, onEdit }: GanttViewProps) {
+export function GanttView({ tasks, onEdit, readOnly = false }: GanttViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ganttRef = useRef<InstanceType<typeof Gantt> | null>(null);
   const updateTask = useUpdateTask();
@@ -42,13 +43,14 @@ export function GanttView({ tasks, onEdit }: GanttViewProps) {
     ganttRef.current = new Gantt(el, ganttTasks, {
       view_mode: "Day",
       date_format: "YYYY-MM-DD",
+      readonly: readOnly,
       on_click: (task: Gantt.Task) => {
-        if (!task.id) return;
+        if (readOnly || !task.id) return;
         const found = tasks.find((t) => t.id === task.id);
         if (found) onEdit(found);
       },
       on_date_change: (task: Gantt.Task, start: Date, end: Date) => {
-        if (!task.id) return;
+        if (readOnly || !task.id) return;
         updateTask.mutate({
           id: task.id,
           input: {
@@ -65,7 +67,7 @@ export function GanttView({ tasks, onEdit }: GanttViewProps) {
         el.innerHTML = "";
       }
     };
-  }, [ganttTasks, tasks, onEdit, updateTask]);
+  }, [ganttTasks, tasks, onEdit, updateTask, readOnly]);
 
   if (ganttTasks.length === 0) {
     return (

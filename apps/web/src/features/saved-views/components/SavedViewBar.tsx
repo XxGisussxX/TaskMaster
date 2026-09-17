@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bookmark, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import type { SavedView } from "@taskmaster/contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,12 +9,14 @@ import {
   useCreateSavedView,
   useDeleteSavedView,
 } from "../hooks/useSavedViews";
+import { useCurrentMembership } from "@/features/workspace/hooks/useMembers";
 
 export function SavedViewBar() {
   const filters = useFiltersStore();
   const { data: views } = useSavedViews();
   const createView = useCreateSavedView();
   const deleteView = useDeleteSavedView();
+  const { canWrite } = useCurrentMembership();
   const [editing, setEditing] = useState(false);
   const [newName, setNewName] = useState("");
 
@@ -67,8 +69,6 @@ export function SavedViewBar() {
 
   return (
     <div className="flex items-center gap-2">
-      <Bookmark className="h-4 w-4 text-muted-foreground" />
-
       {views && views.length > 0 && (
         <div className="flex items-center gap-1">
           {views.map((view) => (
@@ -81,23 +81,25 @@ export function SavedViewBar() {
               >
                 {view.name}
               </Button>
-              <button
-                className="absolute -right-1 -top-1 hidden h-4 w-4 items-center justify-center rounded-full bg-destructive text-destructive-foreground group-hover:inline-flex"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (window.confirm(`¿Eliminar la vista "${view.name}"?`)) {
-                    deleteView.mutate(view.id);
-                  }
-                }}
-              >
-                <X className="h-2.5 w-2.5" />
-              </button>
+              {canWrite && (
+                <button
+                  className="absolute -right-1 -top-1 hidden h-4 w-4 items-center justify-center rounded-full bg-destructive text-destructive-foreground group-hover:inline-flex"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (window.confirm(`¿Eliminar la vista "${view.name}"?`)) {
+                      deleteView.mutate(view.id);
+                    }
+                  }}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              )}
             </div>
           ))}
         </div>
       )}
 
-      {hasActiveFilters && !editing && (
+      {hasActiveFilters && !editing && canWrite && (
         <Button
           variant="outline"
           size="sm"
@@ -109,7 +111,7 @@ export function SavedViewBar() {
         </Button>
       )}
 
-      {editing && (
+      {editing && canWrite && (
         <div className="flex items-center gap-1">
           <Input
             value={newName}

@@ -7,12 +7,14 @@ interface DependencyListProps {
   taskId: string;
   dependencies: TaskDependency[] | undefined;
   tasks: Task[];
+  readOnly?: boolean;
 }
 
 export function DependencyList({
   taskId,
   dependencies,
   tasks,
+  readOnly = false,
 }: DependencyListProps) {
   const deleteMut = useDeleteTaskDependency(taskId);
 
@@ -43,13 +45,15 @@ export function DependencyList({
       >
         <span className="flex-1 truncate">{taskData.title}</span>
         {taskData.status && <StatusBadge status={taskData.status} />}
-        <button
-          type="button"
-          className="text-muted-foreground hover:text-destructive"
-          onClick={() => deleteMut.mutate(dep.id)}
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
+        {!readOnly && (
+          <button
+            type="button"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={() => deleteMut.mutate(dep.id)}
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
     );
   }

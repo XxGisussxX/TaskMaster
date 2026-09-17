@@ -4,7 +4,7 @@ import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
 import { CommandPalette } from "./components/CommandPalette";
 import { useThemeSync, useGlobalHotkeys } from "@/hooks/useAppHooks";
-import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { usePaletteCommands } from "@/features/palette/usePaletteCommands";
 import { useUiStore } from "@/store/ui.store";
 import { useWorkspaceStore } from "@/store/workspace.store";
 import { useWorkspaces } from "@/features/workspace/hooks/useWorkspaces";
@@ -13,15 +13,15 @@ import { useSocket } from "@/hooks/useSocket";
 export function AppShell() {
   useThemeSync();
   useGlobalHotkeys();
+  usePaletteCommands();
   useSocket();
-  const isDesktop = useMediaQuery("(min-width: 1024px)");
   const setSidebarOpen = useUiStore((s) => s.setSidebarOpen);
   const { currentWorkspaceId, setCurrentWorkspaceId } = useWorkspaceStore();
   const { data: workspaces } = useWorkspaces();
 
   useEffect(() => {
-    setSidebarOpen(isDesktop);
-  }, [isDesktop, setSidebarOpen]);
+    setSidebarOpen(false);
+  }, [setSidebarOpen]);
 
   useEffect(() => {
     if (!workspaces || workspaces.length === 0) return;

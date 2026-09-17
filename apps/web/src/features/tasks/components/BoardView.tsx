@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Task, TaskStatus } from "@taskmaster/contracts";
+import type { Task, TaskStatus, CustomFieldValue } from "@taskmaster/contracts";
 import {
   DndContext,
   DragOverlay,
@@ -16,6 +16,8 @@ import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { PriorityBadge } from "./PriorityBadge";
+import { CustomFieldChips } from "@/features/custom-fields/components/CustomFieldChips";
+import { useCustomFieldValuesMany } from "@/features/custom-fields/hooks/useCustomFields";
 import { formatDate } from "@/lib/date";
 
 const COLUMNS = [
@@ -37,17 +39,21 @@ const COLUMN_LABEL: Record<(typeof COLUMNS)[number], string> = {
 const COLUMN_ACCENT: Record<(typeof COLUMNS)[number], string> = {
   TODO: "border-t-primary",
   IN_PROGRESS: "border-t-warning",
-  IN_REVIEW: "border-t-secondary",
+  IN_REVIEW: "border-t-info",
   DONE: "border-t-success",
   ARCHIVED: "border-t-muted-foreground",
 };
 
 function SortableTaskCard({
   task,
+  customValues,
   onEdit,
+  readOnly,
 }: {
   task: Task;
+  customValues?: CustomFieldValue[];
   onEdit: (task: Task) => void;
+  readOnly?: boolean;
 }) {
   const {
     attributes,
@@ -56,7 +62,7 @@ function SortableTaskCard({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task.id, data: { task } });
+  } = useSortable({ id: task.id, data: { task }, disabled: readOnly });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -70,10 +76,13 @@ function SortableTaskCard({
       className={cn(
         "rounded-md border bg-card p-3 text-left shadow-sm transition-shadow hover:shadow-md",
         isDragging && "opacity-50 shadow-lg ring-2 ring-primary/30",
+        readOnly && "cursor-default",
       )}
-      {...attributes}
-      {...listeners}
-      onClick={() => onEdit(task)}
+      {...(!readOnly ? attributes : {})}
+      {...(!readOnly ? listeners : {})}
+      onClick={() => {
+        if (!readOnly) onEdit(task);
+      }}
     >
       <p className="text-sm font-medium">{task.title}</p>
       {task.description && (
@@ -102,6 +111,7 @@ function SortableTaskCard({
           ))}
         </div>
       )}
+      <CustomFieldChips values={customValues} max={3} className="mt-1.5" />
     </div>
   );
 }
@@ -109,13 +119,20 @@ function SortableTaskCard({
 function BoardColumn({
   status,
   tasks,
+  valuesByTask,
   onEdit,
+  readOnly,
 }: {
   status: (typeof COLUMNS)[number];
   tasks: Task[];
+  valuesByTask: Record<string, CustomFieldValue[]>;
   onEdit: (task: Task) => void;
+  readOnly?: boolean;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: status });
+  const { setNodeRef, isOver } = useDroppable({
+    id: status,
+    disabled: readOnly,
+  });
 
   return (
     <div
@@ -139,7 +156,13 @@ function BoardColumn({
           strategy={verticalListSortingStrategy}
         >
           {tasks.map((task) => (
-            <SortableTaskCard key={task.id} task={task} onEdit={onEdit} />
+            <SortableTaskCard
+              key={task.id}
+              task={task}
+              customValues={valuesByTask[task.id]}
+              onEdit={onEdit}
+              readOnly={readOnly}
+            />
           ))}
         </SortableContext>
       </div>
@@ -151,12 +174,18 @@ export function BoardView({
   tasks,
   onEdit,
   onStatusChange,
+  readOnly = false,
 }: {
   tasks: Task[];
   onEdit: (task: Task) => void;
   onStatusChange: (taskId: string, newStatus: TaskStatus) => void;
+  readOnly?: boolean;
 }) {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const { data: valuesByTask = {} } = useCustomFieldValuesMany(
+    "task",
+    tasks.map((t) => t.id),
+  );
 
   function handleDragStart(event: DragStartEvent) {
     const task = event.active.data.current?.task as Task | undefined;
@@ -191,7 +220,9 @@ export function BoardView({
               key={col}
               status={col}
               tasks={columnTasks}
+              valuesByTask={valuesByTask}
               onEdit={onEdit}
+              readOnly={readOnly}
             />
           );
         })}
