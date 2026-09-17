@@ -1,5 +1,5 @@
 import { createBrowserRouter } from "react-router-dom";
-import { RequireAuth, RedirectIfAuthed } from "./guards";
+import { RequireAuth, RequireSystemRole, RedirectIfAuthed } from "./guards";
 import { AppShell } from "@/layouts/AppShell";
 import { AuthLayout } from "@/layouts/AuthLayout";
 import { LoginPage } from "@/features/auth/pages/LoginPage";
@@ -9,8 +9,12 @@ import { TasksPage } from "@/features/tasks/pages/TasksPage";
 import { NotesPage } from "@/features/notes/pages/NotesPage";
 import { CalendarPage } from "@/features/calendar/pages/CalendarPage";
 import { SettingsPage } from "@/features/settings/pages/SettingsPage";
+import { AdminPage } from "@/features/admin/pages/AdminPage";
+import { AcceptInvitePage } from "@/features/invite/pages/AcceptInvitePage";
 import { NotFoundPage } from "@/features/misc/NotFoundPage";
+import { SystemRole } from "@taskmaster/contracts";
 export const router = createBrowserRouter([
+  { path: "/invite/:token", element: <AcceptInvitePage /> },
   {
     element: <RedirectIfAuthed />,
     children: [
@@ -35,6 +39,14 @@ export const router = createBrowserRouter([
           { path: "/notes", element: <NotesPage /> },
           { path: "/calendar", element: <CalendarPage /> },
           { path: "/settings", element: <SettingsPage /> },
+          {
+            element: (
+              <RequireSystemRole
+                roles={[SystemRole.ADMIN, SystemRole.SUPER_ADMIN]}
+              />
+            ),
+            children: [{ path: "/admin", element: <AdminPage /> }],
+          },
           { path: "*", element: <NotFoundPage /> },
         ],
       },
