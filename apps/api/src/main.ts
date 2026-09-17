@@ -4,6 +4,7 @@ import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
+import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -12,15 +13,17 @@ async function bootstrap(): Promise<void> {
 
   const config = app.get(ConfigService);
 
-  const origins = config
-    .get<string>("API_ORIGINS")
-    ?.split(",")
-    .map((s) => s.trim()) ?? ["*"];
+  const origins = (config.get<string>("API_ORIGINS") ?? "*")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const allowAllOrigins = origins.length === 0 || origins.includes("*");
   app.enableCors({
-    origin: origins.includes("*") ? true : origins,
-    credentials: true,
+    origin: allowAllOrigins ? true : origins,
+    credentials: !allowAllOrigins,
   });
 
+  app.useGlobalFilters(new HttpExceptionFilter());
   app.use(helmet());
   app.setGlobalPrefix("api");
   app.enableShutdownHooks();
