@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { WorkspaceRole } from "@taskmaster/contracts";
-import { PrismaService } from "../../prisma/prisma.service";
+import { UnscopedPrismaService } from "../../prisma/prisma.service";
 import { tenantContext, type TenantContext } from "../../tenant/tenant-context";
 import type { WorkspaceMemberWithUser } from "./workspaces.types";
 
@@ -20,7 +20,7 @@ const ROLE_WEIGHT: Record<WorkspaceRole, number> = {
 
 @Injectable()
 export class WorkspaceAccessService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: UnscopedPrismaService) {}
 
   /**
    * Devuelve el contexto de tenant si coincide con el workspace pedido. Cuando

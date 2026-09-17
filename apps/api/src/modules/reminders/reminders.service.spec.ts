@@ -70,8 +70,13 @@ function setup(options: {
   };
   const access = { assertWriteRole: vi.fn().mockResolvedValue({ id: "m1" }) };
   const notifications = { create: vi.fn() };
+  const unscoped = {
+    reminder: prisma.reminder,
+    $transaction: vi.fn((fn: (tx: unknown) => unknown) => fn(unscoped)),
+  };
   const service = new RemindersService(
     prisma as never,
+    unscoped as never,
     access as never,
     notifications as never,
   );

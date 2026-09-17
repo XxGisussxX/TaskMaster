@@ -19,7 +19,7 @@ import {
   type Workspace,
   type WorkspaceMember,
 } from "@taskmaster/contracts";
-import { PrismaService } from "../../prisma/prisma.service";
+import { UnscopedPrismaService } from "../../prisma/prisma.service";
 import { MailService } from "../mail/mail.service";
 import { AuthService } from "../auth/auth.service";
 import { WorkspaceAccessService } from "./workspace-access.service";
@@ -30,7 +30,7 @@ const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 @Injectable()
 export class WorkspacesService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prisma: UnscopedPrismaService,
     private readonly access: WorkspaceAccessService,
     private readonly mail: MailService,
     private readonly config: ConfigService,

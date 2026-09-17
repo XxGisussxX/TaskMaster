@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { WorkspaceRole } from "@taskmaster/contracts";
 import { tenantContext } from "../tenant/tenant-context";
-import { SCOPED_MODELS, scopeArgs, tenantExtension } from "./tenant.extension";
+import {
+  SCOPED_MODELS,
+  TenantContextMissingError,
+  scopeArgs,
+  tenantExtension,
+} from "./tenant.extension";
 
 const WORKSPACE_ID = "ws1";
 
@@ -139,14 +144,29 @@ describe("tenantExtension", () => {
     return config.query.$allModels.$allOperations;
   }
 
-  it("no modifica argumentos cuando no hay contexto de tenant", async () => {
+  it("lanza fail-closed al operar un modelo scoped sin contexto", async () => {
     const operation = allOperations();
     const query = vi.fn(async (args: unknown) => args);
-    const args = { where: { status: "TODO" } };
+
+    await expect(
+      operation({
+        model: "Task",
+        operation: "findMany",
+        args: { where: { status: "TODO" } },
+        query,
+      }),
+    ).rejects.toBeInstanceOf(TenantContextMissingError);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it("deja pasar modelos fuera de SCOPED_MODELS sin contexto", async () => {
+    const operation = allOperations();
+    const query = vi.fn(async (args: unknown) => args);
+    const args = { where: { id: "u1" } };
 
     const result = await operation({
-      model: "Task",
-      operation: "findMany",
+      model: "User",
+      operation: "findUnique",
       args,
       query,
     });

@@ -7,7 +7,10 @@ import type {
   ReminderRepeat,
   UpdateReminderInput,
 } from "@taskmaster/contracts";
-import { PrismaService } from "../../prisma/prisma.service";
+import {
+  PrismaService,
+  UnscopedPrismaService,
+} from "../../prisma/prisma.service";
 import { WorkspaceAccessService } from "../workspaces/workspace-access.service";
 import { NotificationsService } from "../notifications/notifications.service";
 
@@ -17,6 +20,7 @@ export class RemindersService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly unscoped: UnscopedPrismaService,
     private readonly access: WorkspaceAccessService,
     private readonly notifications: NotificationsService,
   ) {}
@@ -25,7 +29,7 @@ export class RemindersService {
   async handlePendingReminders(): Promise<void> {
     const now = new Date();
 
-    const pending = await this.prisma.reminder.findMany({
+    const pending = await this.unscoped.reminder.findMany({
       where: {
         triggerAt: { lte: now },
         sentAt: null,
@@ -38,7 +42,7 @@ export class RemindersService {
 
     for (const reminder of pending) {
       try {
-        await this.prisma.$transaction(async (tx) => {
+        await this.unscoped.$transaction(async (tx) => {
           await tx.reminder.update({
             where: { id: reminder.id },
             data: { sentAt: now },
@@ -256,7 +260,7 @@ export class RemindersService {
 
     if (endDate && nextDate > endDate) return;
 
-    await this.prisma.reminder.create({
+    await this.unscoped.reminder.create({
       data: {
         workspaceId: reminder.workspaceId,
         userId: reminder.userId,

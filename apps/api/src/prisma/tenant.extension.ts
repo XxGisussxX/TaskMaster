@@ -93,9 +93,31 @@ export function scopeArgs(
 }
 
 /**
+ * Se lanza al operar sobre un modelo de {@link SCOPED_MODELS} sin un contexto
+ * de workspace activo. El aislamiento es fail-closed para que un olvido de
+ * contexto falle ruidosamente en vez de filtrar datos entre workspaces.
+ */
+export class TenantContextMissingError extends Error {
+  constructor(
+    readonly model: string,
+    readonly operation: string,
+  ) {
+    super(
+      `[tenant] Operación ${model}.${operation} sin contexto de workspace. ` +
+        `Si es un acceso legítimo sin workspace, inyectá UnscopedPrismaService.`,
+    );
+    this.name = "TenantContextMissingError";
+  }
+}
+
+/**
  * Extensión de Prisma que aplica aislamiento multi-tenant: cuando hay un
  * contexto de workspace activo, agrega automáticamente el filtro `workspaceId`
  * a toda operación sobre los modelos de {@link SCOPED_MODELS}.
+ *
+ * Es **fail-closed**: si se opera sobre un modelo scoped sin contexto, lanza
+ * {@link TenantContextMissingError} en lugar de ejecutar la consulta sin
+ * filtrar. Los flujos sin contexto deben usar `UnscopedPrismaService`.
  *
  * Funciona también dentro de transacciones interactivas: desde Prisma 4.16 el
  * cliente entregado en `$transaction(async (tx) => ...)` conserva las
@@ -107,8 +129,13 @@ export const tenantExtension = Prisma.defineExtension((client) =>
     query: {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
+          if (!SCOPED_MODELS.has(model)) return query(args);
+
           const context = tenantContext.get();
-          if (!context || !SCOPED_MODELS.has(model)) return query(args);
+          if (!context) {
+            throw new TenantContextMissingError(model, operation);
+          }
+
           return query(
             scopeArgs(operation, args as ModelArgs, context.workspaceId),
           );

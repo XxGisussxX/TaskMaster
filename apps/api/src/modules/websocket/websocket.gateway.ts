@@ -11,7 +11,7 @@ import {
 } from "@nestjs/websockets";
 import { OnEvent } from "@nestjs/event-emitter";
 import type { Server, Socket } from "socket.io";
-import { PrismaService } from "../../prisma/prisma.service";
+import { UnscopedPrismaService } from "../../prisma/prisma.service";
 
 interface NotificationPayload {
   userId: string;
@@ -68,7 +68,7 @@ export class AppWebSocketGateway
 
   constructor(
     private readonly jwt: JwtService,
-    private readonly prisma: PrismaService,
+    private readonly prisma: UnscopedPrismaService,
   ) {}
 
   onModuleInit() {
