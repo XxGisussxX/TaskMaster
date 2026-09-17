@@ -10,10 +10,20 @@ import {
 } from "../hooks/useWorkspaces";
 import { WorkspaceForm } from "./WorkspaceForm";
 import { useWorkspaceStore } from "@/store/workspace.store";
+import { useAuthStore } from "@/store/auth.store";
+import type { WorkspaceRole } from "@taskmaster/contracts";
+
+function roleFor(
+  ws: { members?: { userId: string; role: WorkspaceRole }[] },
+  userId?: string,
+) {
+  return ws.members?.find((m) => m.userId === userId)?.role ?? null;
+}
 
 export function WorkspaceManagement() {
   const { data: workspaces = [], isLoading } = useWorkspaces();
   const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
+  const currentUserId = useAuthStore((s) => s.user?.id);
   const createWs = useCreateWorkspace();
   const updateWs = useUpdateWorkspace();
   const deleteWs = useDeleteWorkspace();
@@ -69,45 +79,56 @@ export function WorkspaceManagement() {
       </div>
 
       <div className="space-y-2">
-        {workspaces.map((ws) => (
-          <div
-            key={ws.id}
-            className="flex items-center gap-3 rounded-md border px-3 py-2"
-          >
-            <span className="flex h-8 w-8 items-center justify-center rounded bg-primary/10 text-sm font-bold text-primary">
-              {ws.icon ?? ws.name.charAt(0).toUpperCase()}
-            </span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{ws.name}</p>
-              <p className="text-xs text-muted-foreground">{ws.slug}</p>
-            </div>
-            {ws.id === currentWorkspaceId && (
-              <Badge variant="default" className="text-[10px]">
-                Actual
+        {workspaces.map((ws) => {
+          const role = roleFor(ws, currentUserId);
+          const canManage = role === "ADMIN" || role === "OWNER";
+          const isOwner = role === "OWNER";
+
+          return (
+            <div
+              key={ws.id}
+              className="flex items-center gap-3 rounded-md border px-3 py-2"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded bg-primary/10 text-sm font-bold text-primary">
+                {ws.icon ?? ws.name.charAt(0).toUpperCase()}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{ws.name}</p>
+                <p className="text-xs text-muted-foreground">{ws.slug}</p>
+              </div>
+              <Badge variant="outline" className="text-[10px]">
+                {role ?? "—"}
               </Badge>
-            )}
-            {ws.ownerId && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => handleEdit(ws.id)}
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </Button>
-            )}
-            {ws.ownerId && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => handleDelete(ws.id)}
-              >
-                <Trash2 className="h-3.5 w-3.5 text-destructive" />
-              </Button>
-            )}
-          </div>
-        ))}
+              {ws.id === currentWorkspaceId && (
+                <Badge variant="default" className="text-[10px]">
+                  Actual
+                </Badge>
+              )}
+              {canManage && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleEdit(ws.id)}
+                  title="Editar workspace"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              {isOwner && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleDelete(ws.id)}
+                  title="Eliminar workspace"
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                </Button>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <WorkspaceForm

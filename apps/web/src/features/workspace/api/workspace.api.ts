@@ -1,5 +1,11 @@
-import type { Workspace, WorkspaceMember } from "@taskmaster/contracts";
+import type { Invite, Workspace, WorkspaceMember } from "@taskmaster/contracts";
 import { http } from "@/services/http";
+
+export interface InviteResult {
+  id: string;
+  emailSent: boolean;
+  inviteUrl?: string;
+}
 
 export const workspacesApi = {
   list: () => http.get<Workspace[]>("/workspaces"),
@@ -18,7 +24,15 @@ export const workspacesApi = {
     http.get<WorkspaceMember[]>(`/workspaces/${id}/members`),
 
   invite: (id: string, input: { email: string; role: string }) =>
-    http.post<unknown>(`/workspaces/${id}/invites`, input),
+    http.post<InviteResult>(`/workspaces/${id}/invites`, input),
+
+  invites: (id: string) => http.get<Invite[]>(`/workspaces/${id}/invites`),
+
+  resendInvite: (id: string, inviteId: string) =>
+    http.post<InviteResult>(`/workspaces/${id}/invites/${inviteId}/resend`),
+
+  revokeInvite: (id: string, inviteId: string) =>
+    http.delete<void>(`/workspaces/${id}/invites/${inviteId}`),
 
   updateMemberRole: (id: string, memberId: string, role: string) =>
     http.patch<WorkspaceMember>(`/workspaces/${id}/members/${memberId}`, {

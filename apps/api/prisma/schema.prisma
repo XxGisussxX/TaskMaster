@@ -112,6 +112,7 @@ model User {
   attachments    Attachment[]
   taskTemplates  TaskTemplate[]
   timeEntries    TimeEntry[]
+  invitedMembers Invite[]       @relation("InvitedBy")
 }
 
 model RefreshToken {
@@ -192,13 +193,16 @@ model Invite {
   email       String
   role        WorkspaceRole @default(MEMBER)
   token       String        @unique
+  invitedById String?
   expiresAt   DateTime
   acceptedAt  DateTime?
   createdAt   DateTime      @default(now())
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy User?     @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
 
   @@index([workspaceId])
+  @@index([email])
 }
 
 // ── Tasks ─────────────────────────────────────────────────────────────
@@ -287,11 +291,12 @@ model TaskAssignee {
 }
 
 model Comment {
-  id        String   @id @default(cuid())
-  taskId    String
-  userId    String
-  body      String
-  createdAt DateTime @default(now())
+  id              String   @id @default(cuid())
+  taskId          String
+  userId          String
+  body            String
+  mentionedUserIds String  @default("[]")
+  createdAt       DateTime @default(now())
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

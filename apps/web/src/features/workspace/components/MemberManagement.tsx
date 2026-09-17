@@ -1,11 +1,12 @@
 import { useState } from "react";
-import type { WorkspaceMember } from "@taskmaster/contracts";
+import type { Invite, WorkspaceMember } from "@taskmaster/contracts";
 import {
   UserPlus,
   Trash2,
   Shield,
   ShieldCheck,
   ShieldAlert,
+  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,9 @@ import {
   useInviteMember,
   useUpdateMemberRole,
   useRemoveMember,
+  usePendingInvites,
+  useResendInvite,
+  useRevokeInvite,
 } from "../hooks/useMembers";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -99,18 +103,16 @@ function InviteForm({ disabled }: { disabled?: boolean }) {
 
 function MemberRow({
   member,
-  isOwner,
   isCurrentUser,
   onRoleChange,
   onRemove,
-  canManage,
+  canEditRole,
 }: {
   member: WorkspaceMember;
-  isOwner: boolean;
   isCurrentUser: boolean;
   onRoleChange: (memberId: string, role: string) => void;
   onRemove: (memberId: string) => void;
-  canManage: boolean;
+  canEditRole: boolean;
 }) {
   return (
     <div className="flex items-center gap-3 rounded-md border px-3 py-2">
@@ -126,7 +128,7 @@ function MemberRow({
           {member.user?.email}
         </p>
       </div>
-      {canManage && !isOwner ? (
+      {canEditRole ? (
         <Select
           value={member.role}
           onChange={(e) => onRoleChange(member.id, e.target.value)}
@@ -142,7 +144,7 @@ function MemberRow({
           {ROLE_LABELS[member.role]}
         </Badge>
       )}
-      {canManage && !isOwner && !isCurrentUser && (
+      {canEditRole && !isCurrentUser && (
         <Button
           variant="ghost"
           size="icon"
@@ -156,15 +158,85 @@ function MemberRow({
   );
 }
 
+function PendingInvitesList({
+  invites,
+  disabled,
+}: {
+  invites: Invite[];
+  disabled: boolean;
+}) {
+  const resendInvite = useResendInvite();
+  const revokeInvite = useRevokeInvite();
+
+  if (invites.length === 0) return null;
+
+  const dateFormatter = new Intl.DateTimeFormat("es", { dateStyle: "medium" });
+
+  return (
+    <div className="space-y-2">
+      <h4 className="text-sm font-medium text-muted-foreground">
+        Invitaciones pendientes ({invites.length})
+      </h4>
+      {invites.map((invite) => (
+        <div
+          key={invite.id}
+          className="flex items-center gap-3 rounded-md border border-dashed px-3 py-2"
+        >
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">{invite.email}</p>
+            <p className="text-xs text-muted-foreground truncate">
+              {ROLE_LABELS[invite.role]} · vence el{" "}
+              {dateFormatter.format(new Date(invite.expiresAt))}
+              {invite.invitedBy ? ` · invitó ${invite.invitedBy.name}` : ""}
+            </p>
+          </div>
+          <Badge variant="secondary" className="gap-1">
+            <Mail className="h-3 w-3" />
+            Pendiente
+          </Badge>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            title="Reenviar invitación"
+            disabled={disabled || resendInvite.isPending}
+            onClick={() => resendInvite.mutate(invite.id)}
+          >
+            <Mail className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            title="Revocar invitación"
+            disabled={disabled || revokeInvite.isPending}
+            onClick={() => {
+              if (
+                window.confirm(`¿Revocar la invitación de ${invite.email}?`)
+              ) {
+                revokeInvite.mutate(invite.id);
+              }
+            }}
+          >
+            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+          </Button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function MemberManagement() {
   const currentUser = useAuthStore((s) => s.user);
   const { data: members = [], isLoading } = useMembers();
+  const { data: invites = [], isLoading: invitesLoading } = usePendingInvites();
   const updateRole = useUpdateMemberRole();
   const removeMember = useRemoveMember();
 
   const currentMembership = members.find((m) => m.userId === currentUser?.id);
   const canManage =
     currentMembership?.role === "OWNER" || currentMembership?.role === "ADMIN";
+  const isOwnerOfWorkspace = currentMembership?.role === "OWNER";
 
   function handleRoleChange(memberId: string, role: string) {
     updateRole.mutate({ memberId, role });
@@ -195,21 +267,42 @@ export function MemberManagement() {
           <MemberRow
             key={member.id}
             member={member}
-            isOwner={member.role === "OWNER"}
             isCurrentUser={member.userId === currentUser?.id}
             onRoleChange={handleRoleChange}
             onRemove={handleRemove}
-            canManage={canManage}
+            canEditRole={
+              isOwnerOfWorkspace
+                ? member.role !== "OWNER"
+                : canManage &&
+                  member.role !== "OWNER" &&
+                  member.role !== "ADMIN"
+            }
           />
         ))}
       </div>
 
       {canManage && (
-        <div className="pt-2 border-t">
-          <h4 className="text-sm font-medium mb-2">Invitar miembro</h4>
-          <InviteForm
-            disabled={updateRole.isPending || removeMember.isPending}
-          />
+        <div className="pt-2 border-t space-y-4">
+          {invitesLoading ? (
+            <div className="flex justify-center py-2">
+              <Spinner />
+            </div>
+          ) : (
+            <PendingInvitesList
+              invites={invites}
+              disabled={
+                updateRole.isPending || removeMember.isPending || invitesLoading
+              }
+            />
+          )}
+          <div>
+            <h4 className="text-sm font-medium mb-2">Invitar miembro</h4>
+            <InviteForm
+              disabled={
+                updateRole.isPending || removeMember.isPending || invitesLoading
+              }
+            />
+          </div>
         </div>
       )}
     </div>

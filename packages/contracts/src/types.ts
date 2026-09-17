@@ -42,6 +42,16 @@ export interface Workspace {
   createdAt: string;
 }
 
+export interface Invite {
+  id: string;
+  workspaceId: string;
+  email: string;
+  role: WorkspaceRole;
+  invitedBy: Pick<User, "id" | "name"> | null;
+  expiresAt: string;
+  createdAt: string;
+}
+
 export interface Tag {
   id: string;
   workspaceId: string;
@@ -141,6 +151,7 @@ export interface Comment {
   taskId: string;
   userId: string;
   body: string;
+  mentionedUserIds?: string[];
   user?: Pick<User, "id" | "name" | "avatarUrl">;
   createdAt: string;
 }

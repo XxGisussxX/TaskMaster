@@ -4,10 +4,14 @@ import { workspacesApi } from "../api/workspace.api";
 import { getLocalWorkspace } from "../lib/localWorkspace";
 import { ApiError } from "@/services/http";
 import { useWorkspaceStore } from "@/store/workspace.store";
+import { useAuthStore } from "@/store/auth.store";
 
 export function useWorkspaces() {
+  const user = useAuthStore((s) => s.user);
+  const accessToken = useAuthStore((s) => s.accessToken);
   return useQuery({
     queryKey: ["workspaces"],
+    enabled: !!user && !!accessToken,
     queryFn: async () => {
       try {
         return await workspacesApi.list();
