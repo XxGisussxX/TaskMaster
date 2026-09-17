@@ -27,6 +27,11 @@ interface RefreshValidation {
   user: PrismaUser;
 }
 
+export interface SessionMetadata {
+  ip: string;
+  device: string;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -34,11 +39,14 @@ export class AuthService {
     private readonly jwt: JwtService,
   ) {}
 
-  async register(input: {
-    name: string;
-    email: string;
-    password: string;
-  }): Promise<AuthSession> {
+  async register(
+    input: {
+      name: string;
+      email: string;
+      password: string;
+    },
+    metadata: SessionMetadata,
+  ): Promise<AuthSession> {
     const existing = await this.prisma.user.findUnique({
       where: { email: input.email },
     });
@@ -59,13 +67,16 @@ export class AuthService {
 
     await this.createDefaultWorkspace(user.id, user.name);
 
-    return this.issueSession(user);
+    return this.issueSession(user, metadata);
   }
 
-  async login(input: {
-    email: string;
-    password: string;
-  }): Promise<AuthSession> {
+  async login(
+    input: {
+      email: string;
+      password: string;
+    },
+    metadata: SessionMetadata,
+  ): Promise<AuthSession> {
     const user = await this.prisma.user.findUnique({
       where: { email: input.email },
     });
@@ -78,7 +89,7 @@ export class AuthService {
       throw new UnauthorizedException("Credenciales inválidas");
     }
 
-    return this.issueSession(user);
+    return this.issueSession(user, metadata);
   }
 
   /** Valida un refresh token y devuelve su usuario (usado por el guard). */
@@ -102,7 +113,10 @@ export class AuthService {
   }
 
   /** Rota el refresh token: revoca el actual y emite uno nuevo. */
-  async rotateRefreshToken(token: string): Promise<AuthSession> {
+  async rotateRefreshToken(
+    token: string,
+    metadata: SessionMetadata,
+  ): Promise<AuthSession> {
     const tokenHash = this.hashToken(token);
 
     // Atomic validate + revoke: solo revoca si no fue revocado y no expiró.
@@ -125,7 +139,7 @@ export class AuthService {
       select: { userId: true },
     });
 
-    const newSession = await this.issueSessionForUser(record.userId);
+    const newSession = await this.issueSessionForUser(record.userId, metadata);
 
     await this.prisma.refreshToken.update({
       where: { tokenHash },
@@ -135,8 +149,11 @@ export class AuthService {
     return newSession;
   }
 
-  async refresh(token: string): Promise<AuthSession> {
-    return this.rotateRefreshToken(token);
+  async refresh(
+    token: string,
+    metadata: SessionMetadata,
+  ): Promise<AuthSession> {
+    return this.rotateRefreshToken(token, metadata);
   }
 
   async logout(token: string): Promise<void> {
@@ -179,21 +196,36 @@ export class AuthService {
       data: { passwordHash },
     });
 
-    await this.prisma.refreshToken.updateMany({
-      where: { userId, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
+    await this.revokeUserTokens(userId);
 
     return { success: true };
   }
 
-  // ── helpers ──────────────────────────────────────────────────────────
-
-  private async issueSession(user: PrismaUser): Promise<AuthSession> {
-    return this.issueSessionForUser(user.id);
+  /**
+   * Revoca todas las sesiones activas (refresh tokens no revocados) de un usuario.
+   * Fuente única del criterio de "qué cuenta como sesión activa": reusada por
+   * cambio de rol (workspace y sistema) y por cambio de contraseña.
+   */
+  async revokeUserTokens(userId: string): Promise<void> {
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 
-  private async issueSessionForUser(userId: string): Promise<AuthSession> {
+  // ── helpers ──────────────────────────────────────────────────────────
+
+  private async issueSession(
+    user: PrismaUser,
+    metadata: SessionMetadata,
+  ): Promise<AuthSession> {
+    return this.issueSessionForUser(user.id, metadata);
+  }
+
+  private async issueSessionForUser(
+    userId: string,
+    metadata: SessionMetadata,
+  ): Promise<AuthSession> {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
     });
@@ -212,7 +244,11 @@ export class AuthService {
       data: {
         userId: user.id,
         tokenHash: this.hashToken(refreshToken),
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        device: metadata.device,
+        ip: metadata.ip,
+        expiresAt: new Date(
+          Date.now() + parseDurationToSeconds(jwtConstants.refreshTtl()) * 1000,
+        ),
       },
     });
 

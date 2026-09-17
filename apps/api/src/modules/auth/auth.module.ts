@@ -5,6 +5,7 @@ import { jwtConstants } from "../../config/env.config";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { JwtStrategy } from "./jwt.strategy";
+import { SessionCleanupService } from "./session-cleanup.service";
 import { RefreshTokenGuard } from "../../common/guards/refresh-token.guard";
 
 @Module({
@@ -18,7 +19,12 @@ import { RefreshTokenGuard } from "../../common/guards/refresh-token.guard";
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, RefreshTokenGuard],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    SessionCleanupService,
+    RefreshTokenGuard,
+  ],
   exports: [AuthService, JwtModule, RefreshTokenGuard],
 })
 export class AuthModule {}
