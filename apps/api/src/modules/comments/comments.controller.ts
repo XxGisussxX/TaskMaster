@@ -12,6 +12,7 @@ import {
   createCommentSchema,
   taskIdParamsSchema,
   updateCommentSchema,
+  workspaceIdParamsSchema,
   type CreateCommentInput,
   type UpdateCommentInput,
 } from "@taskmaster/contracts";
@@ -21,7 +22,7 @@ import { ZodPipe } from "../../common/pipes/zod.pipe";
 import type { AuthUser } from "../auth/types";
 import { CommentsService } from "./comments.service";
 
-const workspaceIdPipe = new ParseIdPipe(taskIdParamsSchema);
+const workspaceIdPipe = new ParseIdPipe(workspaceIdParamsSchema);
 const taskIdPipe = new ParseIdPipe(taskIdParamsSchema);
 const commentIdPipe = new ParseIdPipe(commentIdParamsSchema);
 

@@ -16,7 +16,7 @@ export function useCreateComment(taskId: string) {
   const workspaceId = useCurrentWorkspaceId();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { body: string }) => {
+    mutationFn: (input: { body: string; mentionedUserIds?: string[] }) => {
       if (!workspaceId) throw new Error("No hay workspace seleccionado");
       return commentsApi.create(workspaceId, taskId, input);
     },
@@ -37,9 +37,20 @@ export function useUpdateComment(taskId: string) {
   const workspaceId = useCurrentWorkspaceId();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ commentId, body }: { commentId: string; body: string }) => {
+    mutationFn: ({
+      commentId,
+      body,
+      mentionedUserIds,
+    }: {
+      commentId: string;
+      body: string;
+      mentionedUserIds?: string[];
+    }) => {
       if (!workspaceId) throw new Error("No hay workspace seleccionado");
-      return commentsApi.update(workspaceId, taskId, commentId, { body });
+      return commentsApi.update(workspaceId, taskId, commentId, {
+        body,
+        mentionedUserIds,
+      });
     },
     onSuccess: () => {
       void qc.invalidateQueries({

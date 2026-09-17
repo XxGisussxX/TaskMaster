@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { Comment } from "@taskmaster/contracts";
 import { Pencil, Trash2 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
@@ -5,17 +6,42 @@ import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/store/auth.store";
 import { formatRelativeTime } from "@/lib/date";
 
+function parseMentionBody(body: string) {
+  const parts: { type: "text" | "mention"; value: string }[] = [];
+  const re = /@(\S+)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = re.exec(body)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: "text", value: body.slice(lastIndex, match.index) });
+    }
+    parts.push({ type: "mention", value: match[1]! });
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < body.length) {
+    parts.push({ type: "text", value: body.slice(lastIndex) });
+  }
+
+  return parts;
+}
+
 export function CommentItem({
   comment,
   onEdit,
   onDelete,
+  readOnly = false,
 }: {
   comment: Comment;
   onEdit: (comment: Comment) => void;
   onDelete: (commentId: string) => void;
+  readOnly?: boolean;
 }) {
   const currentUser = useAuthStore((s) => s.user);
-  const isOwner = currentUser?.id === comment.userId;
+  const isOwner = currentUser?.id === comment.userId && !readOnly;
+
+  const parts = useMemo(() => parseMentionBody(comment.body), [comment.body]);
 
   return (
     <div className="group flex gap-3">
@@ -54,7 +80,18 @@ export function CommentItem({
           )}
         </div>
         <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-          {comment.body}
+          {parts.map((part, i) =>
+            part.type === "mention" ? (
+              <span
+                key={i}
+                className="inline-block rounded bg-blue-100 px-1 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+              >
+                @{part.value}
+              </span>
+            ) : (
+              <span key={i}>{part.value}</span>
+            ),
+          )}
         </p>
       </div>
     </div>

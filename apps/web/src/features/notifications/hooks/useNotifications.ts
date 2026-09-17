@@ -14,10 +14,11 @@ export function useNotifications() {
 
 export function useUnreadCount() {
   const user = useAuthStore((s) => s.user);
+  const accessToken = useAuthStore((s) => s.accessToken);
   return useQuery({
     queryKey: ["notifications", "unread-count"],
     queryFn: () => notificationsApi.unreadCount(),
-    enabled: !!user,
+    enabled: !!user && !!accessToken,
   });
 }
 

@@ -5,7 +5,11 @@ export const commentsApi = {
   list: (workspaceId: string, taskId: string) =>
     http.get<Comment[]>(`/workspaces/${workspaceId}/tasks/${taskId}/comments`),
 
-  create: (workspaceId: string, taskId: string, input: { body: string }) =>
+  create: (
+    workspaceId: string,
+    taskId: string,
+    input: { body: string; mentionedUserIds?: string[] },
+  ) =>
     http.post<Comment>(
       `/workspaces/${workspaceId}/tasks/${taskId}/comments`,
       input,
@@ -15,7 +19,7 @@ export const commentsApi = {
     workspaceId: string,
     taskId: string,
     commentId: string,
-    input: { body: string },
+    input: { body: string; mentionedUserIds?: string[] },
   ) =>
     http.patch<Comment>(
       `/workspaces/${workspaceId}/tasks/${taskId}/comments/${commentId}`,

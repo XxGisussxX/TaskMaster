@@ -6,10 +6,12 @@ export const createCommentSchema = z.object({
     .trim()
     .min(1, "El comentario no puede estar vacío")
     .max(5000),
+  mentionedUserIds: z.array(z.string().cuid()).optional(),
 });
 
 export const updateCommentSchema = z.object({
   body: z.string().trim().min(1).max(5000),
+  mentionedUserIds: z.array(z.string().cuid()).optional(),
 });
 
 export const commentIdParamsSchema = z.object({

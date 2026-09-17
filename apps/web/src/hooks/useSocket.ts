@@ -34,7 +34,7 @@ export function useSocket() {
           currentWorkspaceId &&
           joinedWorkspace.current !== currentWorkspaceId
         ) {
-          socket!.emit("joinWorkspace", { workspaceId: currentWorkspaceId });
+          socket!.emit("workspace:join", { workspaceId: currentWorkspaceId });
           joinedWorkspace.current = currentWorkspaceId;
         }
       });

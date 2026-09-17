@@ -1,13 +1,17 @@
-import { Logger, OnModuleInit } from "@nestjs/common";
+import { ForbiddenException, Logger, OnModuleInit } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import {
   WebSocketGateway as WsGateway,
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  SubscribeMessage,
+  MessageBody,
+  ConnectedSocket,
 } from "@nestjs/websockets";
 import { OnEvent } from "@nestjs/event-emitter";
 import type { Server, Socket } from "socket.io";
+import { PrismaService } from "../../prisma/prisma.service";
 
 interface NotificationPayload {
   userId: string;
@@ -62,7 +66,10 @@ export class AppWebSocketGateway
 
   private jwtService!: JwtService;
 
-  constructor(private readonly jwt: JwtService) {}
+  constructor(
+    private readonly jwt: JwtService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   onModuleInit() {
     this.jwtService = this.jwt;
@@ -117,13 +124,30 @@ export class AppWebSocketGateway
     this.logger.log(`Cliente desconectado: ${client.id}`);
   }
 
-  handleJoinWorkspace(client: Socket, data: { workspaceId: string }): void {
+  @SubscribeMessage("workspace:join")
+  async handleJoinWorkspace(
+    @MessageBody() data: { workspaceId: string },
+    @ConnectedSocket() client: Socket,
+  ): Promise<void> {
     const userId = this.socketUser.get(client.id);
     if (!userId) return;
+
+    const member = await this.prisma.workspaceMember.findUnique({
+      where: { workspaceId_userId: { workspaceId: data.workspaceId, userId } },
+      select: { id: true },
+    });
+    if (!member) {
+      throw new ForbiddenException("No eres miembro de este workspace");
+    }
+
     client.join(`workspace:${data.workspaceId}`);
   }
 
-  handleLeaveWorkspace(client: Socket, data: { workspaceId: string }): void {
+  @SubscribeMessage("workspace:leave")
+  handleLeaveWorkspace(
+    @MessageBody() data: { workspaceId: string },
+    @ConnectedSocket() client: Socket,
+  ): void {
     client.leave(`workspace:${data.workspaceId}`);
   }
 
