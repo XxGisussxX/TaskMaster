@@ -242,6 +242,11 @@ export class CustomFieldsService {
   ): Promise<CustomFieldValue[]> {
     await this.access.assertMembership(workspaceId, userId);
     assertEntityType(entityType);
+    await this.assertEntityBelongsToWorkspace(
+      entityType,
+      entityId,
+      workspaceId,
+    );
 
     const values = await this.prisma.customFieldValue.findMany({
       where: { entityId, entityType, definition: { workspaceId } },
@@ -269,6 +274,11 @@ export class CustomFieldsService {
   ): Promise<Record<string, CustomFieldValue[]>> {
     await this.access.assertMembership(workspaceId, userId);
     assertEntityType(entityType);
+    await this.assertEntitiesBelongToWorkspace(
+      entityType,
+      entityIds,
+      workspaceId,
+    );
 
     const values = await this.prisma.customFieldValue.findMany({
       where: {
@@ -317,6 +327,31 @@ export class CustomFieldsService {
     if (!entity) {
       throw new NotFoundException(
         "La entidad referenciada no pertenece a este espacio de trabajo",
+      );
+    }
+  }
+
+  private async assertEntitiesBelongToWorkspace(
+    entityType: SupportedEntityType,
+    entityIds: string[],
+    workspaceId: string,
+  ): Promise<void> {
+    if (entityIds.length === 0) return;
+
+    const found =
+      entityType === "task"
+        ? await this.prisma.task.findMany({
+            where: { id: { in: entityIds }, workspaceId },
+            select: { id: true },
+          })
+        : await this.prisma.note.findMany({
+            where: { id: { in: entityIds }, workspaceId },
+            select: { id: true },
+          });
+
+    if (found.length !== new Set(entityIds).size) {
+      throw new NotFoundException(
+        "Alguna entidad referenciada no pertenece a este espacio de trabajo",
       );
     }
   }

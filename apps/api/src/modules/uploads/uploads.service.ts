@@ -84,6 +84,7 @@ export class UploadsService {
     context: { taskId?: string; noteId?: string },
   ): Promise<Attachment> {
     await this.access.assertWriteRole(workspaceId, userId);
+    if (!file) throw new BadRequestException("Archivo requerido");
     this.validateFile(file);
     await this.assertTargetBelongsToWorkspace(workspaceId, context);
 
@@ -172,6 +173,7 @@ export class UploadsService {
     context: { taskId?: string; noteId?: string },
   ): Promise<Attachment[]> {
     await this.access.assertMembership(workspaceId, userId);
+    await this.assertTargetBelongsToWorkspace(workspaceId, context);
 
     const where: Record<string, unknown> = { workspaceId };
     if (context.taskId) where.taskId = context.taskId;

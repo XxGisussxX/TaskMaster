@@ -1,4 +1,5 @@
 ﻿import { Injectable, NotFoundException } from "@nestjs/common";
+import { WorkspaceRole } from "@taskmaster/contracts";
 import type {
   CreateTimeEntryInput,
   TimeEntry,
@@ -120,6 +121,7 @@ export class TimeEntriesService {
     if (!existing || existing.workspaceId !== workspaceId) {
       throw new NotFoundException("Entrada de tiempo no encontrada");
     }
+    await this.assertEntryOwnerOrAdmin(workspaceId, userId, existing.userId);
 
     const stoppedAt = new Date();
     const duration = Math.floor(
@@ -162,6 +164,7 @@ export class TimeEntriesService {
     if (!existing || existing.workspaceId !== workspaceId) {
       throw new NotFoundException("Entrada de tiempo no encontrada");
     }
+    await this.assertEntryOwnerOrAdmin(workspaceId, userId, existing.userId);
 
     const data: Record<string, unknown> = {};
     if (input.description !== undefined) data.description = input.description;
@@ -223,8 +226,18 @@ export class TimeEntriesService {
     if (!existing || existing.workspaceId !== workspaceId) {
       throw new NotFoundException("Entrada de tiempo no encontrada");
     }
+    await this.assertEntryOwnerOrAdmin(workspaceId, userId, existing.userId);
 
     await this.prisma.timeEntry.delete({ where: { id } });
     return { id };
+  }
+
+  private async assertEntryOwnerOrAdmin(
+    workspaceId: string,
+    userId: string,
+    entryUserId: string,
+  ): Promise<void> {
+    if (entryUserId === userId) return;
+    await this.access.assertRole(workspaceId, userId, WorkspaceRole.ADMIN);
   }
 }

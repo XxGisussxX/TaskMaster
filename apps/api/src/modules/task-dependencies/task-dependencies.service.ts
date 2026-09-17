@@ -92,6 +92,12 @@ export class TaskDependenciesService {
   ): Promise<TaskDependency[]> {
     await this.access.assertMembership(workspaceId, userId);
 
+    const task = await this.prisma.task.findFirst({
+      where: { id: taskId, workspaceId },
+      select: { id: true },
+    });
+    if (!task) throw new NotFoundException("Tarea no encontrada");
+
     const deps = await this.prisma.taskDependency.findMany({
       where: {
         workspaceId,

@@ -1,9 +1,24 @@
+import { NotFoundException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 import { CustomFieldsService } from "./custom-fields.service";
 
-function setup(values: unknown[] = []) {
+function setup(values: unknown[] = [], entityFound = true) {
   const prisma = {
     customFieldValue: { findMany: vi.fn().mockResolvedValue(values) },
+    task: {
+      findFirst: vi
+        .fn()
+        .mockResolvedValue(entityFound ? { id: "task1" } : null),
+      findMany: vi
+        .fn()
+        .mockResolvedValue(
+          entityFound ? [{ id: "task1" }, { id: "task2" }] : [],
+        ),
+    },
+    note: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   };
   const access = { assertMembership: vi.fn().mockResolvedValue(undefined) };
   const service = new CustomFieldsService(prisma as never, access as never);
@@ -53,6 +68,15 @@ describe("CustomFieldsService.getValues (aislamiento de workspace)", () => {
 
     expect(result).toEqual([]);
   });
+
+  it("rechaza una entidad que no pertenece al workspace", async () => {
+    const { service, prisma } = setup([], false);
+
+    await expect(
+      service.getValues("ws1", "u1", "task", "ajena"),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.customFieldValue.findMany).not.toHaveBeenCalled();
+  });
 });
 
 describe("CustomFieldsService.getValuesForMany (aislamiento de workspace)", () => {
@@ -70,5 +94,14 @@ describe("CustomFieldsService.getValuesForMany (aislamiento de workspace)", () =
         },
       }),
     );
+  });
+
+  it("rechaza si alguna entidad no pertenece al workspace", async () => {
+    const { service, prisma } = setup([], false);
+
+    await expect(
+      service.getValuesForMany("ws1", "u1", "task", ["task1", "ajena"]),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.customFieldValue.findMany).not.toHaveBeenCalled();
   });
 });
