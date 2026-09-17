@@ -18,9 +18,18 @@ export async function register(input: {
   await http.post("/auth/register", input);
 }
 
-export function logout(): void {
-  void http.post("/auth/logout").catch(() => undefined);
-  useAuthStore.getState().clear();
+export async function logout(): Promise<void> {
+  const { getRefreshToken, clear } = useAuthStore.getState();
+  const refreshToken = getRefreshToken();
+  try {
+    if (refreshToken) {
+      await http.post("/auth/logout", { refreshToken });
+    }
+  } catch {
+    // El token se revoca igual por expiración o por el cron de limpieza.
+  } finally {
+    clear();
+  }
 }
 
 export async function changePassword(input: {
