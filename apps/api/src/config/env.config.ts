@@ -6,9 +6,47 @@ const envSchema = z.object({
     .default("development"),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   DATABASE_URL: z.string().min(1, "DATABASE_URL es requerida"),
-  JWT_ACCESS_SECRET: z.string().min(8, "JWT_ACCESS_SECRET requerido"),
+  JWT_ACCESS_SECRET: z
+    .string()
+    .regex(
+      /^(?=.*[a-zA-Z])(?=.*\d)/,
+      "JWT_ACCESS_SECRET debe combinar letras y números",
+    )
+    .refine((value) => new Set(value).size >= 8, {
+      message:
+        "JWT_ACCESS_SECRET tiene muy poca entropía (demasiados caracteres repetidos)",
+    })
+    .refine(
+      (value) =>
+        ![
+          "dev-access-secret-change-me",
+          "change-me-access-secret",
+          "secret",
+          "changeme",
+        ].some((p) => value.toLowerCase().includes(p)),
+      {
+        message:
+          "JWT_ACCESS_SECRET no puede usar placeholders (generá uno con: openssl rand -base64 32)",
+      },
+    ),
   JWT_ACCESS_TTL: z.string().default("15m"),
+  JWT_REFRESH_TTL: z.string().default("30d"),
   API_ORIGINS: z.string().default("*"),
+  WEB_URL: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z
+      .string()
+      .url("WEB_URL debe ser una URL válida")
+      .default("http://localhost:5173"),
+  ),
+  RESEND_API_KEY: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().optional(),
+  ),
+  MAIL_FROM: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().optional(),
+  ),
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
@@ -29,8 +67,14 @@ export function validateEnv(config: Record<string, unknown>): Env {
 
 export const jwtConstants = {
   accessSecret: () =>
-    process.env.JWT_ACCESS_SECRET ?? "dev-access-secret-change-me",
+    process.env.JWT_ACCESS_SECRET ??
+    (() => {
+      throw new Error(
+        "JWT_ACCESS_SECRET no está definido (generá uno con: openssl rand -base64 32)",
+      );
+    })(),
   accessTtl: () => process.env.JWT_ACCESS_TTL ?? "15m",
+  refreshTtl: () => process.env.JWT_REFRESH_TTL ?? "30d",
 };
 
 export function parseDurationToSeconds(ttl: string): number {

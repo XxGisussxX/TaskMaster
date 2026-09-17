@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "typecheck": "tsc -b --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -37,6 +37,7 @@
     "socket.io-client": "^4.8.3",
     "sonner": "^2.0.8",
     "tailwind-merge": "^2.6.0",
+    "textarea-caret": "^3.1.0",
     "zod": "^3.24.1",
     "zustand": "^5.0.3"
   },
@@ -47,6 +48,7 @@
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.6",
     "@types/react-dom": "^19.0.3",
+    "@types/textarea-caret": "^3.0.4",
     "@vitejs/plugin-react": "^4.3.4",
     "eslint": "^9.17.0",
     "eslint-plugin-react-hooks": "^5.1.0",
@@ -54,6 +56,7 @@
     "globals": "^15.14.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.2",
-    "vite": "^7.0.0"
+    "vite": "^7.0.0",
+    "vitest": "^2.1.8"
   }
 }

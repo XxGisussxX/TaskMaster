@@ -2,11 +2,13 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { ScheduleModule } from "@nestjs/schedule";
 import { APP_GUARD } from "@nestjs/core";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { validateEnv } from "./config/env.config";
 import { PrismaModule } from "./prisma/prisma.module";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
+import { AdminModule } from "./modules/admin/admin.module";
 import { WorkspacesModule } from "./modules/workspaces/workspaces.module";
 import { TasksModule } from "./modules/tasks/tasks.module";
 import { NotesModule } from "./modules/notes/notes.module";
@@ -25,6 +27,7 @@ import { TaskDependenciesModule } from "./modules/task-dependencies/task-depende
 import { TimeEntriesModule } from "./modules/time-entries/time-entries.module";
 import { CustomFieldsModule } from "./modules/custom-fields/custom-fields.module";
 import { WebSocketModule } from "./modules/websocket/websocket.module";
+import { TenantModule } from "./tenant/tenant.module";
 
 @Module({
   imports: [
@@ -33,11 +36,15 @@ import { WebSocketModule } from "./modules/websocket/websocket.module";
       envFilePath: ["../../.env", ".env"],
       validate: validateEnv,
     }),
+    ThrottlerModule.forRoot({
+      throttlers: [{ name: "default", ttl: 60_000, limit: 120 }],
+    }),
     ScheduleModule.forRoot(),
     PrismaModule,
     HealthModule,
     AuthModule,
     UsersModule,
+    AdminModule,
     WorkspacesModule,
     TasksModule,
     NotesModule,
@@ -55,8 +62,13 @@ import { WebSocketModule } from "./modules/websocket/websocket.module";
     TimeEntriesModule,
     CustomFieldsModule,
     WebSocketModule,
+    TenantModule,
   ],
   providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
