@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -26,6 +28,7 @@ const scryptAsync = promisify(scrypt) as (
 import { PrismaService } from "../../prisma/prisma.service";
 import { jwtConstants, parseDurationToSeconds } from "../../config/env.config";
 import { MailService } from "../mail/mail.service";
+import { LoginLockoutService } from "./login-lockout.service";
 import type { JwtPayload } from "./types";
 
 const EMAIL_VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
@@ -49,6 +52,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly mail: MailService,
     private readonly config: ConfigService,
+    private readonly lockout: LoginLockoutService,
   ) {}
 
   async register(
@@ -97,19 +101,58 @@ export class AuthService {
     },
     metadata: SessionMetadata,
   ): Promise<AuthSession> {
+    const lockout = this.lockout.check(input.email);
+    if (lockout.locked) {
+      this.logger.warn(
+        `Login bloqueado por lockout (email=${this.maskEmail(input.email)}, ip=${metadata.ip}, retryEn=${lockout.retryAfterSeconds}s)`,
+      );
+      throw new HttpException(
+        `Demasiados intentos. Reintentá en ${lockout.retryAfterSeconds} segundos.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { email: input.email },
     });
-    if (!user) {
+
+    // Mismo mensaje y mismo trabajo para "no existe" y "contraseña mala":
+    // si divergieran, /auth/login serviría para enumerar qué emails están
+    // registrados. Contra un email inexistente igual hasheamos la contraseña
+    // para que el tiempo de respuesta no lo delate.
+    let ok = false;
+    if (user) {
+      ok = await this.verifyPassword(input.password, user.passwordHash);
+    } else {
+      await this.hashPassword(input.password);
+    }
+
+    if (!user || !ok) {
+      this.lockout.recordFailure(input.email);
+      this.logger.warn(
+        `Login fallido (email=${this.maskEmail(input.email)}, ip=${metadata.ip}, device=${metadata.device})`,
+      );
       throw new UnauthorizedException("Credenciales inválidas");
     }
 
-    const ok = await this.verifyPassword(input.password, user.passwordHash);
-    if (!ok) {
-      throw new UnauthorizedException("Credenciales inválidas");
+    this.lockout.recordSuccess(input.email);
+
+    if (!user.isEmailVerified) {
+      this.logger.warn(
+        `Login sin email verificado (user=${user.id}, ip=${metadata.ip})`,
+      );
     }
 
     return this.issueSession(user, metadata);
+  }
+
+  /** Log seguro: conserva el dominio, oculta la parte local. */
+  private maskEmail(email: string): string {
+    const at = email.lastIndexOf("@");
+    if (at <= 0) return "***";
+    const domain = email.slice(at);
+    const local = email.slice(0, at);
+    return `${local[0] ?? "*"}***${domain}`;
   }
 
   /** Valida un refresh token y devuelve su usuario (usado por el guard). */

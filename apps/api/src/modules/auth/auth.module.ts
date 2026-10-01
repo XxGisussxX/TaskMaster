@@ -7,7 +7,9 @@ import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { JwtStrategy } from "./jwt.strategy";
 import { SessionCleanupService } from "./session-cleanup.service";
+import { LoginLockoutService } from "./login-lockout.service";
 import { RefreshTokenGuard } from "../../common/guards/refresh-token.guard";
+import { EmailThrottleGuard } from "../../common/guards/email-throttle.guard";
 
 @Module({
   imports: [
@@ -25,7 +27,9 @@ import { RefreshTokenGuard } from "../../common/guards/refresh-token.guard";
     AuthService,
     JwtStrategy,
     SessionCleanupService,
+    LoginLockoutService,
     RefreshTokenGuard,
+    EmailThrottleGuard,
   ],
   exports: [AuthService, JwtModule, RefreshTokenGuard],
 })

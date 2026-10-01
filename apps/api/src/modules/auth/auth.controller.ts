@@ -22,6 +22,7 @@ import {
 import { Public } from "../../common/decorators/public.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { RefreshTokenGuard } from "../../common/guards/refresh-token.guard";
+import { EmailThrottleGuard } from "../../common/guards/email-throttle.guard";
 import { ZodPipe } from "../../common/pipes/zod.pipe";
 import { AuthService } from "./auth.service";
 import type { AuthUser } from "./types";
@@ -41,6 +42,9 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  // Doble límite: el @Throttle de arriba cuenta por IP, este guard por email
+  // hasheado. Rotar X-Forwarded-For ya no multiplica los intentos.
+  @UseGuards(EmailThrottleGuard)
   @Throttle({ default: { limit: 3, ttl: 300_000 } })
   @Post("register")
   register(
@@ -51,6 +55,7 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(EmailThrottleGuard)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post("login")
   login(@Req() req: Request, @Body(new ZodPipe(loginSchema)) dto: LoginInput) {
@@ -76,6 +81,7 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(EmailThrottleGuard)
   @Throttle({ default: { limit: 5, ttl: 300_000 } })
   @Post("resend-verification")
   resendVerification(
@@ -85,6 +91,7 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(EmailThrottleGuard)
   @Throttle({ default: { limit: 5, ttl: 300_000 } })
   @Post("forgot-password")
   forgotPassword(

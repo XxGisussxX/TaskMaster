@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BadRequestException } from "@nestjs/common";
 import { AuthService } from "./auth.service";
+import { LoginLockoutService } from "./login-lockout.service";
 
 const sha256 = (value: string) =>
   createHash("sha256").update(value).digest("hex");
@@ -99,12 +100,14 @@ function setup(options: {
   };
   const config = { get: vi.fn(() => "http://localhost:5173") };
   const jwt = {};
+  const lockout = new LoginLockoutService(config as any);
 
   const service = new AuthService(
     db as any,
     jwt as any,
     mail as any,
     config as any,
+    lockout,
   );
 
   return { db, mail, service };
