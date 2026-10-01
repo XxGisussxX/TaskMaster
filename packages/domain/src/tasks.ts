@@ -17,7 +17,10 @@ export const STATUS_ORDER: Record<TaskStatus, number> = {
   [TaskStatus.ARCHIVED]: 4,
 };
 
-export function isOverdue(task: Task, now = new Date()): boolean {
+export function isOverdue(
+  task: Pick<Task, "dueDate" | "status">,
+  now = new Date(),
+): boolean {
   if (!task.dueDate) return false;
   if (task.status === TaskStatus.DONE || task.status === TaskStatus.ARCHIVED) {
     return false;

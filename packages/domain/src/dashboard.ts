@@ -9,6 +9,116 @@ export interface ActivitySeries {
   completed: number;
 }
 
+export interface KpiTrend {
+  date: string;
+  active: number;
+  completed: number;
+  overdue: number;
+  avgCompletionDays: number;
+}
+
+/** `null` = before the window start, `n` = after the window end. */
+function indexInWindow(
+  dayIndex: Map<string, number>,
+  firstDate: string,
+  key: string,
+  length: number,
+): number | null {
+  const idx = dayIndex.get(key);
+  if (idx !== undefined) return idx;
+  return key < firstDate ? null : length;
+}
+
+/**
+ * Daily KPI evolution over a date range (inclusive). Each point reflects the
+ * state at the end of its day:
+ * - `active`: tasks created on/before that day and not completed by then.
+ * - `completed`: tasks completed that day.
+ * - `overdue`: tasks whose due date falls strictly before that day and that
+ *   are still open at the close of the day (mirrors `isOverdue`).
+ * - `avgCompletionDays`: mean duration of the tasks completed that day.
+ */
+export function buildKpiTrends(
+  tasks: Task[],
+  from: Date,
+  to: Date,
+): KpiTrend[] {
+  const days = buildActivitySeries(tasks, from, to);
+  const n = days.length;
+  const dayIndex = new Map(days.map((d, i) => [d.date, i]));
+
+  const active = new Array<number>(n).fill(0);
+  const completed = new Array<number>(n).fill(0);
+  const overdue = new Array<number>(n).fill(0);
+  const cumulative = new Array<number>(n).fill(0);
+  const counts = new Array<number>(n).fill(0);
+  const firstDate = days[0]?.date ?? "";
+
+  for (const task of tasks) {
+    const closed =
+      task.status === TaskStatus.DONE || task.status === TaskStatus.ARCHIVED;
+
+    const createdIdx = indexInWindow(
+      dayIndex,
+      firstDate,
+      toLocalDateKey(toDate(task.createdAt)),
+      n,
+    );
+    if (createdIdx === n) continue;
+
+    const completedKey = task.completedAt
+      ? toLocalDateKey(toDate(task.completedAt))
+      : null;
+    const completedIdx = completedKey
+      ? indexInWindow(dayIndex, firstDate, completedKey, n)
+      : null;
+
+    const activeEnd = closed && completedIdx === null ? 0 : (completedIdx ?? n);
+    const activeStart = createdIdx ?? 0;
+    if (activeStart < activeEnd) {
+      active[activeStart]!++;
+      active[activeEnd]!--;
+    }
+
+    if (completedIdx !== null && completedIdx < n) {
+      completed[completedIdx]!++;
+      const created = toDate(task.createdAt).getTime();
+      const done = toDate(task.completedAt!).getTime();
+      if (done >= created) {
+        cumulative[completedIdx]! += (done - created) / 86_400_000;
+        counts[completedIdx]!++;
+      }
+    }
+
+    if (task.dueDate) {
+      const dueKey = toLocalDateKey(toDate(task.dueDate));
+      const dueIdx = indexInWindow(dayIndex, firstDate, dueKey, n);
+      const overdueStart = dueIdx === null ? 0 : dueIdx + 1;
+      const overdueEnd = completedIdx ?? (closed ? 0 : n);
+      if (overdueStart < overdueEnd) {
+        overdue[overdueStart]!++;
+        overdue[overdueEnd]!--;
+      }
+    }
+  }
+
+  let runningActive = 0;
+  let runningOverdue = 0;
+  return days.map((day, i) => {
+    runningActive += active[i]!;
+    runningOverdue += overdue[i]!;
+    const count = counts[i]!;
+    return {
+      date: day.date,
+      active: runningActive,
+      completed: completed[i]!,
+      overdue: runningOverdue,
+      avgCompletionDays:
+        count > 0 ? Math.round((cumulative[i]! / count) * 10) / 10 : 0,
+    };
+  });
+}
+
 /** Build a daily created/completed series between two dates (inclusive). */
 export function buildActivitySeries(
   tasks: Task[],
