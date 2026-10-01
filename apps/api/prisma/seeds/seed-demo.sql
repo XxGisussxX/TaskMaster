@@ -174,9 +174,12 @@ INSERT INTO "TaskTemplate" ("id","workspaceId","userId","name","description","da
  '{"title":"","description":"","priority":"LOW","status":"TODO"}'::jsonb, NOW());
 
 -- 13) Invitacion pendiente
-INSERT INTO "Invite" ("id","workspaceId","email","role","token","invitedById","expiresAt","acceptedAt") VALUES
+-- El token ya no se guarda en claro: la columna es tokenHash (SHA-256 hex).
+-- Este seed no necesita un token redimible, solo una fila para que la pestana
+-- de invitaciones tenga algo que mostrar.
+INSERT INTO "Invite" ("id","workspaceId","email","role","tokenHash","invitedById","expiresAt","acceptedAt") VALUES
 ('seed_invite_nuevo', (SELECT "id" FROM "Workspace" WHERE "slug"='espacio-demo'),
- 'nuevo-miembro@taskmaster.app', 'MEMBER', gen_random_uuid()::text,
+ 'nuevo-miembro@taskmaster.app', 'MEMBER', encode(sha256(convert_to('seed_invite_nuevo_token','UTF8')), 'hex'),
  (SELECT "id" FROM "User" WHERE "email"='demo@taskmaster.app'), NOW() + interval '7 days', NULL);
 
 -- 14) Notas (todos los tipos)

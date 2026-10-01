@@ -216,7 +216,9 @@ model Invite {
   workspaceId String
   email       String
   role        WorkspaceRole @default(MEMBER)
-  token       String        @unique
+  // El token en claro solo viaja por email. En la DB queda el hash: un dump no
+  // debe permitir redimir invitaciones.
+  tokenHash   String        @unique
   invitedById String?
   expiresAt   DateTime
   acceptedAt  DateTime?

@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import {
   WorkspaceRole,
   type AcceptInviteInput,
@@ -165,13 +165,14 @@ export class WorkspacesService {
     });
 
     const token = randomBytes(24).toString("base64url");
+    const tokenHash = this.hashInviteToken(token);
     const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
 
     let inviteId: string;
     if (existingPending) {
       await this.prisma.invite.update({
         where: { id: existingPending.id },
-        data: { token, expiresAt, role: dto.role, invitedById: userId },
+        data: { tokenHash, expiresAt, role: dto.role, invitedById: userId },
       });
       inviteId = existingPending.id;
     } else {
@@ -180,7 +181,7 @@ export class WorkspacesService {
           workspaceId,
           email: dto.email,
           role: dto.role,
-          token,
+          tokenHash,
           expiresAt,
           invitedById: userId,
         },
@@ -201,7 +202,7 @@ export class WorkspacesService {
 
   async invitePreview(token: string): Promise<InvitePreview> {
     const invite = await this.prisma.invite.findUnique({
-      where: { token },
+      where: { tokenHash: this.hashInviteToken(token) },
       include: {
         workspace: { select: { id: true, name: true } },
         invitedBy: { select: { id: true, name: true } },
@@ -264,7 +265,7 @@ export class WorkspacesService {
 
     await this.prisma.invite.update({
       where: { id: inviteId },
-      data: { token, expiresAt, invitedById: userId },
+      data: { tokenHash: this.hashInviteToken(token), expiresAt, invitedById: userId },
     });
 
     const { sent, inviteUrl } = await this.sendInviteEmail({
@@ -301,7 +302,7 @@ export class WorkspacesService {
     dto: AcceptInviteInput,
   ): Promise<Workspace> {
     const invite = await this.prisma.invite.findUnique({
-      where: { token: dto.token },
+      where: { tokenHash: this.hashInviteToken(dto.token) },
     });
 
     if (!invite) {
@@ -518,6 +519,14 @@ export class WorkspacesService {
       expiresAt: invite.expiresAt.toISOString(),
       createdAt: invite.createdAt.toISOString(),
     };
+  }
+
+  /**
+   * El token en claro viaja únicamente por el email; la DB guarda el hash.
+   * Mismo algoritmo que la migración 20261001000000 (SHA-256 hex en minúsculas).
+   */
+  private hashInviteToken(token: string): string {
+    return createHash("sha256").update(token).digest("hex");
   }
 
   private async uniqueSlug(base: string): Promise<string> {

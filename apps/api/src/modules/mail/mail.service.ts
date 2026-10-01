@@ -24,6 +24,28 @@ export interface SendAuthEmailInput {
 const DEV_FALLBACK_URL =
   "https://resend.com/dashboard (configurá RESEND_API_KEY para enviar emails reales)";
 
+/**
+ * Los links de invitación/verificación/reset son bearer: con el token (y el
+ * email destinatario) se entra a la cuenta. Escribirlos en el log los convierte
+ * en un canal de robo, porque los logs se archivan, se indexan y se comparten
+ * con cualquier tool de soporte. En la URL solo queda el path, sin query string.
+ */
+function redactActionUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}${parsed.pathname}?<token oculto>`;
+  } catch {
+    return "<url inválida>";
+  }
+}
+
+/** Conserva el dominio para poder diagnosticar, oculta la parte local. */
+function maskEmail(email: string): string {
+  const at = email.lastIndexOf("@");
+  if (at <= 0) return "***";
+  return `${email[0]}***${email.slice(at)}`;
+}
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -86,7 +108,7 @@ export class MailService {
   ): Promise<{ sent: boolean }> {
     if (!this.resend) {
       this.logger.warn(
-        `No hay RESEND_API_KEY configurada. Enlace (${to}): ${devLogUrl} — ${DEV_FALLBACK_URL}`,
+        `No hay RESEND_API_KEY configurada. Destinatario=${maskEmail(to)}, enlace=${redactActionUrl(devLogUrl)} — ${DEV_FALLBACK_URL}`,
       );
       return { sent: false };
     }
