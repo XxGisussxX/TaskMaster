@@ -21,6 +21,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger("HttpExceptionFilter");
 
   catch(exception: unknown, host: ArgumentsHost): void {
+    // Este filtro está registrado con useGlobalFilters, así que también recibe
+    // excepciones de contextos que no son HTTP (WebSockets de Socket.io, RPC).
+    // switchToHttp() sobre esos contextos no da una Response de Express, y
+    // terminaría en un TypeError al escribir, que tapa el error original.
+    if (host.getType() !== "http") {
+      this.logger.error(
+        `Excepción en contexto no-HTTP (${host.getType()}):`,
+        exception instanceof Error ? exception.stack : String(exception),
+      );
+      return;
+    }
+
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<{ url: string; method: string }>();
@@ -48,21 +60,33 @@ export class HttpExceptionFilter implements ExceptionFilter {
         return { statusCode: status, message: res, path: request.url };
       }
       const obj = res as Record<string, unknown>;
+      // Solo se propaga `issues` cuando es un array (formato de Zod: lista de
+      // campos con mensaje). Si `message` viniera como array u objeto arbitrario
+      // lo descartamos: un HttpException de una librería de terceros podría
+      // estar metiendo ahí datos internos de la consulta.
+      const issues = Array.isArray(obj.issues) ? obj.issues : undefined;
       return {
         statusCode: status,
         message:
           typeof obj.message === "string" ? obj.message : "Solicitud inválida",
-        errors: obj.issues ?? obj.message,
+        ...(issues ? { errors: issues } : {}),
         path: request.url,
       };
     }
 
     if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       if (exception.code === "P2002") {
+        // `exception.meta` NO se envía: contiene los valores que violaron el
+        // índice único (el email que ya existe, el slug tomado). Con eso, un
+        // POST /auth/register que choque por P2002 confirma si una cuenta está
+        // registrada. El código alcanza para que el cliente sepa que hay
+        // conflicto; el detalle va al log del servidor, no a la respuesta.
+        this.logger.warn(
+          `P2002 en ${request.method} ${request.url} — meta: ${JSON.stringify(exception.meta)}`,
+        );
         return {
           statusCode: HttpStatus.CONFLICT,
           message: "Ya existe un registro con esos datos",
-          errors: { code: "P2002", meta: exception.meta },
           path: request.url,
         };
       }
