@@ -6,6 +6,20 @@ const envSchema = z.object({
     .default("development"),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   DATABASE_URL: z.string().min(1, "DATABASE_URL es requerida"),
+  // Redis guarda el estado que no puede vivir en el proceso: rate limit,
+  // bloqueo de cuenta por intentos fallidos y cuota diaria de IA. Con una sola
+  // réplica el comportamiento es idéntico al de memoria, pero al reiniciar la
+  // API esos contadores no se pierden y varias réplicas los comparten.
+  REDIS_HOST: z.string().min(1).default("localhost"),
+  REDIS_PORT: z.coerce.number().int().min(1).max(65535).default(6379),
+  REDIS_PASSWORD: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().optional(),
+  ),
+  REDIS_DB: z.coerce.number().int().min(0).default(0),
+  // Prefijo de todas las keys. Evita colisiones si un mismo Redis sirve a
+  // varios entornos, y hace localizable el origen de cada key con SCAN.
+  REDIS_KEY_PREFIX: z.string().min(1).default("taskmaster"),
   JWT_ACCESS_SECRET: z
     .string()
     .regex(

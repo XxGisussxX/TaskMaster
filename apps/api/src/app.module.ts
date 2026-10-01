@@ -5,6 +5,9 @@ import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { validateEnv } from "./config/env.config";
 import { PrismaModule } from "./prisma/prisma.module";
+import { RedisModule } from "./redis/redis.module";
+import { RedisService } from "./redis/redis.service";
+import { ThrottlerStorageRedis } from "./redis/throttler-storage-redis";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { MailModule } from "./modules/mail/mail.module";
 import { AuthModule } from "./modules/auth/auth.module";
@@ -38,11 +41,20 @@ import { TenantModule } from "./tenant/tenant.module";
       envFilePath: ["../../.env", ".env"],
       validate: validateEnv,
     }),
-    ThrottlerModule.forRoot({
-      throttlers: [{ name: "default", ttl: 60_000, limit: 120 }],
+    ThrottlerModule.forRootAsync({
+      imports: [RedisModule],
+      inject: [RedisService],
+      useFactory: (redis: RedisService) => ({
+        // Mismos valores que antes de esta fase: 120 requests por minuto por
+        // tracker. Cambiar el límite junto con el store haría imposible
+        // atribuir a cuál de las dos cosas se debe una diferencia de tráfico.
+        throttlers: [{ name: "default", ttl: 60_000, limit: 120 }],
+        storage: new ThrottlerStorageRedis(redis),
+      }),
     }),
     ScheduleModule.forRoot(),
     PrismaModule,
+    RedisModule,
     HealthModule,
     MailModule,
     AuthModule,
