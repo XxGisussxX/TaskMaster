@@ -2,6 +2,7 @@ import type { Note, Paginated } from "@taskmaster/contracts";
 import { http } from "@/services/http";
 import {
   createLocalNote,
+  getLocalNote,
   isLocalNotesWorkspace,
   listLocalNotes,
   removeLocalNote,
@@ -24,6 +25,11 @@ export const notesApi = {
           `/workspaces/${workspaceId}/notes${qs ? `?${qs}` : ""}`,
         );
   },
+
+  get: (workspaceId: string, id: string) =>
+    isLocalNotesWorkspace(workspaceId)
+      ? Promise.resolve(getLocalNote(workspaceId, id))
+      : http.get<Note>(`/workspaces/${workspaceId}/notes/${id}`),
 
   create: (workspaceId: string, input: Record<string, unknown>) =>
     isLocalNotesWorkspace(workspaceId)

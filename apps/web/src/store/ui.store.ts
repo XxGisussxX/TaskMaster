@@ -1,11 +1,11 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Task } from "@taskmaster/contracts";
+import type { Note, Task } from "@taskmaster/contracts";
 
 export type Theme = "light" | "dark" | "system";
 
 export type TaskModalRequest =
-  { mode: "create" } | { mode: "edit"; task: Task };
+  { mode: "create"; ai?: boolean } | { mode: "edit"; task: Task };
 
 interface UiState {
   sidebarOpen: boolean;
@@ -13,6 +13,8 @@ interface UiState {
   theme: Theme;
   taskModalRequest: TaskModalRequest | null;
   noteCreateRequest: boolean;
+  noteOpenRequest: Note | null;
+  assistantDraft: string | null;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
   setCommandPaletteOpen: (open: boolean) => void;
@@ -21,6 +23,10 @@ interface UiState {
   consumeTaskModalRequest: () => void;
   requestNoteCreate: () => void;
   consumeNoteCreate: () => void;
+  requestNoteOpen: (note: Note) => void;
+  consumeNoteOpen: () => void;
+  requestAssistantDraft: (draft: string) => void;
+  consumeAssistantDraft: () => void;
 }
 
 function resolveTheme(theme: Theme): "light" | "dark" {
@@ -40,6 +46,8 @@ export const useUiStore = create<UiState>()(
       theme: "system",
       taskModalRequest: null,
       noteCreateRequest: false,
+      noteOpenRequest: null,
+      assistantDraft: null,
       toggleSidebar: () => set({ sidebarOpen: !get().sidebarOpen }),
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
       setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
@@ -54,6 +62,10 @@ export const useUiStore = create<UiState>()(
       consumeTaskModalRequest: () => set({ taskModalRequest: null }),
       requestNoteCreate: () => set({ noteCreateRequest: true }),
       consumeNoteCreate: () => set({ noteCreateRequest: false }),
+      requestNoteOpen: (note) => set({ noteOpenRequest: note }),
+      consumeNoteOpen: () => set({ noteOpenRequest: null }),
+      requestAssistantDraft: (draft) => set({ assistantDraft: draft }),
+      consumeAssistantDraft: () => set({ assistantDraft: null }),
     }),
     {
       name: "taskmaster.ui",

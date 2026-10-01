@@ -103,6 +103,15 @@ export function listLocalNotes(
   };
 }
 
+export function getLocalNote(workspaceId: string, noteId: string): Note {
+  const store = readStore();
+  const note = ensureWorkspaceNotes(store, workspaceId)
+    .map(cloneNote)
+    .find((candidate) => candidate.id === noteId);
+  if (!note) throw new Error("Nota no encontrada");
+  return note;
+}
+
 export function createLocalNote(
   workspaceId: string,
   input: Record<string, unknown>,

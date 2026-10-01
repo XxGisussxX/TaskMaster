@@ -19,9 +19,11 @@ export function WorkspaceSwitcher({ sidebarOpen }: { sidebarOpen: boolean }) {
         onClick={() => setOpen(!open)}
         className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent transition-colors"
       >
-        <span className="flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
-          {current?.icon ?? current?.name?.charAt(0)?.toUpperCase() ?? "W"}
-        </span>
+        {current?.icon && (
+          <span className="flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
+            {current.icon}
+          </span>
+        )}
         <span className="flex-1 truncate text-left font-medium">
           {current?.name ?? "Seleccionar workspace"}
         </span>
@@ -51,9 +53,11 @@ export function WorkspaceSwitcher({ sidebarOpen }: { sidebarOpen: boolean }) {
                       "bg-accent font-medium",
                   )}
                 >
-                  <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/10 text-[10px] font-bold text-primary">
-                    {workspace.icon ?? workspace.name.charAt(0).toUpperCase()}
-                  </span>
+                  {workspace.icon && (
+                    <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/10 text-[10px] font-bold text-primary">
+                      {workspace.icon}
+                    </span>
+                  )}
                   <span className="flex-1 truncate text-left">
                     {workspace.name}
                   </span>

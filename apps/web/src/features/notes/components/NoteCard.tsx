@@ -3,6 +3,7 @@ import { NoteType } from "@taskmaster/contracts";
 import { Pin, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { RichText } from "@/components/ui/rich-text";
 import { CustomFieldChips } from "@/features/custom-fields/components/CustomFieldChips";
 import { getChecklistProgress, getContentSize } from "@taskmaster/domain";
 import { cn } from "@/lib/utils";
@@ -79,9 +80,10 @@ export function NoteCard({
         </h3>
       </div>
 
-      <p className="line-clamp-4 text-sm whitespace-pre-wrap text-foreground/80">
-        {note.content}
-      </p>
+      <RichText
+        html={note.content}
+        className="line-clamp-4 text-sm text-foreground/80"
+      />
 
       {checklist && checklist.total > 0 && (
         <div className="mt-auto space-y-1">

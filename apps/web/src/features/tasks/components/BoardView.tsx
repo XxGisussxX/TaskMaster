@@ -15,6 +15,7 @@ import {
 import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
+import { RichText } from "@/components/ui/rich-text";
 import { PriorityBadge } from "./PriorityBadge";
 import { CustomFieldChips } from "@/features/custom-fields/components/CustomFieldChips";
 import { useCustomFieldValuesMany } from "@/features/custom-fields/hooks/useCustomFields";
@@ -85,11 +86,10 @@ function SortableTaskCard({
       }}
     >
       <p className="text-sm font-medium">{task.title}</p>
-      {task.description && (
-        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-          {task.description}
-        </p>
-      )}
+      <RichText
+        html={task.description}
+        className="mt-1 line-clamp-2 text-xs text-muted-foreground"
+      />
       <div className="mt-2 flex items-center gap-2">
         <PriorityBadge priority={task.priority} />
         {task.dueDate && (

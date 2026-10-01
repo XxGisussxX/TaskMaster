@@ -114,3 +114,214 @@ body {
 * {
   scrollbar-width: thin;
 }
+
+.rich-text > :first-child,
+.ProseMirror > :first-child {
+  margin-top: 0;
+}
+
+.rich-text > :last-child,
+.ProseMirror > :last-child {
+  margin-bottom: 0;
+}
+
+.rich-text p,
+.ProseMirror p {
+  margin: 0.25em 0;
+}
+
+.rich-text h1,
+.rich-text h2,
+.rich-text h3,
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3 {
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0.5em 0 0.25em;
+}
+
+.rich-text h1,
+.ProseMirror h1 {
+  font-size: 1.15em;
+}
+
+.rich-text h2,
+.ProseMirror h2 {
+  font-size: 1.05em;
+}
+
+.rich-text h3,
+.ProseMirror h3 {
+  font-size: 1em;
+}
+
+.rich-text strong,
+.rich-text b,
+.ProseMirror strong,
+.ProseMirror b {
+  font-weight: 600;
+}
+
+.rich-text em,
+.rich-text i,
+.ProseMirror em,
+.ProseMirror i {
+  font-style: italic;
+}
+
+.rich-text s,
+.rich-text strike,
+.rich-text del,
+.ProseMirror s,
+.ProseMirror strike,
+.ProseMirror del {
+  text-decoration: line-through;
+}
+
+.rich-text code,
+.ProseMirror code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875em;
+  background: var(--muted);
+  border-radius: 0.25rem;
+  padding: 0.1em 0.3em;
+}
+
+.rich-text pre,
+.ProseMirror pre {
+  background: var(--muted);
+  border-radius: 0.5rem;
+  padding: 0.5em 0.75em;
+  margin: 0.5em 0;
+  overflow-x: auto;
+}
+
+.rich-text pre code,
+.ProseMirror pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.rich-text ul,
+.ProseMirror ul {
+  list-style: disc;
+  padding-left: 1.25em;
+  margin: 0.25em 0;
+}
+
+.rich-text ol,
+.ProseMirror ol {
+  list-style: decimal;
+  padding-left: 1.25em;
+  margin: 0.25em 0;
+}
+
+.rich-text li,
+.ProseMirror li {
+  margin: 0.125em 0;
+}
+
+.rich-text li > p,
+.ProseMirror li > p {
+  margin: 0;
+}
+
+.rich-text blockquote,
+.ProseMirror blockquote {
+  border-left: 2px solid var(--border);
+  color: var(--muted-foreground);
+  padding-left: 0.75em;
+  margin: 0.5em 0;
+}
+
+.rich-text hr,
+.ProseMirror hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 0.75em 0;
+}
+
+.rich-text a,
+.ProseMirror a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.rich-text ul[data-type="taskList"],
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.rich-text ul[data-type="taskList"] li,
+.ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4em;
+}
+
+.rich-text ul[data-type="taskList"] li > label,
+.ProseMirror ul[data-type="taskList"] li > label {
+  display: flex;
+  align-items: center;
+  margin-top: 0.15em;
+}
+
+.rich-text ul[data-type="taskList"] li > div,
+.ProseMirror ul[data-type="taskList"] li > div {
+  flex: 1;
+}
+
+@theme inline {
+  --animate-typing-dot: typing-bounce 1.2s ease-in-out infinite;
+  --animate-caret-blink: caret-blink 1s steps(1) infinite;
+  --animate-msg-in: msg-in 0.18s ease-out both;
+  --animate-fade-up: fade-up 0.24s ease-out both;
+}
+
+@keyframes typing-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@keyframes caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

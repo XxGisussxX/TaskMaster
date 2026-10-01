@@ -14,6 +14,7 @@ interface AuthState {
     accessToken: string;
     refreshToken: string;
   }) => void;
+  setUser: (user: User) => void;
   clear: () => void;
 }
 
@@ -32,6 +33,7 @@ export const useAuthStore = create<AuthState>()(
           accessToken: session.accessToken,
           refreshToken: session.refreshToken,
         }),
+      setUser: (user) => set({ user }),
       clear: () => set({ user: null, accessToken: null, refreshToken: null }),
     }),
     {

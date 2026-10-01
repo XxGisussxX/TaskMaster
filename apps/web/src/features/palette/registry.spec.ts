@@ -78,6 +78,15 @@ describe("palette/registry", () => {
     expect(stored.section).toBe("Navegación");
   });
 
+  it("conserva el bucket (workspace/quick) al registrar", () => {
+    const command = makeCommand({ bucket: "workspace" });
+    usePaletteRegistry.getState().registerCommand(command);
+
+    const stored = usePaletteRegistry.getState().commands["cmd.test"];
+    if (!stored) throw new Error("Comando no registrado");
+    expect(stored.bucket).toBe("workspace");
+  });
+
   it("desregistra un comando por id", () => {
     const command = makeCommand();
     usePaletteRegistry.getState().registerCommand(command);

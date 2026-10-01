@@ -1,6 +1,7 @@
 import type { AuthSession } from "@taskmaster/contracts";
 import { http } from "@/services/http";
 import { useAuthStore } from "@/store/auth.store";
+import { usersApi } from "@/features/users/api/users.api";
 
 export async function login(input: {
   email: string;
@@ -16,6 +17,38 @@ export async function register(input: {
   password: string;
 }): Promise<void> {
   await http.post("/auth/register", input);
+}
+
+export async function verifyEmail(token: string): Promise<{ success: true }> {
+  return http.post<{ success: true }>("/auth/verify-email", { token });
+}
+
+export async function resendVerification(
+  email: string,
+): Promise<{ sent: boolean }> {
+  return http.post<{ sent: boolean }>("/auth/resend-verification", { email });
+}
+
+export async function forgotPassword(
+  email: string,
+): Promise<{ sent: boolean }> {
+  return http.post<{ sent: boolean }>("/auth/forgot-password", { email });
+}
+
+export async function resetPassword(
+  token: string,
+  password: string,
+): Promise<{ success: true }> {
+  return http.post<{ success: true }>("/auth/reset-password", {
+    token,
+    password,
+  });
+}
+
+/** Refresca el perfil del usuario en el store (p. ej. tras verificar). */
+export async function refreshCurrentUser(): Promise<void> {
+  const user = await usersApi.getProfile();
+  useAuthStore.getState().setUser(user);
 }
 
 export async function logout(): Promise<void> {

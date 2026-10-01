@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, LayoutGrid, Rows3, Kanban, BarChart3 } from "lucide-react";
-import type { Task, TaskStatus } from "@taskmaster/contracts";
+import {
+  Plus,
+  LayoutGrid,
+  Rows3,
+  Kanban,
+  BarChart3,
+  Sparkles,
+} from "lucide-react";
+import type { Task, TaskStatus, NlTaskDraft } from "@taskmaster/contracts";
 import { Button } from "@/components/ui/button";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -27,6 +34,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { http } from "@/services/http";
 import { useCurrentMembership } from "@/features/workspace/hooks/useMembers";
 import { useUiStore } from "@/store/ui.store";
+import { AiTaskDialog } from "@/features/ai/components/AiTaskDialog";
 
 export function TasksPage() {
   const workspaceId = useCurrentWorkspaceId();
@@ -35,6 +43,8 @@ export function TasksPage() {
   const search = useDebounce(filters.search, 300);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiDraft, setAiDraft] = useState<NlTaskDraft | null>(null);
   const { selectedIds, toggle } = useSelectionStore();
   const taskModalRequest = useUiStore((s) => s.taskModalRequest);
   const consumeTaskModalRequest = useUiStore((s) => s.consumeTaskModalRequest);
@@ -125,6 +135,7 @@ export function TasksPage() {
   };
 
   const openCreate = () => {
+    setAiDraft(null);
     setEditing(null);
     setModalOpen(true);
   };
@@ -134,12 +145,29 @@ export function TasksPage() {
     setModalOpen(true);
   };
 
+  const handleModalOpenChange = (open: boolean) => {
+    setModalOpen(open);
+    if (!open) setAiDraft(null);
+  };
+
+  const handleAiGenerated = (draft: NlTaskDraft) => {
+    setAiModalOpen(false);
+    setEditing(null);
+    setAiDraft(draft);
+    setModalOpen(true);
+  };
+
   useEffect(() => {
     if (!taskModalRequest) return;
     if (taskModalRequest.mode === "create") {
       if (canWrite) {
-        setEditing(null);
-        setModalOpen(true);
+        if (taskModalRequest.ai) {
+          setAiDraft(null);
+          setAiModalOpen(true);
+        } else {
+          setEditing(null);
+          setModalOpen(true);
+        }
       }
     } else {
       setEditing(taskModalRequest.task);
@@ -155,10 +183,16 @@ export function TasksPage() {
         description={workspaceId ? undefined : "Cargando workspace…"}
         action={
           canWrite && (
-            <Button onClick={openCreate}>
-              <Plus className="h-4 w-4" />
-              Nueva tarea
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setAiModalOpen(true)}>
+                <Sparkles className="h-4 w-4" />
+                Crear con IA
+              </Button>
+              <Button onClick={openCreate}>
+                <Plus className="h-4 w-4" />
+                Nueva tarea
+              </Button>
+            </div>
           )
         }
       />
@@ -258,10 +292,17 @@ export function TasksPage() {
 
       <TaskModal
         open={modalOpen}
-        onOpenChange={setModalOpen}
+        onOpenChange={handleModalOpenChange}
         task={editing}
+        draft={aiDraft}
         onSubmit={editing ? handleEdit : handleCreate}
         submitting={createTask.isPending || updateTask.isPending}
+      />
+
+      <AiTaskDialog
+        open={aiModalOpen}
+        onOpenChange={setAiModalOpen}
+        onGenerated={handleAiGenerated}
       />
     </div>
   );

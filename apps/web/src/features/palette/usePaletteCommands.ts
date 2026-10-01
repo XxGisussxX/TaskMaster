@@ -3,14 +3,17 @@ import { useNavigate } from "react-router-dom";
 import {
   Plus,
   StickyNote,
+  Sparkles,
   LayoutGrid,
   Rows3,
   Kanban,
   BarChart3,
   CheckCheck,
-  Sun,
-  Moon,
-  Monitor,
+  SunMoon,
+  UserPlus,
+  Users,
+  Settings2,
+  Bookmark,
 } from "lucide-react";
 import { NAV_ITEMS } from "@/app/nav";
 import { useUiStore } from "@/store/ui.store";
@@ -18,6 +21,8 @@ import { useAuthStore } from "@/store/auth.store";
 import { useFiltersStore } from "@/store/filters.store";
 import { usePaletteRegistry, type PaletteCommand } from "./registry";
 import { useCurrentMembership } from "@/features/workspace/hooks/useMembers";
+import { useCurrentWorkspaceId } from "@/features/tasks/hooks/useTasks";
+import { isLocalWorkspace } from "@/features/tasks/lib/localTasks";
 import {
   useMarkAllAsRead,
   useUnreadCount,
@@ -27,47 +32,59 @@ import {
 export function usePaletteCommands() {
   const navigate = useNavigate();
   const userRole = useAuthStore((s) => s.user?.role);
-  const { canWrite, hasWorkspace } = useCurrentMembership();
+  const { canWrite, hasWorkspace, isOwnerOrAdmin } = useCurrentMembership();
   const { data: unread = 0 } = useUnreadCount();
   const { mutate: markAllRead } = useMarkAllAsRead();
   const setView = useFiltersStore((s) => s.setView);
   const toggleOnlyMine = useFiltersStore((s) => s.toggleOnlyMine);
   const toggleOnlyOverdue = useFiltersStore((s) => s.toggleOnlyOverdue);
   const resetFilters = useFiltersStore((s) => s.reset);
+  const theme = useUiStore((s) => s.theme);
   const setTheme = useUiStore((s) => s.setTheme);
   const requestTaskModal = useUiStore((s) => s.requestTaskModal);
   const requestNoteCreate = useUiStore((s) => s.requestNoteCreate);
+  const requestAssistantDraft = useUiStore((s) => s.requestAssistantDraft);
   const registerCommand = usePaletteRegistry((s) => s.registerCommand);
   const unregisterCommand = usePaletteRegistry((s) => s.unregisterCommand);
 
+  const workspaceId = useCurrentWorkspaceId();
+  const aiUnavailable = !workspaceId || isLocalWorkspace(workspaceId);
+
   const commands = useMemo<PaletteCommand[]>(
     () => [
-      ...NAV_ITEMS.filter(
-        (item) =>
-          !item.systemRoles ||
-          (userRole && item.systemRoles.includes(userRole)),
-      ).map((item): PaletteCommand => ({
-        id: `nav.${item.to}`,
-        group: "navigation",
-        section: "Navegación",
-        title: `Ir a ${item.label}`,
-        hint: item.hint,
-        icon: item.icon,
-        run: () => navigate(item.to),
-      })),
-
+      // ===== Acciones rápidas =====
       ...(canWrite && hasWorkspace
         ? ([
             {
               id: "task.create",
               group: "actions" as const,
               section: "Tareas",
-              title: "Nueva tarea",
+              title: "Crear nueva tarea",
               keywords: ["crear", "agregar", "nueva tarea"],
+              hint: "C",
               icon: Plus,
               run: () => {
                 navigate("/tasks");
                 requestTaskModal({ mode: "create" });
+              },
+            },
+            {
+              id: "task.create.ai",
+              group: "actions" as const,
+              section: "Tareas",
+              title: "Crear tarea con IA",
+              keywords: [
+                "crear",
+                "ia",
+                "inteligencia artificial",
+                "gemini",
+                "borrador",
+                "auto",
+              ],
+              icon: Sparkles,
+              run: () => {
+                navigate("/tasks");
+                requestTaskModal({ mode: "create", ai: true });
               },
             },
             {
@@ -85,6 +102,57 @@ export function usePaletteCommands() {
           ] satisfies PaletteCommand[])
         : []),
 
+      ...(!aiUnavailable
+        ? ([
+            {
+              id: "ai.reorganize.week",
+              group: "actions" as const,
+              section: "IA",
+              title: "Pedir a Copilot reorganizar mi semana",
+              keywords: [
+                "copilot",
+                "ia",
+                "asistente",
+                "semana",
+                "reorganizar",
+                "priorizar",
+                "planificar",
+              ],
+              icon: Sparkles,
+              run: () =>
+                requestAssistantDraft(
+                  "Hola, ayudame a organizar mi semana priorizando lo más urgente.",
+                ),
+            },
+          ] satisfies PaletteCommand[])
+        : []),
+
+      {
+        id: "theme.toggle",
+        group: "actions" as const,
+        section: "Personalización",
+        title: "Cambiar a modo claro/oscuro",
+        keywords: ["tema", "claro", "oscuro", "modo", "noche", "día", "dia"],
+        hint: "T",
+        icon: SunMoon,
+        run: () => setTheme(theme === "dark" ? "light" : "dark"),
+      },
+
+      ...NAV_ITEMS.filter(
+        (item) =>
+          !item.systemRoles ||
+          (userRole && item.systemRoles.includes(userRole)),
+      ).map((item): PaletteCommand => ({
+        id: `nav.${item.id ?? item.to}`,
+        group: "navigation",
+        section: "Navegación",
+        title: `Ir a ${item.label}`,
+        hint: item.hint,
+        icon: item.icon,
+        run: () => navigate(item.to),
+      })),
+
+      // ===== Acciones del workspace de tareas =====
       ...(hasWorkspace
         ? ([
             {
@@ -167,41 +235,73 @@ export function usePaletteCommands() {
           ] satisfies PaletteCommand[])
         : []),
 
-      ...([
-        {
-          id: "theme.light",
-          group: "actions" as const,
-          section: "Personalización",
-          title: "Tema claro",
-          keywords: ["tema", "claro"],
-          icon: Sun,
-          run: () => setTheme("light"),
-        },
-        {
-          id: "theme.dark",
-          group: "actions" as const,
-          section: "Personalización",
-          title: "Tema oscuro",
-          keywords: ["tema", "oscuro"],
-          icon: Moon,
-          run: () => setTheme("dark"),
-        },
-        {
-          id: "theme.system",
-          group: "actions" as const,
-          section: "Personalización",
-          title: "Tema sistema",
-          keywords: ["tema", "sistema"],
-          icon: Monitor,
-          run: () => setTheme("system"),
-        },
-      ] satisfies PaletteCommand[]),
+      // ===== Comandos del workspace =====
+      ...(hasWorkspace
+        ? ([
+            {
+              id: "workspace.invite",
+              group: "actions" as const,
+              section: "Workspace",
+              bucket: "workspace",
+              title: "Invitar miembros al workspace",
+              keywords: [
+                "invitar",
+                "miembros",
+                "invitación",
+                "invitacion",
+                "colaboradores",
+                "equipo",
+              ],
+              icon: UserPlus,
+              run: () => navigate("/workspace"),
+              available: () => isOwnerOrAdmin,
+            },
+            {
+              id: "workspace.members",
+              group: "actions" as const,
+              section: "Workspace",
+              bucket: "workspace",
+              title: "Ver miembros del workspace",
+              keywords: ["miembros", "gestionar", "equipo", "roles"],
+              icon: Users,
+              run: () => navigate("/workspace"),
+            },
+            {
+              id: "workspace.settings",
+              group: "actions" as const,
+              section: "Workspace",
+              bucket: "workspace",
+              title: "Configuración del workspace",
+              keywords: [
+                "configuración",
+                "configuracion",
+                "ajustes",
+                "workspace",
+              ],
+              icon: Settings2,
+              run: () => navigate("/settings"),
+              available: () => isOwnerOrAdmin,
+            },
+            {
+              id: "workspace.saved-views",
+              group: "actions" as const,
+              section: "Workspace",
+              bucket: "workspace",
+              title: "Gestionar vistas guardadas",
+              keywords: ["vistas", "guardadas", "vista", "filtros guardados"],
+              icon: Bookmark,
+              run: () => navigate("/tasks"),
+            },
+          ] satisfies PaletteCommand[])
+        : []),
     ],
     [
       canWrite,
       hasWorkspace,
       unread,
       userRole,
+      aiUnavailable,
+      theme,
       navigate,
       setView,
       toggleOnlyMine,
@@ -210,7 +310,9 @@ export function usePaletteCommands() {
       setTheme,
       requestTaskModal,
       requestNoteCreate,
+      requestAssistantDraft,
       markAllRead,
+      isOwnerOrAdmin,
     ],
   );
 

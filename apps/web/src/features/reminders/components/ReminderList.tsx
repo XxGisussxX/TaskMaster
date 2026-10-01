@@ -122,7 +122,7 @@ export function ReminderList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center gap-3">
         <h3 className="text-sm font-medium text-muted-foreground">
           Recordatorios ({reminders.length})
         </h3>

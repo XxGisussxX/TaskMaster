@@ -29,6 +29,8 @@ export function NotesPage() {
   const { canWrite } = useCurrentMembership();
   const noteCreateRequest = useUiStore((s) => s.noteCreateRequest);
   const consumeNoteCreate = useUiStore((s) => s.consumeNoteCreate);
+  const noteOpenRequest = useUiStore((s) => s.noteOpenRequest);
+  const consumeNoteOpen = useUiStore((s) => s.consumeNoteOpen);
 
   const { data, isLoading } = useNotes({
     type: typeFilter === "ALL" ? undefined : typeFilter,
@@ -72,6 +74,13 @@ export function NotesPage() {
     }
     consumeNoteCreate();
   }, [noteCreateRequest, canWrite, consumeNoteCreate]);
+
+  useEffect(() => {
+    if (!noteOpenRequest) return;
+    setEditing(noteOpenRequest);
+    setModalOpen(true);
+    consumeNoteOpen();
+  }, [noteOpenRequest, consumeNoteOpen]);
 
   return (
     <div className="space-y-4">

@@ -13,6 +13,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
+import { RichText } from "@/components/ui/rich-text";
 import { PriorityBadge } from "./PriorityBadge";
 import { TimerButton } from "@/features/time-entries/components/TimerButton";
 import { formatDate, formatRelativeTime } from "@/lib/date";
@@ -139,9 +140,10 @@ export function TaskCard({
       </div>
 
       {task.description && (
-        <p className="line-clamp-2 text-xs text-muted-foreground">
-          {task.description}
-        </p>
+        <RichText
+          html={task.description}
+          className="line-clamp-2 text-xs text-muted-foreground"
+        />
       )}
 
       <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">

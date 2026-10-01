@@ -5,6 +5,7 @@ import {
   Priority,
   RecurrenceFrequency,
   TaskStatus,
+  type NlTaskDraft,
 } from "@taskmaster/contracts";
 import type { Task } from "@taskmaster/contracts";
 import { useEffect, useState } from "react";
@@ -48,12 +49,14 @@ const PRIORITY_OPTIONS = Object.values(Priority);
 
 export function TaskForm({
   task,
+  draft,
   templateData,
   onSubmit,
   submitting,
   disabled = false,
 }: {
   task?: Task | null;
+  draft?: NlTaskDraft | null;
   templateData?: Record<string, unknown> | null;
   onSubmit: (values: TaskFormValues) => void;
   submitting?: boolean;
@@ -69,24 +72,24 @@ export function TaskForm({
   } = useForm<TaskFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title: task?.title ?? "",
-      description: task?.description ?? "",
-      status: task?.status ?? TaskStatus.TODO,
-      priority: task?.priority ?? Priority.MEDIUM,
-      dueDate: task?.dueDate ?? null,
-      startDate: task?.startDate ?? null,
-      categoryId: task?.categoryId ?? null,
+      title: draft?.title ?? task?.title ?? "",
+      description: draft?.description ?? task?.description ?? "",
+      status: draft?.status ?? task?.status ?? TaskStatus.TODO,
+      priority: draft?.priority ?? task?.priority ?? Priority.MEDIUM,
+      dueDate: draft?.dueDate ?? task?.dueDate ?? null,
+      startDate: draft?.startDate ?? task?.startDate ?? null,
+      categoryId: draft?.categoryId ?? task?.categoryId ?? null,
     },
   });
 
   const [tagIds, setTagIds] = useState<string[]>(
-    task?.tags?.map((t) => t.id) ?? [],
+    draft?.tagIds ?? task?.tags?.map((t) => t.id) ?? [],
   );
   const [assigneeIds, setAssigneeIds] = useState<string[]>(
     task?.assignees?.map((a) => a.id) ?? [],
   );
   const [categoryId, setCategoryId] = useState<string | null>(
-    task?.categoryId ?? null,
+    draft?.categoryId ?? task?.categoryId ?? null,
   );
   const [isRecurring, setIsRecurring] = useState(task?.isRecurring ?? false);
   const [recurrence, setRecurrence] = useState<{
@@ -100,7 +103,9 @@ export function TaskForm({
       endDate: null,
     },
   );
-  const [subtasks, setSubtasks] = useState<SubtaskDraft[]>([]);
+  const [subtasks, setSubtasks] = useState<SubtaskDraft[]>(
+    draft?.subtasks.map((title) => ({ id: crypto.randomUUID(), title })) ?? [],
+  );
 
   const { data: tags = [] } = useTags();
   const { data: categories = [] } = useCategories();
@@ -150,6 +155,25 @@ export function TaskForm({
         setRecurrence(templateData.recurrence as typeof recurrence);
     }
   }, [templateData, task, reset]);
+
+  useEffect(() => {
+    if (draft && !task) {
+      reset({
+        title: draft.title,
+        description: draft.description,
+        status: draft.status ?? TaskStatus.TODO,
+        priority: draft.priority ?? Priority.MEDIUM,
+        dueDate: draft.dueDate,
+        startDate: draft.startDate,
+        categoryId: draft.categoryId,
+      });
+      setTagIds(draft.tagIds);
+      setCategoryId(draft.categoryId ?? null);
+      setSubtasks(
+        draft.subtasks.map((title) => ({ id: crypto.randomUUID(), title })),
+      );
+    }
+  }, [draft, task, reset]);
 
   function handleFormSubmit(values: TaskFormValues) {
     onSubmit({

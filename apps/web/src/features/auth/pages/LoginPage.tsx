@@ -3,11 +3,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { loginSchema } from "@taskmaster/contracts";
 import { useState } from "react";
+import { MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError } from "@/services/http";
-import { login } from "../api/auth.api";
+import { useAuthStore } from "@/store/auth.store";
+import { login, resendVerification } from "../api/auth.api";
 
 type FormValues = { email: string; password: string };
 
@@ -16,6 +18,11 @@ export function LoginPage() {
   const location = useLocation();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [unverified, setUnverified] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState("");
+  const [resendState, setResendState] = useState<
+    "idle" | "sending" | "sent" | "error"
+  >("idle");
 
   const {
     register,
@@ -31,6 +38,12 @@ export function LoginPage() {
     setLoading(true);
     try {
       await login(values);
+      const user = useAuthStore.getState().user;
+      if (user && !user.isEmailVerified) {
+        setUnverified(true);
+        setUnverifiedEmail(user.email);
+        return;
+      }
       const from = (location.state as { from?: { pathname: string } } | null)
         ?.from?.pathname;
       navigate(from ?? "/", { replace: true });
@@ -38,6 +51,16 @@ export function LoginPage() {
       setError(e instanceof ApiError ? e.message : "Error de conexión");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setResendState("sending");
+    try {
+      await resendVerification(unverifiedEmail);
+      setResendState("sent");
+    } catch {
+      setResendState("error");
     }
   };
 
@@ -57,7 +80,15 @@ export function LoginPage() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="password">Contraseña</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password">Contraseña</Label>
+          <Link
+            to="/forgot-password"
+            className="text-xs text-primary underline-offset-4 hover:underline"
+          >
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </div>
         <Input
           id="password"
           type="password"
@@ -70,6 +101,34 @@ export function LoginPage() {
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+
+      {unverified && (
+        <div className="space-y-2 rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+          <p className="text-sm text-muted-foreground">
+            Tu email todavía no está verificado. Revisá tu correo o reenviá el
+            enlace de confirmación.
+          </p>
+          {resendState === "sent" ? (
+            <p className="flex items-center gap-1 text-sm text-muted-foreground">
+              <MailCheck className="h-4 w-4" /> Enviamos un nuevo enlace.
+            </p>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleResend}
+              disabled={resendState === "sending"}
+            >
+              {resendState === "sending"
+                ? "Enviando…"
+                : resendState === "error"
+                  ? "Reintentar reenvío"
+                  : "Reenviar enlace"}
+            </Button>
+          )}
+        </div>
+      )}
 
       <Button type="submit" className="w-full" disabled={loading}>
         {loading ? "Entrando…" : "Iniciar sesión"}

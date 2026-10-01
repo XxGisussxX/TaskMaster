@@ -42,10 +42,10 @@ export function DonutChart({ data }: { data: Record<Priority, number> }) {
   const circumference = 2 * Math.PI * R;
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex min-h-56 w-full flex-1 items-center justify-center gap-6">
       <svg
         viewBox={`0 0 ${SIZE} ${SIZE}`}
-        className="h-40 w-40 shrink-0"
+        className="h-44 w-44 shrink-0 xl:h-52 xl:w-52"
         role="img"
         aria-label="Distribución por prioridad"
       >

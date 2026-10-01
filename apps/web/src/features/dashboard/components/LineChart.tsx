@@ -43,6 +43,7 @@ export function LineChart({ series }: { series: SeriesPoint[] }) {
         `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(p.completed).toFixed(1)}`,
     )
     .join(" ");
+  const completedArea = `${completedPath} L${x(series.length - 1)},${y(0)} L${x(0)},${y(0)} Z`;
 
   const gridLines = Math.min(4, maxValue);
   const yTicks = Array.from(
@@ -90,6 +91,7 @@ export function LineChart({ series }: { series: SeriesPoint[] }) {
         fill={`url(#${gradientId})`}
         className="text-primary"
       />
+      <path d={completedArea} fill="var(--color-success)" fillOpacity="0.06" />
       <path
         d={createdPath}
         fill="none"
@@ -102,6 +104,18 @@ export function LineChart({ series }: { series: SeriesPoint[] }) {
         stroke="var(--color-success)"
         strokeWidth="2"
         strokeDasharray="4 3"
+      />
+      <circle
+        cx={x(series.length - 1)}
+        cy={y(series[series.length - 1]?.created ?? 0)}
+        r="3"
+        fill="var(--color-primary)"
+      />
+      <circle
+        cx={x(series.length - 1)}
+        cy={y(series[series.length - 1]?.completed ?? 0)}
+        r="3"
+        fill="var(--color-success)"
       />
 
       <text

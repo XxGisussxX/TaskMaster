@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Task } from "@taskmaster/contracts";
+import type { Task, NlTaskDraft } from "@taskmaster/contracts";
 import { Dialog } from "@/components/ui/dialog";
 import { TaskForm, type TaskFormValues } from "./TaskForm";
 import { CommentSection } from "./CommentSection";
@@ -23,12 +23,14 @@ export function TaskModal({
   open,
   onOpenChange,
   task,
+  draft,
   onSubmit,
   submitting,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   task?: Task | null;
+  draft?: NlTaskDraft | null;
   onSubmit: (values: TaskFormValues) => Promise<void>;
   submitting?: boolean;
 }) {
@@ -73,6 +75,7 @@ export function TaskModal({
 
       <TaskForm
         task={task}
+        draft={draft}
         templateData={templateData}
         disabled={!canWrite}
         onSubmit={async (values) => {
