@@ -18,9 +18,9 @@ export const loginSchema = z.object({
   password: z.string().min(1, "La contraseña es requerida"),
 });
 
-export const refreshTokenSchema = z.object({
-  refreshToken: z.string().min(1, "Refresh token requerido"),
-});
+// El refresh token no tiene schema a propósito: viaja en una cookie HttpOnly.
+// Aceptarlo en el body dejaría el endpoint de refresh accesible a cualquier
+// script de la página, que es justo lo que la cookie evita.
 
 export const verifyEmailSchema = z.object({
   token: z.string().min(1, "Token requerido"),
@@ -66,7 +66,6 @@ export const updateUserSettingsSchema = z.object({
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
-export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 export type ResendVerificationInput = z.infer<typeof resendVerificationSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;

@@ -172,10 +172,18 @@ export interface ActivityEntry {
 
 export interface AuthSession {
   accessToken: string;
+  /**
+   * El servidor ya no lo manda en el cuerpo: viaja en una cookie HttpOnly.
+   * Vive en el tipo porque es lo que devuelve `AuthService`, que es donde se
+   * emite; el controller lo saca de la respuesta con `withoutRefreshToken`.
+   */
   refreshToken: string;
   expiresIn: number;
   user: User;
 }
+
+/** Lo que vuelve al cliente: la sesión sin el refresh token. */
+export type AuthSessionResponse = Omit<AuthSession, "refreshToken">;
 
 export interface KpiTrend {
   date: string;

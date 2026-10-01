@@ -1,4 +1,4 @@
-import type { AuthSession } from "@taskmaster/contracts";
+import type { AuthSessionResponse } from "@taskmaster/contracts";
 import { http } from "@/services/http";
 import { useAuthStore } from "@/store/auth.store";
 import { usersApi } from "@/features/users/api/users.api";
@@ -7,7 +7,7 @@ export async function login(input: {
   email: string;
   password: string;
 }): Promise<void> {
-  const session = await http.post<AuthSession>("/auth/login", input);
+  const session = await http.post<AuthSessionResponse>("/auth/login", input);
   useAuthStore.getState().setSession(session);
 }
 
@@ -52,16 +52,17 @@ export async function refreshCurrentUser(): Promise<void> {
 }
 
 export async function logout(): Promise<void> {
-  const { getRefreshToken, clear } = useAuthStore.getState();
-  const refreshToken = getRefreshToken();
   try {
-    if (refreshToken) {
-      await http.post("/auth/logout", { refreshToken });
+    // Sin cuerpo: el servidor revoca el token de la cookie HttpOnly y la
+    // borra. Solo tiene sentido si hay sesión en curso; sin sesión, `http`
+    // devolvería 401 y el catch lo terminaría tragando igual.
+    if (useAuthStore.getState().hasSession()) {
+      await http.post("/auth/logout");
     }
   } catch {
     // El token se revoca igual por expiración o por el cron de limpieza.
   } finally {
-    clear();
+    useAuthStore.getState().clear();
   }
 }
 

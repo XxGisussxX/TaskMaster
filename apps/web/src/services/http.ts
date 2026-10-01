@@ -1,4 +1,4 @@
-import type { AuthSession } from "@taskmaster/contracts";
+import type { AuthSessionResponse } from "@taskmaster/contracts";
 import { useAuthStore } from "@/store/auth.store";
 
 export class ApiError extends Error {
@@ -14,14 +14,15 @@ export class ApiError extends Error {
 
 let refreshing: Promise<string> | null = null;
 
+/**
+ * El refresh token va en una cookie HttpOnly, así que acá no hay nada que
+ * mandar: el navegador la adjunta solo. `credentials: "include"` es explícito
+ * porque la misma función se usaría contra un origen distinto de la API.
+ */
 async function refreshAccessToken(): Promise<string> {
-  const refreshToken = useAuthStore.getState().getRefreshToken();
-  if (!refreshToken) throw new ApiError(401, "No session");
-
   const res = await fetch("/api/auth/refresh", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refreshToken }),
+    credentials: "include",
   });
 
   if (!res.ok) {
@@ -29,7 +30,7 @@ async function refreshAccessToken(): Promise<string> {
     throw new ApiError(401, "Sesión expirada");
   }
 
-  const session = (await res.json()) as AuthSession;
+  const session = (await res.json()) as AuthSessionResponse;
   useAuthStore.getState().setSession(session);
   return session.accessToken;
 }
@@ -43,9 +44,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
-  let res = await fetch(`/api${path}`, { ...options, headers });
+  let res = await fetch(`/api${path}`, {
+    ...options,
+    headers,
+    credentials: "include",
+  });
 
-  if (res.status === 401 && useAuthStore.getState().getRefreshToken()) {
+  if (res.status === 401 && useAuthStore.getState().hasSession()) {
     refreshing = refreshing ?? refreshAccessToken();
     try {
       const token = await refreshing;

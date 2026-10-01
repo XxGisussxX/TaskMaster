@@ -11,6 +11,9 @@ import "@/styles/globals.css";
 
 applyTheme(useUiStore.getState().theme);
 
+// Claves de una versión anterior que guardaba los tokens sueltos. El store
+// actual persiste en "taskmaster.auth" y su `migrate` descarta el refresh
+// token que quedara ahí; estas dos se van por el mismo motivo.
 localStorage.removeItem("taskmaster.accessToken");
 localStorage.removeItem("taskmaster.refreshToken");
 

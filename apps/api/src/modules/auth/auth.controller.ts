@@ -1,12 +1,21 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+  Res,
+  UnauthorizedException,
+  UseGuards,
+} from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { Throttle } from "@nestjs/throttler";
-import type { Request } from "express";
+import type { Request, Response } from "express";
 import {
   changePasswordSchema,
   forgotPasswordSchema,
   loginSchema,
   registerSchema,
-  refreshTokenSchema,
   resendVerificationSchema,
   resetPasswordSchema,
   verifyEmailSchema,
@@ -14,7 +23,6 @@ import {
   type ForgotPasswordInput,
   type LoginInput,
   type RegisterInput,
-  type RefreshTokenInput,
   type ResendVerificationInput,
   type ResetPasswordInput,
   type VerifyEmailInput,
@@ -25,6 +33,13 @@ import { RefreshTokenGuard } from "../../common/guards/refresh-token.guard";
 import { EmailThrottleGuard } from "../../common/guards/email-throttle.guard";
 import { ZodPipe } from "../../common/pipes/zod.pipe";
 import { AuthService } from "./auth.service";
+import {
+  clearRefreshCookie,
+  isProduction,
+  readRefreshCookie,
+  setRefreshCookie,
+  withoutRefreshToken,
+} from "./auth-cookie";
 import type { AuthUser } from "./types";
 
 function requestMetadata(req: Request): { ip: string; device: string } {
@@ -39,7 +54,10 @@ function requestMetadata(req: Request): { ip: string; device: string } {
 
 @Controller("auth")
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly config: ConfigService,
+  ) {}
 
   @Public()
   // Doble límite: el @Throttle de arriba cuenta por IP, este guard por email
@@ -47,30 +65,46 @@ export class AuthController {
   @UseGuards(EmailThrottleGuard)
   @Throttle({ default: { limit: 3, ttl: 300_000 } })
   @Post("register")
-  register(
+  async register(
     @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
     @Body(new ZodPipe(registerSchema)) dto: RegisterInput,
   ) {
-    return this.authService.register(dto, requestMetadata(req));
+    const session = await this.authService.register(dto, requestMetadata(req));
+    setRefreshCookie(res, session.refreshToken, isProduction(this.config));
+    return withoutRefreshToken(session);
   }
 
   @Public()
   @UseGuards(EmailThrottleGuard)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post("login")
-  login(@Req() req: Request, @Body(new ZodPipe(loginSchema)) dto: LoginInput) {
-    return this.authService.login(dto, requestMetadata(req));
+  async login(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @Body(new ZodPipe(loginSchema)) dto: LoginInput,
+  ) {
+    const session = await this.authService.login(dto, requestMetadata(req));
+    setRefreshCookie(res, session.refreshToken, isProduction(this.config));
+    return withoutRefreshToken(session);
   }
 
   @Public()
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @UseGuards(RefreshTokenGuard)
   @Post("refresh")
-  refresh(
+  async refresh(
     @Req() req: Request,
-    @Body(new ZodPipe(refreshTokenSchema)) dto: RefreshTokenInput,
+    @Res({ passthrough: true }) res: Response,
   ) {
-    return this.authService.refresh(dto.refreshToken, requestMetadata(req));
+    // El token sale de la cookie: ya lo validó el guard.
+    const token = readRefreshCookie(req);
+    if (!token) throw new UnauthorizedException("Refresh token requerido");
+
+    const session = await this.authService.refresh(token, requestMetadata(req));
+    // La rotación emite un token nuevo: la cookie vieja ya no sirve.
+    setRefreshCookie(res, session.refreshToken, isProduction(this.config));
+    return withoutRefreshToken(session);
   }
 
   @Public()
@@ -110,8 +144,14 @@ export class AuthController {
   }
 
   @Post("logout")
-  logout(@Body(new ZodPipe(refreshTokenSchema)) dto: RefreshTokenInput) {
-    return this.authService.logout(dto.refreshToken);
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const token = readRefreshCookie(req);
+    // Aun sin cookie hay que limpiar: si al cliente le quedó una cookie vieja
+    // con otros atributos, el logout igual tiene que reportarse exitoso para
+    // que el front limpie su sesión en memoria.
+    clearRefreshCookie(res, isProduction(this.config));
+    if (!token) return { success: true };
+    return this.authService.logout(token);
   }
 
   @Get("me")

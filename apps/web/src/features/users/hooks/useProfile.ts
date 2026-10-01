@@ -15,21 +15,15 @@ export function useProfile() {
 
 export function useUpdateProfile() {
   const qc = useQueryClient();
-  const setSession = useAuthStore((s) => s.setSession);
-  const accessToken = useAuthStore((s) => s.accessToken);
-  const refreshToken = useAuthStore((s) => s.refreshToken);
+  const setUser = useAuthStore((s) => s.setUser);
 
   return useMutation({
     mutationFn: (input: { name?: string; avatarUrl?: string | null }) =>
       usersApi.updateProfile(input),
     onSuccess: (updatedUser) => {
-      if (accessToken && refreshToken) {
-        setSession({
-          user: updatedUser,
-          accessToken,
-          refreshToken,
-        });
-      }
+      // Antes había que rearmar la sesión entera para no perder el refresh
+      // token que venía en el store. Ahora solo se actualiza el user.
+      setUser(updatedUser);
       void qc.invalidateQueries({ queryKey: ["profile"] });
       toast.success("Perfil actualizado");
     },

@@ -2,6 +2,7 @@ import { Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
+import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
@@ -26,6 +27,9 @@ async function bootstrap(): Promise<void> {
 
   app.useGlobalFilters(new HttpExceptionFilter());
   app.use(helmet());
+  // Necesario para que `req.cookies` exista: el refresh token viaja en una
+  // cookie HttpOnly en lugar de volver en el cuerpo de la respuesta.
+  app.use(cookieParser());
   app.setGlobalPrefix("api");
   app.enableShutdownHooks();
 
