@@ -83,36 +83,43 @@ enum CustomFieldType {
   CHECKBOX
 }
 
+enum AuthTokenType {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+}
+
 // ── Users & Auth ──────────────────────────────────────────────────────
 
 model User {
-  id              String      @id @default(cuid())
-  email           String      @unique
+  id              String     @id @default(cuid())
+  email           String     @unique
   passwordHash    String
   name            String
   avatarUrl       String?
-  role            SystemRole  @default(USER)
-  isEmailVerified Boolean     @default(false)
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  role            SystemRole @default(USER)
+  isEmailVerified Boolean    @default(false)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
-  settings       UserSettings?
-  ownedWorkspaces Workspace[]  @relation("OwnedWorkspaces")
-  workspaces     WorkspaceMember[]
-  createdTasks   Task[]            @relation("Creator")
-  authoredNotes  Note[]            @relation("Author")
-  reminders      Reminder[]
-  notifications  Notification[]
-  refreshTokens  RefreshToken[]
-  activities     ActivityLog[]
-  comments       Comment[]
-  assignedTasks  TaskAssignee[]
-  noteCollab     NoteCollaborator[]
-  savedViews     SavedView[]
-  attachments    Attachment[]
-  taskTemplates  TaskTemplate[]
-  timeEntries    TimeEntry[]
-  invitedMembers Invite[]       @relation("InvitedBy")
+  settings        UserSettings?
+  ownedWorkspaces Workspace[]        @relation("OwnedWorkspaces")
+  workspaces      WorkspaceMember[]
+  createdTasks    Task[]             @relation("Creator")
+  authoredNotes   Note[]             @relation("Author")
+  reminders       Reminder[]
+  notifications   Notification[]
+  refreshTokens   RefreshToken[]
+  authTokens      AuthToken[]
+  activities      ActivityLog[]
+  comments        Comment[]
+  assignedTasks   TaskAssignee[]
+  noteCollab      NoteCollaborator[]
+  savedViews      SavedView[]
+  attachments     Attachment[]
+  taskTemplates   TaskTemplate[]
+  timeEntries     TimeEntry[]
+  invitedMembers  Invite[]           @relation("InvitedBy")
+  aiGenerations   AiGeneration[]
 }
 
 model RefreshToken {
@@ -129,6 +136,21 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model AuthToken {
+  id        String        @id @default(cuid())
+  userId    String
+  type      AuthTokenType
+  tokenHash String        @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
 }
 
 model UserSettings {
@@ -153,22 +175,24 @@ model Workspace {
   ownerId   String
   createdAt DateTime @default(now())
 
-  owner      User              @relation("OwnedWorkspaces", fields: [ownerId], references: [id], onDelete: Cascade)
-  members    WorkspaceMember[]
-  tasks      Task[]
-  notes      Note[]
-  tags       Tag[]
-  categories Category[]
-  reminders  Reminder[]
-  activities    ActivityLog[]
-  invites       Invite[]
-  notifications Notification[]
-  savedViews    SavedView[]
-  attachments   Attachment[]
-  taskDependencies TaskDependency[]
-  taskTemplates TaskTemplate[]
-  timeEntries   TimeEntry[]
-  customFieldDefs CustomFieldDefinition[]
+  owner             User                    @relation("OwnedWorkspaces", fields: [ownerId], references: [id], onDelete: Cascade)
+  members           WorkspaceMember[]
+  tasks             Task[]
+  notes             Note[]
+  tags              Tag[]
+  categories        Category[]
+  reminders         Reminder[]
+  activities        ActivityLog[]
+  invites           Invite[]
+  notifications     Notification[]
+  savedViews        SavedView[]
+  attachments       Attachment[]
+  taskDependencies  TaskDependency[]
+  taskTemplates     TaskTemplate[]
+  timeEntries       TimeEntry[]
+  customFieldDefs   CustomFieldDefinition[]
+  customFieldValues CustomFieldValue[]
+  aiGenerations     AiGeneration[]
 
   @@index([ownerId])
 }
@@ -208,46 +232,48 @@ model Invite {
 // ── Tasks ─────────────────────────────────────────────────────────────
 
 model Task {
-  id          String     @id @default(cuid())
-  workspaceId String
-  creatorId   String
-  title       String
-  description String     @default("")
-  status      TaskStatus @default(TODO)
-  priority    Priority   @default(MEDIUM)
-  dueDate     DateTime?
-  startDate   DateTime?
-  order       Float      @default(0)
-  parentId    String?
-  categoryId  String?
-  isRecurring Boolean    @default(false)
-  recurrence  Json?
-  completedAt DateTime?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id              String     @id @default(cuid())
+  workspaceId     String
+  creatorId       String
+  title           String
+  description     String     @default("")
+  status          TaskStatus @default(TODO)
+  priority        Priority   @default(MEDIUM)
+  dueDate         DateTime?
+  startDate       DateTime?
+  order           Float      @default(0)
+  parentId        String?
+  categoryId      String?
+  isRecurring     Boolean    @default(false)
+  recurrence      Json?
+  completedAt     DateTime?
+  dueSoNotifiedAt DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
-  workspace  Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  creator    User         @relation("Creator", fields: [creatorId], references: [id])
-  parent     Task?        @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
-  subtasks   Task[]       @relation("Subtasks")
-  category   Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  tags       TaskTag[]
-  assignees  TaskAssignee[]
-  comments   Comment[]
-  reminders  Reminder[]
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator     User             @relation("Creator", fields: [creatorId], references: [id])
+  parent      Task?            @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks    Task[]           @relation("Subtasks")
+  category    Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  tags        TaskTag[]
+  assignees   TaskAssignee[]
+  comments    Comment[]
+  reminders   Reminder[]
   attachments Attachment[]
-  blocking   TaskDependency[] @relation("BlockingTasks")
-  blockedBy  TaskDependency[] @relation("BlockedByTasks")
+  blocking    TaskDependency[] @relation("BlockingTasks")
+  blockedBy   TaskDependency[] @relation("BlockedByTasks")
   timeEntries TimeEntry[]
 
   @@index([workspaceId, status])
   @@index([workspaceId, priority])
   @@index([workspaceId, dueDate])
+  @@index([dueDate, dueSoNotifiedAt])
   @@index([parentId])
 }
 
 model Tag {
-  id          String @id @default(cuid())
+  id          String   @id @default(cuid())
   workspaceId String
   name        String
   color       String?
@@ -262,14 +288,14 @@ model Tag {
 model TaskTag {
   taskId String
   tagId  String
-  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([taskId, tagId])
 }
 
 model Category {
-  id          String @id @default(cuid())
+  id          String   @id @default(cuid())
   workspaceId String
   name        String
   color       String?
@@ -284,19 +310,19 @@ model Category {
 model TaskAssignee {
   taskId String
   userId String
-  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([taskId, userId])
 }
 
 model Comment {
-  id              String   @id @default(cuid())
-  taskId          String
-  userId          String
-  body            String
-  mentionedUserIds String  @default("[]")
-  createdAt       DateTime @default(now())
+  id               String   @id @default(cuid())
+  taskId           String
+  userId           String
+  body             String
+  mentionedUserIds String   @default("[]")
+  createdAt        DateTime @default(now())
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -307,16 +333,16 @@ model Comment {
 // ── Notes ─────────────────────────────────────────────────────────────
 
 model Note {
-  id          String     @id @default(cuid())
+  id          String       @id @default(cuid())
   workspaceId String
   authorId    String
-  type        NoteType   @default(STANDARD)
+  type        NoteType     @default(STANDARD)
   title       String?
   content     String?
   color       StickyColor?
-  pinned      Boolean    @default(false)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  pinned      Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   workspace     Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   author        User               @relation("Author", fields: [authorId], references: [id])
@@ -342,7 +368,7 @@ model ChecklistItem {
 }
 
 model NoteTag {
-  id     String @id @default(cuid())
+  id     String  @id @default(cuid())
   noteId String
   name   String
   color  String?
@@ -386,7 +412,7 @@ model Reminder {
 }
 
 model Notification {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String
   workspaceId String?
   type        String
@@ -394,7 +420,7 @@ model Notification {
   body        String?
   data        Json?
   readAt      DateTime?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -526,17 +552,17 @@ model TimeEntry {
 // ── Custom Fields ────────────────────────────────────────────────────
 
 model CustomFieldDefinition {
-  id          String           @id @default(cuid())
+  id          String          @id @default(cuid())
   workspaceId String
   name        String
   type        CustomFieldType
   options     Json?
-  order       Float            @default(0)
-  required    Boolean          @default(false)
-  createdAt   DateTime         @default(now())
+  order       Float           @default(0)
+  required    Boolean         @default(false)
+  createdAt   DateTime        @default(now())
 
   workspace Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  values     CustomFieldValue[]
+  values    CustomFieldValue[]
 
   @@unique([workspaceId, name])
   @@index([workspaceId])
@@ -544,14 +570,40 @@ model CustomFieldDefinition {
 
 model CustomFieldValue {
   id           String   @id @default(cuid())
+  workspaceId  String
   definitionId String
   entityId     String
   entityType   String
   value        Json
   createdAt    DateTime @default(now())
 
+  workspace  Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   definition CustomFieldDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
 
   @@unique([definitionId, entityId])
-  @@index([entityId, entityType])
+  @@index([workspaceId, entityId, entityType])
+  @@index([workspaceId, definitionId])
+}
+
+// ── AI usage log ────────────────────────────────────────────────────
+
+model AiGeneration {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  feature     String
+  provider    String   @default("gemini")
+  model       String
+  status      String   @default("success")
+  latencyMs   Int?
+  inputChars  Int?
+  outputChars Int?
+  error       String?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([userId, createdAt])
 }
