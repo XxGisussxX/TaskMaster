@@ -12,6 +12,7 @@ import {
 import { OnEvent } from "@nestjs/event-emitter";
 import type { Server, Socket } from "socket.io";
 import { UnscopedPrismaService } from "../../prisma/prisma.service";
+import { resolveCorsOptions } from "../../config/cors";
 
 interface NotificationPayload {
   userId: string;
@@ -48,10 +49,7 @@ interface TaskStatusPayload {
 }
 
 @WsGateway({
-  cors: {
-    origin: process.env.API_ORIGINS?.split(",").map((s) => s.trim()) ?? "*",
-    credentials: true,
-  },
+  cors: resolveCorsOptions(process.env.API_ORIGINS, process.env.NODE_ENV),
   transports: ["websocket", "polling"],
 })
 export class AppWebSocketGateway

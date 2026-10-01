@@ -5,6 +5,7 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
+import { resolveCorsOptions } from "./config/cors";
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -13,21 +14,25 @@ async function bootstrap(): Promise<void> {
 
   const config = app.get(ConfigService);
 
-  const origins = (config.get<string>("API_ORIGINS") ?? "*")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const allowAllOrigins = origins.length === 0 || origins.includes("*");
-  app.enableCors({
-    origin: allowAllOrigins ? true : origins,
-    credentials: !allowAllOrigins,
-  });
+  // Fail-closed: resolveCorsOptions lanza si allowAllOrigins se cuela en producción.
+  // validateEnv también lo rechaza; esta es la segunda barrera, para el caso de
+  // que el config no haya pasado por el schema.
+  app.enableCors(
+    resolveCorsOptions(
+      config.get<string>("API_ORIGINS"),
+      config.get<string>("NODE_ENV"),
+    ),
+  );
 
   app.useGlobalFilters(new HttpExceptionFilter());
   app.use(helmet());
   app.setGlobalPrefix("api");
   app.enableShutdownHooks();
-  app.set("trust proxy", 1);
+
+  // `trust proxy` decide qué entrada de X-Forwarded-For se cree el cliente.
+  // Con un valor incorrecto, el visitante controla el IP que ve el throttler y
+  // puede rotar el header para evadir el rate limit. Por defecto 0 (sin proxy).
+  app.set("trust proxy", config.get<number>("TRUST_PROXY") ?? 0);
 
   const port = config.get<number>("API_PORT") ?? 4000;
   await app.listen(port);
