@@ -14,6 +14,7 @@ import {
   type UpdateNoteInput,
 } from "@taskmaster/contracts";
 import { PrismaService } from "../../prisma/prisma.service";
+import { sanitizeRichText } from "../../common/sanitize/html";
 import { WorkspaceAccessService } from "../workspaces/workspace-access.service";
 import { ActivityService } from "../activity/activity.service";
 
@@ -106,7 +107,7 @@ export class NotesService {
         authorId: userId,
         type: dto.type,
         title: dto.title ?? null,
-        content: dto.content ?? null,
+        content: sanitizeRichText(dto.content ?? null, "notes.content"),
         color: dto.color ?? null,
         pinned: dto.pinned,
         tags: {
@@ -185,7 +186,7 @@ export class NotesService {
         where: { id },
         data: {
           title: dto.title,
-          content: dto.content,
+          content: sanitizeRichText(dto.content, "notes.content"),
           color: dto.color,
           pinned: dto.pinned,
           type: dto.type,

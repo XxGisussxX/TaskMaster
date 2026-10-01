@@ -20,6 +20,7 @@ import {
 import type { Prisma } from "@prisma/client";
 import type { Task as PrismaTask } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
+import { sanitizeRichText } from "../../common/sanitize/html";
 import { WorkspaceAccessService } from "../workspaces/workspace-access.service";
 import { ActivityService } from "../activity/activity.service";
 import { EventsService } from "../websocket/events.service";
@@ -112,7 +113,7 @@ export class TasksService {
         workspaceId,
         creatorId: userId,
         title: dto.title,
-        description: dto.description ?? "",
+        description: sanitizeRichText(dto.description ?? "", "tasks.description") ?? "",
         status: dto.status,
         priority: dto.priority,
         dueDate: dto.dueDate ?? null,
@@ -215,7 +216,9 @@ export class TasksService {
 
     const data: Prisma.TaskUncheckedUpdateInput = {
       title: dto.title,
-      description: dto.description,
+      // `undefined` llega intacto al update para no pisar una descripción que el
+      // PATCH no manda.
+      description: sanitizeRichText(dto.description, "tasks.description"),
       status: dto.status,
       priority: dto.priority,
       dueDate: dto.dueDate,
