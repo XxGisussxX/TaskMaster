@@ -14,7 +14,6 @@ const ALLOWED_MIME_TYPES = new Set([
   "image/png",
   "image/gif",
   "image/webp",
-  "image/svg+xml",
   "application/pdf",
   "text/plain",
   "text/csv",
@@ -25,6 +24,49 @@ const ALLOWED_MIME_TYPES = new Set([
   "application/vnd.ms-excel",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 ]);
+
+/**
+ * Firmas (magic bytes) por tipo binario permitido.
+ *
+ * `file.mimetype` lo elige el cliente: mandar `Content-Type: image/png` con un
+ * HTML cualquiera lo pasa sin problema. Estos bytes son del contenido, así que
+ * no se pueden mentir.
+ *
+ * Nota: los formatos de Office (.docx/.xlsx) son contenedores ZIP, así que
+ * comparten la firma PK. Es indistinguible de un .zip a nivel de bytes y por eso
+ * ambos siguen permitidos.
+ */
+const MAGIC_BYTES: ReadonlyArray<{ mime: string; bytes: number[] }> = [
+  { mime: "image/jpeg", bytes: [0xff, 0xd8, 0xff] },
+  { mime: "image/png", bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] },
+  { mime: "image/gif", bytes: [0x47, 0x49, 0x46, 0x38] },
+  { mime: "application/pdf", bytes: [0x25, 0x50, 0x44, 0x46] },
+  { mime: "application/zip", bytes: [0x50, 0x4b, 0x03, 0x04] },
+];
+
+/** RIFF....WEBP — la extensión va en los bytes 8..11, no al principio. */
+const WEBP_RIFF = [0x57, 0x45, 0x42, 0x50];
+
+/** Formatos declarados como texto: no tienen firma, se validan por contenido. */
+const TEXTUAL_MIME_TYPES = new Set(["text/plain", "text/csv", "application/json"]);
+
+/**-family de Office que son ZIP. */
+const ZIP_BASED_MIME_TYPES = new Set([
+  "application/zip",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+]);
+
+function startsWith(buffer: Buffer, bytes: number[]): boolean {
+  return bytes.every((byte, i) => buffer[i] === byte);
+}
+
+function looksBinary(buffer: Buffer): boolean {
+  // El byte NUL no aparece en texto UTF-8 válido y sí en casi todo binario.
+  return buffer.subarray(0, Math.min(buffer.length, 4096)).includes(0);
+}
 
 @Injectable()
 export class UploadsService {
@@ -67,12 +109,60 @@ export class UploadsService {
   validateFile(file: Express.Multer.File): void {
     if (file.size > MAX_FILE_SIZE) {
       throw new BadRequestException(
-        `El archivo excede el tamaÃ±o mÃ¡ximo de ${MAX_FILE_SIZE / 1024 / 1024} MB`,
+        `El archivo excede el tamaño máximo de ${MAX_FILE_SIZE / 1024 / 1024} MB`,
       );
     }
     if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
       throw new BadRequestException(
         `Tipo de archivo no permitido: ${file.mimetype}`,
+      );
+    }
+
+    const buffer = file.buffer;
+    if (!buffer || buffer.length === 0) {
+      throw new BadRequestException("Archivo vacío");
+    }
+
+    // WebP: la marca "WEBP" no está al principio, vive en los bytes 8..11.
+    if (file.mimetype === "image/webp") {
+      if (buffer.length < 12) {
+        throw new BadRequestException("Archivo corrupto: image/webp");
+      }
+      const riff = startsWith(buffer, [0x52, 0x49, 0x46, 0x46]);
+      const webp = WEBP_RIFF.every((b, i) => buffer[8 + i] === b);
+      if (!riff || !webp) {
+        throw new BadRequestException("Firma inválida para image/webp");
+      }
+      return;
+    }
+
+    // .docx / .xlsx / .zip son el mismo contenedor ZIP: firma PK\x03\x04.
+    if (ZIP_BASED_MIME_TYPES.has(file.mimetype)) {
+      if (!startsWith(buffer, [0x50, 0x4b, 0x03, 0x04])) {
+        throw new BadRequestException(`Firma inválida para ${file.mimetype}`);
+      }
+      return;
+    }
+
+    // Los tipos textuales no tienen firma: se validan por contenido.
+    if (TEXTUAL_MIME_TYPES.has(file.mimetype)) {
+      if (looksBinary(buffer)) {
+        throw new BadRequestException(
+          `El contenido del archivo no coincide con ${file.mimetype}`,
+        );
+      }
+      return;
+    }
+
+    const match = MAGIC_BYTES.find((m) => startsWith(buffer, m.bytes));
+    if (!match) {
+      throw new BadRequestException(
+        `Firma de archivo no reconocida para ${file.mimetype}`,
+      );
+    }
+    if (match.mime !== file.mimetype) {
+      throw new BadRequestException(
+        `El contenido del archivo es ${match.mime}, no ${file.mimetype}`,
       );
     }
   }
