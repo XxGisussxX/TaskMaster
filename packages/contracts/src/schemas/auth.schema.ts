@@ -26,6 +26,10 @@ export const verifyEmailSchema = z.object({
   token: z.string().min(1, "Token requerido"),
 });
 
+export const resendVerificationSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Email inválido"),
+});
+
 export const forgotPasswordSchema = z.object({
   email: z.string().trim().toLowerCase().email("Email inválido"),
 });
@@ -63,6 +67,20 @@ export const updateUserSettingsSchema = z.object({
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
+export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
+export type ResendVerificationInput = z.infer<typeof resendVerificationSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type UpdateUserSettingsInput = z.infer<typeof updateUserSettingsSchema>;
+
+/** Resultado de acciones que confirman éxito sin datos adicionales. */
+export interface AuthActionResult {
+  success: true;
+}
+
+/** Resultado de envío de emails transaccionales. */
+export interface EmailDeliveryResult {
+  sent: boolean;
+}

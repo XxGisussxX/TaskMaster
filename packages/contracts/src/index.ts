@@ -2,6 +2,7 @@ export * from "./enums";
 export * from "./schemas/auth.schema";
 export * from "./schemas/workspace.schema";
 export * from "./schemas/admin.schema";
+export * from "./schemas/ai.schema";
 export * from "./schemas/task.schema";
 export * from "./schemas/task-dependency.schema";
 export * from "./schemas/task-template.schema";

@@ -29,6 +29,8 @@ export interface WorkspaceMember {
   workspaceId: string;
   userId: string;
   role: WorkspaceRole;
+  /** Presente en el detalle de miembros (`GET /workspaces/:id/members`). */
+  createdAt?: string;
   user?: Pick<User, "id" | "name" | "email" | "avatarUrl">;
 }
 
@@ -164,7 +166,7 @@ export interface ActivityEntry {
   entityId: string;
   action: Action;
   changes: { field: string; old: unknown; new: unknown }[] | null;
-  user?: Pick<User, "id" | "name" | "avatarUrl">;
+  user?: Pick<User, "id" | "name" | "email" | "avatarUrl">;
   createdAt: string;
 }
 
@@ -175,6 +177,14 @@ export interface AuthSession {
   user: User;
 }
 
+export interface KpiTrend {
+  date: string;
+  active: number;
+  completed: number;
+  overdue: number;
+  avgCompletionDays: number;
+}
+
 export interface DashboardStats {
   kpis: {
     activeTasks: number;
@@ -183,6 +193,7 @@ export interface DashboardStats {
     avgCompletionDays: number;
     completionRate: number;
   };
+  kpiTrends: KpiTrend[];
   createdCompletedSeries: {
     date: string;
     created: number;
