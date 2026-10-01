@@ -6,6 +6,7 @@ import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { validateEnv } from "./config/env.config";
 import { PrismaModule } from "./prisma/prisma.module";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
+import { MailModule } from "./modules/mail/mail.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
 import { AdminModule } from "./modules/admin/admin.module";
@@ -26,6 +27,7 @@ import { UploadsModule } from "./modules/uploads/uploads.module";
 import { TaskDependenciesModule } from "./modules/task-dependencies/task-dependencies.module";
 import { TimeEntriesModule } from "./modules/time-entries/time-entries.module";
 import { CustomFieldsModule } from "./modules/custom-fields/custom-fields.module";
+import { AiModule } from "./modules/ai/ai.module";
 import { WebSocketModule } from "./modules/websocket/websocket.module";
 import { TenantModule } from "./tenant/tenant.module";
 
@@ -42,6 +44,7 @@ import { TenantModule } from "./tenant/tenant.module";
     ScheduleModule.forRoot(),
     PrismaModule,
     HealthModule,
+    MailModule,
     AuthModule,
     UsersModule,
     AdminModule,
@@ -61,6 +64,7 @@ import { TenantModule } from "./tenant/tenant.module";
     TaskDependenciesModule,
     TimeEntriesModule,
     CustomFieldsModule,
+    AiModule,
     WebSocketModule,
     TenantModule,
   ],

@@ -15,6 +15,7 @@ describe("SCOPED_MODELS", () => {
     expect([...SCOPED_MODELS].sort()).toEqual(
       [
         "ActivityLog",
+        "AiGeneration",
         "Attachment",
         "Category",
         "CustomFieldDefinition",

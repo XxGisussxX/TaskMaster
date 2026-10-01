@@ -2,12 +2,22 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Resend } from "resend";
 import { buildInviteEmail } from "./invite-email.template";
+import {
+  buildPasswordResetEmail,
+  buildVerificationEmail,
+} from "./auth-email.template";
 
 export interface SendInviteInput {
   to: string;
   workspaceName: string;
   inviterName: string;
   inviteUrl: string;
+  expiresAt: Date;
+}
+
+export interface SendAuthEmailInput {
+  to: string;
+  actionUrl: string;
   expiresAt: Date;
 }
 
@@ -49,17 +59,41 @@ export class MailService {
   /** Envía la invitación por email o, si no hay provider, loguea el link (dev). */
   async sendInvite(input: SendInviteInput): Promise<{ sent: boolean }> {
     const { subject, html } = buildInviteEmail(input);
+    return this.sendHtml(input.to, subject, html, input.inviteUrl);
+  }
 
+  /** Envía el email de verificación de email con su link de confirmación. */
+  async sendVerification(
+    input: SendAuthEmailInput,
+  ): Promise<{ sent: boolean }> {
+    const { subject, html } = buildVerificationEmail(input);
+    return this.sendHtml(input.to, subject, html, input.actionUrl);
+  }
+
+  /** Envía el email de restablecimiento de contraseña con su link. */
+  async sendPasswordReset(
+    input: SendAuthEmailInput,
+  ): Promise<{ sent: boolean }> {
+    const { subject, html } = buildPasswordResetEmail(input);
+    return this.sendHtml(input.to, subject, html, input.actionUrl);
+  }
+
+  private async sendHtml(
+    to: string,
+    subject: string,
+    html: string,
+    devLogUrl: string,
+  ): Promise<{ sent: boolean }> {
     if (!this.resend) {
       this.logger.warn(
-        `No hay RESEND_API_KEY configurada. Link de invitación (${input.to}): ${input.inviteUrl} — ${DEV_FALLBACK_URL}`,
+        `No hay RESEND_API_KEY configurada. Enlace (${to}): ${devLogUrl} — ${DEV_FALLBACK_URL}`,
       );
       return { sent: false };
     }
 
     const result = await this.resend.emails.send({
       from: this.from,
-      to: input.to,
+      to,
       subject,
       html,
     });
@@ -67,7 +101,7 @@ export class MailService {
     if (!result.data) {
       const message =
         result.error?.message ?? "Resend no devolvió confirmación de envío";
-      this.logger.error(`Resend rechazó el envío a ${input.to}: ${message}`);
+      this.logger.error(`Resend rechazó el envío a ${to}: ${message}`);
       return { sent: false };
     }
 

@@ -3,13 +3,21 @@ import { Throttle } from "@nestjs/throttler";
 import type { Request } from "express";
 import {
   changePasswordSchema,
+  forgotPasswordSchema,
   loginSchema,
   registerSchema,
   refreshTokenSchema,
+  resendVerificationSchema,
+  resetPasswordSchema,
+  verifyEmailSchema,
   type ChangePasswordInput,
+  type ForgotPasswordInput,
   type LoginInput,
   type RegisterInput,
   type RefreshTokenInput,
+  type ResendVerificationInput,
+  type ResetPasswordInput,
+  type VerifyEmailInput,
 } from "@taskmaster/contracts";
 import { Public } from "../../common/decorators/public.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
@@ -58,6 +66,40 @@ export class AuthController {
     @Body(new ZodPipe(refreshTokenSchema)) dto: RefreshTokenInput,
   ) {
     return this.authService.refresh(dto.refreshToken, requestMetadata(req));
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 300_000 } })
+  @Post("verify-email")
+  verifyEmail(@Body(new ZodPipe(verifyEmailSchema)) dto: VerifyEmailInput) {
+    return this.authService.verifyEmail(dto.token);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 300_000 } })
+  @Post("resend-verification")
+  resendVerification(
+    @Body(new ZodPipe(resendVerificationSchema)) dto: ResendVerificationInput,
+  ) {
+    return this.authService.resendVerification(dto.email);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 300_000 } })
+  @Post("forgot-password")
+  forgotPassword(
+    @Body(new ZodPipe(forgotPasswordSchema)) dto: ForgotPasswordInput,
+  ) {
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 300_000 } })
+  @Post("reset-password")
+  resetPassword(
+    @Body(new ZodPipe(resetPasswordSchema)) dto: ResetPasswordInput,
+  ) {
+    return this.authService.resetPassword(dto.token, dto.password);
   }
 
   @Post("logout")

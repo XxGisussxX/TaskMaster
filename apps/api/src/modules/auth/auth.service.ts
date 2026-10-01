@@ -2,12 +2,16 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import {
   WorkspaceRole,
+  type AuthActionResult,
   type AuthSession,
+  type EmailDeliveryResult,
   type User,
 } from "@taskmaster/contracts";
 import type { User as PrismaUser } from "@prisma/client";
@@ -21,7 +25,11 @@ const scryptAsync = promisify(scrypt) as (
 ) => Promise<Buffer>;
 import { PrismaService } from "../../prisma/prisma.service";
 import { jwtConstants, parseDurationToSeconds } from "../../config/env.config";
+import { MailService } from "../mail/mail.service";
 import type { JwtPayload } from "./types";
+
+const EMAIL_VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
+const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
 
 interface RefreshValidation {
   user: PrismaUser;
@@ -34,9 +42,13 @@ export interface SessionMetadata {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly mail: MailService,
+    private readonly config: ConfigService,
   ) {}
 
   async register(
@@ -66,6 +78,14 @@ export class AuthService {
     });
 
     await this.createDefaultWorkspace(user.id, user.name);
+
+    try {
+      await this.sendVerificationEmail(user);
+    } catch (error) {
+      this.logger.error(
+        `Registro OK pero falló el envío de verificación a ${user.email}: ${String(error)}`,
+      );
+    }
 
     return this.issueSession(user, metadata);
   }
@@ -211,6 +231,187 @@ export class AuthService {
       where: { userId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+  }
+
+  // ── Verificación de email y restablecimiento de contraseña ─────────
+
+  /** Marca el email como verificado consumiendo el token de un solo uso. */
+  async verifyEmail(token: string): Promise<AuthActionResult> {
+    const record = await this.readAuthToken(token, "EMAIL_VERIFY");
+    if (record.isVerified) {
+      return { success: true };
+    }
+    await this.prisma.user.update({
+      where: { id: record.userId },
+      data: { isEmailVerified: true },
+    });
+    await this.prisma.authToken.update({
+      where: { id: record.id },
+      data: { usedAt: new Date() },
+    });
+    return { success: true };
+  }
+
+  /** Reenvía el email de verificación a un email no verificado. */
+  async resendVerification(email: string): Promise<EmailDeliveryResult> {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user || user.isEmailVerified) {
+      return { sent: false };
+    }
+    try {
+      return await this.sendVerificationEmail(user);
+    } catch (error) {
+      this.logger.error(
+        `No se pudo reenviar la verificación a ${email}: ${String(error)}`,
+      );
+      return { sent: false };
+    }
+  }
+
+  /** Genera un token de reset y envía el email (sin enumerar usuarios). */
+  async forgotPassword(email: string): Promise<EmailDeliveryResult> {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return { sent: false };
+    }
+
+    const token = await this.createAuthToken(
+      user.id,
+      "PASSWORD_RESET",
+      PASSWORD_RESET_TTL_MS,
+    );
+
+    try {
+      return await this.sendResetUrl(user.email, token);
+    } catch (error) {
+      this.logger.error(
+        `No se pudo enviar el reset a ${email}: ${String(error)}`,
+      );
+      return { sent: false };
+    }
+  }
+
+  /** Aplica la nueva contraseña consumiendo el token de reset. */
+  async resetPassword(
+    token: string,
+    password: string,
+  ): Promise<AuthActionResult> {
+    const record = await this.readAuthToken(token, "PASSWORD_RESET");
+
+    const passwordHash = await this.hashPassword(password);
+    await this.prisma.user.update({
+      where: { id: record.userId },
+      data: { passwordHash },
+    });
+
+    await this.revokeUserTokens(record.userId);
+
+    await this.prisma.authToken.update({
+      where: { id: record.id },
+      data: { usedAt: new Date() },
+    });
+
+    return { success: true };
+  }
+
+  private async sendVerificationEmail(
+    user: PrismaUser,
+  ): Promise<EmailDeliveryResult> {
+    const token = await this.createAuthToken(
+      user.id,
+      "EMAIL_VERIFY",
+      EMAIL_VERIFY_TTL_MS,
+    );
+
+    try {
+      return await this.sendVerifyUrl(user.email, token);
+    } catch (error) {
+      this.logger.error(
+        `No se pudo enviar la verificación a ${user.email}: ${String(error)}`,
+      );
+      return { sent: false };
+    }
+  }
+
+  /** Crea un token de un solo uso y devuelve su valor en claro para el link. */
+  private async createAuthToken(
+    userId: string,
+    type: "EMAIL_VERIFY" | "PASSWORD_RESET",
+    ttlMs: number,
+  ): Promise<string> {
+    const token = randomBytes(32).toString("base64url");
+    await this.prisma.authToken.create({
+      data: {
+        userId,
+        type,
+        tokenHash: this.hashToken(token),
+        expiresAt: new Date(Date.now() + ttlMs),
+      },
+    });
+    return token;
+  }
+
+  /**
+   * Valida un token de un solo uso sin consumirlo y devuelve su registro.
+   * Rechaza tokens inexistentes, ya usados o expirados.
+   */
+  private async readAuthToken(
+    token: string,
+    type: "EMAIL_VERIFY" | "PASSWORD_RESET",
+  ): Promise<{ id: string; userId: string; isVerified: boolean }> {
+    const tokenHash = this.hashToken(token);
+    const record = await this.prisma.authToken.findUnique({
+      where: { tokenHash },
+    });
+
+    if (!record || record.type !== type) {
+      throw new BadRequestException("El enlace es inválido o ya no existe");
+    }
+    if (record.usedAt) {
+      throw new BadRequestException("El enlace ya fue utilizado");
+    }
+    if (record.expiresAt.getTime() < Date.now()) {
+      throw new BadRequestException("El enlace expiró");
+    }
+
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: record.userId },
+    });
+    return {
+      id: record.id,
+      userId: record.userId,
+      isVerified: user.isEmailVerified,
+    };
+  }
+
+  private async sendVerifyUrl(
+    to: string,
+    token: string,
+  ): Promise<EmailDeliveryResult> {
+    const actionUrl = this.buildAuthUrl("/verify-email", token);
+    return this.mail.sendVerification({
+      to,
+      actionUrl,
+      expiresAt: new Date(Date.now() + EMAIL_VERIFY_TTL_MS),
+    });
+  }
+
+  private async sendResetUrl(
+    to: string,
+    token: string,
+  ): Promise<EmailDeliveryResult> {
+    const actionUrl = this.buildAuthUrl("/reset-password", token);
+    return this.mail.sendPasswordReset({
+      to,
+      actionUrl,
+      expiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MS),
+    });
+  }
+
+  private buildAuthUrl(path: string, token: string): string {
+    const webUrl =
+      this.config.get<string>("WEB_URL") ?? "http://localhost:5173";
+    return `${webUrl.replace(/\/+$/, "")}${path}?token=${encodeURIComponent(token)}`;
   }
 
   // ── helpers ──────────────────────────────────────────────────────────

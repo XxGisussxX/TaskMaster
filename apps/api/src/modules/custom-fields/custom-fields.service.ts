@@ -106,7 +106,7 @@ export class CustomFieldsService {
     });
     if (!existing)
       throw new NotFoundException(
-        "DefiniciÃ³n de campo personalizado no encontrada",
+        "Definición de campo personalizado no encontrada",
       );
 
     const updated = await this.prisma.customFieldDefinition.update({
@@ -166,7 +166,7 @@ export class CustomFieldsService {
     });
     if (!existing)
       throw new NotFoundException(
-        "DefiniciÃ³n de campo personalizado no encontrada",
+        "Definición de campo personalizado no encontrada",
       );
 
     await this.prisma.customFieldDefinition.delete({ where: { id } });
@@ -186,7 +186,7 @@ export class CustomFieldsService {
     });
     if (!def)
       throw new NotFoundException(
-        "DefiniciÃ³n de campo personalizado no encontrada",
+        "Definición de campo personalizado no encontrada",
       );
 
     await this.assertEntityBelongsToWorkspace(
@@ -216,6 +216,7 @@ export class CustomFieldsService {
         },
       },
       create: {
+        workspaceId,
         definitionId: input.definitionId,
         entityId: input.entityId,
         entityType: input.entityType,
@@ -249,7 +250,12 @@ export class CustomFieldsService {
     );
 
     const values = await this.prisma.customFieldValue.findMany({
-      where: { entityId, entityType, definition: { workspaceId } },
+      where: {
+        workspaceId,
+        entityId,
+        entityType,
+        definition: { workspaceId },
+      },
       include: { definition: true },
     });
 
@@ -282,6 +288,7 @@ export class CustomFieldsService {
 
     const values = await this.prisma.customFieldValue.findMany({
       where: {
+        workspaceId,
         entityType,
         entityId: { in: entityIds },
         definition: { workspaceId },

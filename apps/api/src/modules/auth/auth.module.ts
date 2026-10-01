@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { JwtModule, type JwtSignOptions } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
 import { jwtConstants } from "../../config/env.config";
+import { MailModule } from "../mail/mail.module";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { JwtStrategy } from "./jwt.strategy";
@@ -17,6 +18,7 @@ import { RefreshTokenGuard } from "../../common/guards/refresh-token.guard";
         expiresIn: jwtConstants.accessTtl() as JwtSignOptions["expiresIn"],
       },
     }),
+    MailModule,
   ],
   controllers: [AuthController],
   providers: [

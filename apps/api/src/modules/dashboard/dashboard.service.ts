@@ -6,6 +6,7 @@ import {
 } from "@taskmaster/contracts";
 import {
   buildActivitySeries,
+  buildKpiTrends,
   computeKpis,
   priorityDistribution,
 } from "@taskmaster/domain";
@@ -81,6 +82,7 @@ export class DashboardService {
 
     return {
       kpis,
+      kpiTrends: buildKpiTrends(domainTasks, from, now),
       createdCompletedSeries: buildActivitySeries(domainTasks, from, now),
       priorityDistribution: priorityDistribution(domainTasks),
       statusDistribution,

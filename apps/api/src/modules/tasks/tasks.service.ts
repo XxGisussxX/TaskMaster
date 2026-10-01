@@ -227,6 +227,12 @@ export class TasksService {
         ? (dto.recurrence as Prisma.InputJsonValue)
         : undefined,
       completedAt,
+      dueSoNotifiedAt:
+        dto.dueDate === undefined
+          ? undefined
+          : dto.dueDate?.getTime() !== existing.dueDate?.getTime()
+            ? null
+            : undefined,
     };
 
     const task = await this.prisma.task.update({
@@ -275,6 +281,13 @@ export class TasksService {
       data: {
         status,
         completedAt: status === TaskStatus.DONE ? new Date() : null,
+        dueSoNotifiedAt:
+          existing.status !== TaskStatus.DONE &&
+          existing.status !== TaskStatus.ARCHIVED
+            ? undefined
+            : status === TaskStatus.DONE || status === TaskStatus.ARCHIVED
+              ? undefined
+              : null,
       },
       include: TASK_INCLUDE,
     });

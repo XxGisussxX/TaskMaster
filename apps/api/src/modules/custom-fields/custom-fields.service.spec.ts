@@ -4,7 +4,27 @@ import { CustomFieldsService } from "./custom-fields.service";
 
 function setup(values: unknown[] = [], entityFound = true) {
   const prisma = {
-    customFieldValue: { findMany: vi.fn().mockResolvedValue(values) },
+    customFieldValue: {
+      findMany: vi.fn().mockResolvedValue(values),
+      upsert: vi.fn().mockResolvedValue({
+        id: "v1",
+        definitionId: "d1",
+        entityId: "task1",
+        entityType: "task",
+        value: "x",
+        createdAt: new Date(),
+      }),
+    },
+    customFieldDefinition: {
+      findFirst: vi.fn().mockResolvedValue({
+        id: "d1",
+        workspaceId: "ws1",
+        name: "Campo",
+        type: "TEXT",
+        options: null,
+        required: false,
+      }),
+    },
     task: {
       findFirst: vi
         .fn()
@@ -20,7 +40,10 @@ function setup(values: unknown[] = [], entityFound = true) {
       findMany: vi.fn().mockResolvedValue([]),
     },
   };
-  const access = { assertMembership: vi.fn().mockResolvedValue(undefined) };
+  const access = {
+    assertMembership: vi.fn().mockResolvedValue(undefined),
+    assertWriteRole: vi.fn().mockResolvedValue(undefined),
+  };
   const service = new CustomFieldsService(prisma as never, access as never);
   return { service, prisma };
 }
@@ -34,6 +57,7 @@ describe("CustomFieldsService.getValues (aislamiento de workspace)", () => {
     expect(prisma.customFieldValue.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
+          workspaceId: "ws1",
           entityId: "task1",
           entityType: "task",
           definition: { workspaceId: "ws1" },
@@ -47,6 +71,7 @@ describe("CustomFieldsService.getValues (aislamiento de workspace)", () => {
       {
         id: "v1",
         definitionId: "d1",
+        workspaceId: "otro",
         entityId: "task1",
         entityType: "task",
         value: "x",
@@ -88,6 +113,7 @@ describe("CustomFieldsService.getValuesForMany (aislamiento de workspace)", () =
     expect(prisma.customFieldValue.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
+          workspaceId: "ws1",
           entityType: "task",
           entityId: { in: ["task1", "task2"] },
           definition: { workspaceId: "ws1" },
@@ -103,5 +129,29 @@ describe("CustomFieldsService.getValuesForMany (aislamiento de workspace)", () =
       service.getValuesForMany("ws1", "u1", "task", ["task1", "ajena"]),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(prisma.customFieldValue.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("CustomFieldsService.setValue (aislamiento de workspace)", () => {
+  it("persiste el workspaceId del workspace en create y update del upsert", async () => {
+    const { service, prisma } = setup();
+
+    await service.setValue("ws1", "u1", {
+      definitionId: "d1",
+      entityType: "task",
+      entityId: "task1",
+      value: "x",
+    });
+
+    expect(prisma.customFieldValue.upsert).toHaveBeenCalledWith({
+      where: {
+        definitionId_entityId: {
+          definitionId: "d1",
+          entityId: "task1",
+        },
+      },
+      create: expect.objectContaining({ workspaceId: "ws1" }),
+      update: expect.objectContaining({ value: "x" }),
+    });
   });
 });

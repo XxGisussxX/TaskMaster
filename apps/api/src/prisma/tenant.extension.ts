@@ -12,6 +12,7 @@ import { tenantContext } from "../tenant/tenant-context";
  */
 export const SCOPED_MODELS: ReadonlySet<string> = new Set([
   "ActivityLog",
+  "AiGeneration",
   "Attachment",
   "Category",
   "CustomFieldDefinition",
