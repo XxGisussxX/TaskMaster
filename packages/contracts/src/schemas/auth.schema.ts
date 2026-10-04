@@ -64,6 +64,59 @@ export const updateUserSettingsSchema = z.object({
   emailPrefs: z.record(z.boolean()).optional(),
 });
 
+// ── OAuth ─────────────────────────────────────────────────────────────
+
+/**
+ * Proveedores de login federado disponibles.
+ *
+ * El frontend lo consulta para no dibujar un botón que después falla: si el
+ * backend no tiene las credenciales de Google, el botón no aparece y el usuario
+ * no pierde tiempo en una pantalla de consentimiento que va a morir en el
+ * callback.
+ */
+export const OAUTH_PROVIDERS = ["google"] as const;
+export type OauthProvider = (typeof OAUTH_PROVIDERS)[number];
+
+export interface OauthProvidersResponse {
+  providers: OauthProvider[];
+}
+
+/**
+ * Canje del token de handoff por una sesión.
+ *
+ * Solo viaja el token. El `code` de Google no se reenvía porque para entonces ya
+ * se canjeó server-side, y el `state` ya se validó contra la cookie en el
+ * callback: volver a mandarlo no agrega nada y abre la puerta a meterlo en el
+ * body por error.
+ */
+export const oauthExchangeSchema = z.object({
+  token: z.string().min(1, "Token requerido"),
+});
+export type OauthExchangeInput = z.infer<typeof oauthExchangeSchema>;
+
+/**
+ * Códigos de error que el callback de OAuth puede devolver por query string.
+ *
+ * Se mapean a un enum cerrado en vez de pasar texto libre a la UI: el callback
+ * redirige con `?error=`, y el mensaje se decide en el frontend para poder
+ * traducirlo sin que el server mande HTML a una URL.
+ */
+export const OAUTH_ERROR_CODES = [
+  "access_denied",
+  "invalid_state",
+  "provider_error",
+  "exchange_failed",
+  "email_unverified",
+  "account_conflict",
+  "not_configured",
+] as const;
+export type OauthErrorCode = (typeof OAUTH_ERROR_CODES)[number];
+
+export const oauthCallbackErrorSchema = z.object({
+  error: z.enum(OAUTH_ERROR_CODES),
+});
+export type OauthCallbackErrorInput = z.infer<typeof oauthCallbackErrorSchema>;
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
