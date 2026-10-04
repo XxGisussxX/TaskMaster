@@ -13,6 +13,7 @@ import { OnEvent } from "@nestjs/event-emitter";
 import type { Server, Socket } from "socket.io";
 import { UnscopedPrismaService } from "../../prisma/prisma.service";
 import { resolveCorsOptions } from "../../config/cors";
+import { PresenceService } from "./presence.service";
 
 interface NotificationPayload {
   userId: string;
@@ -61,12 +62,15 @@ export class AppWebSocketGateway
   private readonly logger = new Logger(AppWebSocketGateway.name);
   private userSockets = new Map<string, Set<string>>();
   private socketUser = new Map<string, string>();
+  /** socketId → workspaces a los que se unió. */
+  private socketWorkspaces = new Map<string, Set<string>>();
 
   private jwtService!: JwtService;
 
   constructor(
     private readonly jwt: JwtService,
     private readonly prisma: UnscopedPrismaService,
+    private readonly presence: PresenceService,
   ) {}
 
   onModuleInit() {
@@ -119,7 +123,24 @@ export class AppWebSocketGateway
       }
     }
     this.socketUser.delete(client.id);
+    // La presencia se entera igual: si el `disconnect` se pierde, el sweep la
+    // barre cuando vence el timeout.
+    this.presence.disconnect(client.id);
+    this.socketWorkspaces.delete(client.id);
     this.logger.log(`Cliente desconectado: ${client.id}`);
+  }
+
+  /**
+   * Latido de presencia.
+   *
+   * El cliente lo emite en intervalo, no una sola vez al conectar. Si el
+   * heartbeat fuera solo un evento de conexión, un browser que se cuelga sin
+   * cerrar el socket dejaría al usuario marcado como activo para siempre, y
+   * después no hay ningún evento del socket que lo corrija.
+   */
+  @SubscribeMessage("presence:heartbeat")
+  handleHeartbeat(@ConnectedSocket() client: Socket): void {
+    this.presence.heartbeat(client.id);
   }
 
   @SubscribeMessage("workspace:join")
@@ -139,6 +160,12 @@ export class AppWebSocketGateway
     }
 
     client.join(`workspace:${data.workspaceId}`);
+
+    const joined = this.socketWorkspaces.get(client.id);
+    if (joined) joined.add(data.workspaceId);
+    else this.socketWorkspaces.set(client.id, new Set([data.workspaceId]));
+
+    this.presence.join(client.id, userId, data.workspaceId);
   }
 
   @SubscribeMessage("workspace:leave")
@@ -147,9 +174,33 @@ export class AppWebSocketGateway
     @ConnectedSocket() client: Socket,
   ): void {
     client.leave(`workspace:${data.workspaceId}`);
+
+    const userId = this.socketUser.get(client.id);
+    if (userId) this.presence.leave(client.id, userId, data.workspaceId);
+    this.socketWorkspaces.get(client.id)?.delete(data.workspaceId);
   }
 
   // ── Event Listeners ──────────────────────────────────────────────────
+
+  /**
+   * Difunde el estado de presencia del workspace.
+   *
+   * Va por evento y no dentro de `join` porque el barrido también cambia el
+   * estado, y ese cambio no viene de una conexión sino del paso del tiempo.
+   */
+  @OnEvent("presence.changed")
+  handlePresenceChanged(payload: { workspaceId: string }): void {
+    const activeUserIds = this.presence.activeUserIds(payload.workspaceId);
+
+    this.server
+      .to(`workspace:${payload.workspaceId}`)
+      .emit("presence:snapshot", {
+        workspaceId: payload.workspaceId,
+        activeUserIds,
+        activeCount: activeUserIds.length,
+        generatedAt: new Date().toISOString(),
+      });
+  }
 
   @OnEvent("notification.new")
   handleNotification(payload: NotificationPayload): void {

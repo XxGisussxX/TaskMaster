@@ -3,6 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ActivityTimeline } from "@/features/dashboard/components/ActivityTimeline";
 import { useDashboardStats } from "@/features/dashboard/hooks/useDashboard";
+import { useMembers } from "../hooks/useMembers";
+import { usePresenceStore } from "@/store/presence.store";
+import { Avatar } from "@/components/ui/avatar";
 
 export function SidePanel() {
   return (
@@ -14,7 +17,21 @@ export function SidePanel() {
   );
 }
 
+/**
+ * Quién está conectado ahora.
+ *
+ * Se cruza el snapshot con la lista de miembros para mostrar nombre y avatar:
+ * el servidor solo manda ids, porque resolverlos ahí duplicaría datos que el
+ * cliente ya tiene cacheados.
+ */
 function HuddleCard() {
+  const { activeUserIds, activeCount, ready } = usePresenceStore();
+  const { data: members = [] } = useMembers();
+
+  const active = activeUserIds
+    .map((id) => members.find((m) => m.userId === id))
+    .filter((m): m is NonNullable<typeof m> => !!m);
+
   return (
     <Card className="overflow-hidden">
       <CardHeader>
@@ -23,16 +40,46 @@ function HuddleCard() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <EmptyState
-          icon={Radio}
-          title="Preparado"
-          description="La sala de reunión se activará cuando exista presencia en tiempo real (sockets de presencia) en el backend."
-          action={
-            <span className="rounded-md border border-dashed bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-              Pendiente de backend
-            </span>
-          }
-        />
+        {!ready ? (
+          <p className="rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground">
+            Conectando al canal de presencia…
+          </p>
+        ) : active.length === 0 ? (
+          <p className="rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground">
+            Nadie conectado ahora mismo.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {active.map((m) => (
+              <li key={m.userId} className="flex items-center gap-2.5">
+                <Avatar
+                  name={m.user?.name ?? m.user?.email ?? "Miembro"}
+                  src={m.user?.avatarUrl ?? null}
+                  className="h-7 w-7"
+                />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">
+                    {m.user?.name ?? m.user?.email ?? "Miembro"}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {m.role.toLowerCase()}
+                  </p>
+                </div>
+                <span
+                  className="ml-auto h-2 w-2 shrink-0 rounded-full bg-emerald-500"
+                  aria-label="Conectado"
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+        {ready && activeCount > 0 && (
+          <p className="pt-3 text-xs text-muted-foreground">
+            {activeCount === active.length
+              ? `${activeCount} ${activeCount === 1 ? "persona conectada" : "personas conectadas"}`
+              : `${activeCount} conectadas · ${active.length} en este equipo`}
+          </p>
+        )}
       </CardContent>
     </Card>
   );

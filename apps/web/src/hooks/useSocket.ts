@@ -1,15 +1,37 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { io, type Socket } from "socket.io-client";
+import {
+  PRESENCE_HEARTBEAT_EVENT,
+  PRESENCE_SNAPSHOT_EVENT,
+} from "@taskmaster/contracts";
 import { useAuthStore } from "@/store/auth.store";
 import { useWorkspaceStore } from "@/store/workspace.store";
+import {
+  applyPresenceSnapshot,
+  usePresenceStore,
+} from "@/store/presence.store";
+
+/**
+ * Cadencia del latido de presencia.
+ *
+ * Va en el cliente y no se importa del backend a propósito: el bundle no debe
+ * depender de `apps/api`. Tiene que quedar holgadamente por debajo del timeout
+ * del servidor para tolerar latidos perdidos sin marcar a nadie como fuera.
+ */
+const PRESENCE_HEARTBEAT_MS = 30_000;
 
 export function useSocket() {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const [socket, setSocket] = useState<Socket | null>(null);
+  // Ref para deduplicar el join sin provocar renders; state para que los
+  // efectos que dependen de "ya se unirse" repitan cuando el join ocurre.
   const joinedWorkspace = useRef<string | null>(null);
+  const [joinedWorkspaceId, setJoinedWorkspaceId] = useState<string | null>(
+    null,
+  );
 
   // Conexión: depende solo de la sesión. Cambiar de workspace no debe reabrir el
   // socket; ese teardown a mitad del handshake producía el warning
@@ -18,6 +40,7 @@ export function useSocket() {
     if (!user) {
       setSocket(null);
       joinedWorkspace.current = null;
+      setJoinedWorkspaceId(null);
       return;
     }
 
@@ -39,6 +62,7 @@ export function useSocket() {
       instance.disconnect();
       setSocket(null);
       joinedWorkspace.current = null;
+      setJoinedWorkspaceId(null);
     };
   }, [user]);
 
@@ -50,6 +74,7 @@ export function useSocket() {
       if (joinedWorkspace.current === currentWorkspaceId) return;
       socket.emit("workspace:join", { workspaceId: currentWorkspaceId });
       joinedWorkspace.current = currentWorkspaceId;
+      setJoinedWorkspaceId(currentWorkspaceId);
     };
 
     if (socket.connected) join();
@@ -58,6 +83,51 @@ export function useSocket() {
       socket.off("connect", join);
     };
   }, [socket, currentWorkspaceId]);
+
+  // ── Presence ───────────────────────────────────────────────────────
+
+  // El latido es periódico y no un evento de conexión: si solo se emitiera al
+  // conectar, un browser que se cuelga sin cerrar el socket dejaría al usuario
+  // marcado como activo para siempre.
+  useEffect(() => {
+    if (!socket || !joinedWorkspaceId) return;
+
+    const beat = () => socket.emit(PRESENCE_HEARTBEAT_EVENT);
+    const timer = setInterval(beat, PRESENCE_HEARTBEAT_MS);
+
+    // Latido inmediato: sin él, la presencia recién conectada no existiría hasta
+    // medio minuto después, que es justo lo que un usuario recién entrando
+    // nota como "no aparece en la lista".
+    beat();
+
+    return () => clearInterval(timer);
+  }, [socket, joinedWorkspaceId]);
+
+  // El snapshot llega siempre, también con lista vacía. Si se ignorara el
+  // caso vacío, quien quedó con un snapshot viejo seguiría viendo gente que ya
+  // se fue.
+  useEffect(() => {
+    if (!socket) return;
+
+    const onSnapshot = (payload: unknown) => {
+      applyPresenceSnapshot(
+        payload,
+        useWorkspaceStore.getState().currentWorkspaceId,
+      );
+    };
+
+    socket.on(PRESENCE_SNAPSHOT_EVENT, onSnapshot);
+
+    return () => {
+      socket.off(PRESENCE_SNAPSHOT_EVENT, onSnapshot);
+    };
+  }, [socket]);
+
+  // Al cerrar sesión o cambiar de workspace, la presencia anterior no debe
+  // quedar en pantalla.
+  useEffect(() => {
+    usePresenceStore.getState().reset();
+  }, [currentWorkspaceId, user]);
 
   // ── Notification events ─────────────────────────────────────────────
 

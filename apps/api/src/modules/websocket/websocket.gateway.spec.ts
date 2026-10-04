@@ -24,8 +24,19 @@ function setup(memberExists: boolean) {
     },
   };
   const jwt = { verifyAsync: vi.fn() };
-  const gateway = new AppWebSocketGateway(jwt as never, prisma as never);
-  return { gateway, prisma };
+  const presence = {
+    join: vi.fn(),
+    leave: vi.fn(),
+    disconnect: vi.fn(),
+    heartbeat: vi.fn(),
+    activeUserIds: vi.fn().mockReturnValue([]),
+  };
+  const gateway = new AppWebSocketGateway(
+    jwt as never,
+    prisma as never,
+    presence as never,
+  );
+  return { gateway, prisma, presence };
 }
 
 function internals(gateway: AppWebSocketGateway): GatewayInternals {
@@ -74,5 +85,122 @@ describe("AppWebSocketGateway.handleJoinWorkspace", () => {
     await gateway.handleJoinWorkspace({ workspaceId: "ws1" }, client);
 
     expect(join).toHaveBeenCalledWith("workspace:ws1");
+  });
+
+  it("marca presencia al unirse", async () => {
+    const { gateway, presence } = setup(true);
+    const client = { id: "c1", join: vi.fn() } as unknown as Socket;
+    internals(gateway).socketUser.set("c1", "user1");
+
+    await gateway.handleJoinWorkspace({ workspaceId: "ws1" }, client);
+
+    expect(presence.join).toHaveBeenCalledWith("c1", "user1", "ws1");
+  });
+
+  it("no marca presencia si el join fue rechazado", async () => {
+    const { gateway, presence } = setup(false);
+    const client = { id: "c1", join: vi.fn() } as unknown as Socket;
+    internals(gateway).socketUser.set("c1", "user1");
+
+    await expect(
+      gateway.handleJoinWorkspace({ workspaceId: "ws1" }, client),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    // Un usuario que no es miembro no puede figurar como activo.
+    expect(presence.join).not.toHaveBeenCalled();
+  });
+});
+
+describe("AppWebSocketGateway.handleLeaveWorkspace", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("saca la presencia del workspace que se abandona", () => {
+    const { gateway, presence } = setup(true);
+    const leave = vi.fn();
+    const client = { id: "c1", leave } as unknown as Socket;
+    internals(gateway).socketUser.set("c1", "user1");
+
+    gateway.handleLeaveWorkspace({ workspaceId: "ws1" }, client);
+
+    expect(leave).toHaveBeenCalledWith("workspace:ws1");
+    expect(presence.leave).toHaveBeenCalledWith("c1", "user1", "ws1");
+  });
+
+  it("no toca la presencia de un socket sin usuario", () => {
+    const { gateway, presence } = setup(true);
+    const client = { id: "c1", leave: vi.fn() } as unknown as Socket;
+
+    gateway.handleLeaveWorkspace({ workspaceId: "ws1" }, client);
+
+    expect(presence.leave).not.toHaveBeenCalled();
+  });
+});
+
+describe("AppWebSocketGateway presencia y ciclo de vida", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("reenvía el heartbeat al servicio con el id del socket", () => {
+    const { gateway, presence } = setup(true);
+    const client = { id: "c1" } as unknown as Socket;
+
+    gateway.handleHeartbeat(client);
+
+    expect(presence.heartbeat).toHaveBeenCalledWith("c1");
+  });
+
+  it("libera la presencia al desconectar", () => {
+    const { gateway, presence } = setup(true);
+    const client = { id: "c1" } as unknown as Socket;
+    internals(gateway).socketUser.set("c1", "user1");
+
+    gateway.handleDisconnect(client);
+
+    expect(presence.disconnect).toHaveBeenCalledWith("c1");
+  });
+
+  it("difunde el snapshot a la sala del workspace cuando cambia", () => {
+    const { gateway, presence } = setup(true);
+    presence.activeUserIds.mockReturnValue(["u1", "u2"]);
+    const emit = vi.fn();
+    (gateway as unknown as { server: { to: unknown } }).server = {
+      to: vi.fn().mockReturnValue({ emit }),
+    };
+
+    gateway.handlePresenceChanged({ workspaceId: "ws1" });
+
+    const { to } = (
+      gateway as unknown as { server: { to: (r: string) => unknown } }
+    ).server;
+    expect(to).toHaveBeenCalledWith("workspace:ws1");
+    expect(emit).toHaveBeenCalledWith(
+      "presence:snapshot",
+      expect.objectContaining({
+        workspaceId: "ws1",
+        activeUserIds: ["u1", "u2"],
+        activeCount: 2,
+      }),
+    );
+  });
+
+  it("difunde una lista vacía en vez de omitir el evento", () => {
+    const { gateway, presence } = setup(true);
+    presence.activeUserIds.mockReturnValue([]);
+    const emit = vi.fn();
+    (gateway as unknown as { server: { to: unknown } }).server = {
+      to: vi.fn().mockReturnValue({ emit }),
+    };
+
+    gateway.handlePresenceChanged({ workspaceId: "ws1" });
+
+    // Sin este evento, un cliente que quedó con un snapshot viejo seguiría
+    // mostrando a alguien que ya se fue.
+    expect(emit).toHaveBeenCalledWith(
+      "presence:snapshot",
+      expect.objectContaining({ activeCount: 0, activeUserIds: [] }),
+    );
   });
 });

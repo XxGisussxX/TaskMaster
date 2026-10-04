@@ -14,6 +14,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
+import { usePresenceStore } from "@/store/presence.store";
 import {
   useTasks,
   useCurrentWorkspaceId,
@@ -51,6 +52,7 @@ export function WorkspacePage() {
   const { role } = useCurrentMembership();
   const { data: tasksData } = useTasks({ pageSize: 200 });
   const { data: dashboard } = useDashboardStats();
+  const presence = usePresenceStore();
   const workspace = data?.find((w) => w.id === workspaceId);
 
   const team = useMemo(
@@ -121,10 +123,16 @@ export function WorkspacePage() {
         />
         <KpiCard
           label="Activos ahora"
-          value="—"
+          value={
+            presence.ready ? presence.activeCount.toLocaleString("es") : "—"
+          }
           icon={Radio}
           accent="success"
-          hint="Presencia requiere sockets de presencia (pendiente)"
+          hint={
+            presence.ready
+              ? `${presence.activeCount} de ${members.length} conectados`
+              : "Conectando al canal de presencia"
+          }
         />
         <KpiCard
           label="Carga operativa"
