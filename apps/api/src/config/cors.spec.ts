@@ -22,22 +22,24 @@ describe("parseOrigins", () => {
 });
 
 describe("resolveCorsOptions", () => {
-  it("permite cualquier origin fuera de producción", () => {
-    expect(resolveCorsOptions(undefined, "development")).toEqual({
-      origin: true,
-      credentials: false,
-    });
+  it("rechaza origins vacíos en cualquier entorno", () => {
+    expect(() => resolveCorsOptions(undefined, "development")).toThrow(
+      /CORS abierto no permitido/,
+    );
+    expect(() => resolveCorsOptions(" , ", "development")).toThrow(
+      /CORS abierto no permitido/,
+    );
   });
 
   it("rechaza CORS abierto en producción", () => {
     expect(() => resolveCorsOptions("*", "production")).toThrow(
-      /CORS abierto no permitido en producción/,
+      /CORS abierto no permitido/,
     );
     expect(() => resolveCorsOptions(undefined, "production")).toThrow(
-      /CORS abierto no permitido en producción/,
+      /CORS abierto no permitido/,
     );
     expect(() => resolveCorsOptions(" , ", "production")).toThrow(
-      /CORS abierto no permitido en producción/,
+      /CORS abierto no permitido/,
     );
   });
 
@@ -83,6 +85,7 @@ describe("validateEnv: CORS en producción", () => {
       ...validSecrets,
       NODE_ENV: "production",
       API_ORIGINS: "https://app.taskmaster.app, https://www.taskmaster.app",
+      TRUST_PROXY: "1",
     });
     expect(env.API_ORIGINS).toContain("https://app.taskmaster.app");
   });
@@ -94,6 +97,17 @@ describe("validateEnv: CORS en producción", () => {
       API_ORIGINS: "*",
     });
     expect(env.API_ORIGINS).toBe("*");
+  });
+
+  it("exige TRUST_PROXY >= 1 en producción", () => {
+    expect(() =>
+      validateEnv({
+        ...validSecrets,
+        NODE_ENV: "production",
+        API_ORIGINS: "https://app.taskmaster.app",
+        TRUST_PROXY: "0",
+      }),
+    ).toThrow(/TRUST_PROXY debe ser >= 1 en producción/);
   });
 });
 

@@ -2,6 +2,15 @@ import "reflect-metadata";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ForbiddenException } from "@nestjs/common";
 import type { Socket } from "socket.io";
+
+// El decorador @WsGateway resuelve el CORS al importar el módulo, antes de que
+// exista inyección de dependencias, así que API_ORIGINS tiene que existir antes
+// del import. La resolución es fail-closed: sin origins definidos lanza.
+// `vi.hoisted` corre antes que los imports, a diferencia de process.env directo.
+vi.hoisted(() => {
+  process.env.API_ORIGINS ??= "http://localhost:5173";
+});
+
 import { AppWebSocketGateway } from "./websocket.gateway";
 
 interface GatewayInternals {

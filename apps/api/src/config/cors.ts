@@ -28,14 +28,14 @@ export function parseOrigins(raw: string | undefined): string[] {
  */
 export function resolveCorsOptions(
   raw: string | undefined,
-  nodeEnv: string | undefined,
+  _nodeEnv: string | undefined,
 ): CorsOptions {
   const origins = parseOrigins(raw);
   const allowAll = origins.length === 0 || origins.includes("*");
 
-  if (allowAll && nodeEnv === "production") {
+  if (allowAll) {
     throw new Error(
-      "CORS abierto no permitido en producción: definí API_ORIGINS con los dominios permitidos",
+      "CORS abierto no permitido: definí API_ORIGINS con los dominios permitidos",
     );
   }
 
