@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError } from "@/services/http";
 import { register, resendVerification } from "../api/auth.api";
+import { GoogleLoginButton } from "../components/GoogleLoginButton";
 
 type FormValues = { name: string; email: string; password: string };
 
@@ -133,6 +134,8 @@ export function RegisterPage() {
       <Button type="submit" className="w-full" disabled={loading}>
         {loading ? "Creando cuenta…" : "Crear cuenta"}
       </Button>
+
+      <GoogleLoginButton label="Registrarse con Google" />
 
       <p className="text-center text-sm text-muted-foreground">
         ¿Ya tienes cuenta?{" "}

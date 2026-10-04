@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { ApiError } from "@/services/http";
 import { useAuthStore } from "@/store/auth.store";
 import { login, resendVerification } from "../api/auth.api";
+import { GoogleLoginButton } from "../components/GoogleLoginButton";
 
 type FormValues = { email: string; password: string };
 
@@ -133,6 +134,8 @@ export function LoginPage() {
       <Button type="submit" className="w-full" disabled={loading}>
         {loading ? "Entrando…" : "Iniciar sesión"}
       </Button>
+
+      <GoogleLoginButton label="Continuar con Google" />
 
       <p className="text-center text-sm text-muted-foreground">
         ¿No tienes cuenta?{" "}

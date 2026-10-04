@@ -4,6 +4,7 @@ import { AppShell } from "@/layouts/AppShell";
 import { AuthLayout } from "@/layouts/AuthLayout";
 import { LoginPage } from "@/features/auth/pages/LoginPage";
 import { RegisterPage } from "@/features/auth/pages/RegisterPage";
+import { OAuthCallbackPage } from "@/features/auth/pages/OAuthCallbackPage";
 import { VerifyEmailPage } from "@/features/auth/pages/VerifyEmailPage";
 import { ForgotPasswordPage } from "@/features/auth/pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "@/features/auth/pages/ResetPasswordPage";
@@ -28,6 +29,13 @@ export const router = createBrowserRouter([
         children: [
           { path: "/login", element: <LoginPage /> },
           { path: "/register", element: <RegisterPage /> },
+          {
+            // Público a propósito: es donde aterriza el usuario que venía de Google,
+            // y en ese momento todavía no tiene sesión. Canjea el token y recién ahí
+            // queda autenticado.
+            path: "/auth/callback",
+            element: <OAuthCallbackPage />,
+          },
           { path: "/forgot-password", element: <ForgotPasswordPage /> },
           { path: "/reset-password", element: <ResetPasswordPage /> },
           { path: "*", element: <NotFoundPage /> },
