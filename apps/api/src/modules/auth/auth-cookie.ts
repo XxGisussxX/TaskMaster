@@ -1,9 +1,6 @@
 import type { Request, Response } from "express";
 import { ConfigService } from "@nestjs/config";
-import {
-  jwtConstants,
-  parseDurationToSeconds,
-} from "../../config/env.config";
+import { jwtConstants, parseDurationToSeconds } from "../../config/env.config";
 
 /**
  * El refresh token viaja en una cookie HttpOnly y no en el cuerpo de la
@@ -76,4 +73,44 @@ export function withoutRefreshToken<T extends { refreshToken: string }>(
 
 export function isProduction(config: ConfigService): boolean {
   return config.get<string>("NODE_ENV") === "production";
+}
+
+// ── OAuth ─────────────────────────────────────────────────────────────
+
+/**
+ * Cookie con el `state` del flujo OAuth.
+ *
+ * `SameSite=Lax` es el trade-off clave del flujo. El callback es una navegación
+ * que *vuelve* desde accounts.google.com, y con `Strict` el navegador no manda
+ * ninguna cookie en una navegación cross-site de primer nivel: el `state` nunca
+ * llegaría y todo login fallaría. `Lax` sí la manda en ese caso, que es el único
+ * que hace falta, y sigue bloqueando los POST cross-site, que es de donde sale el
+ * CSRF de verdad.
+ *
+ * El `Path` la acota a `/api/auth` como la del refresh: no tiene por qué viajar
+ * en cada request de la API.
+ */
+export const OAUTH_STATE_COOKIE = "tm_oauth_state";
+export const OAUTH_COOKIE_PATH = "/api/auth";
+
+/** Margen para completar el login: Google puede pedir permisos extras. */
+export const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+
+export function readOAuthStateCookie(req: Request): string | undefined {
+  const raw = (req.cookies as Record<string, string> | undefined)?.[
+    OAUTH_STATE_COOKIE
+  ];
+  return typeof raw === "string" && raw.length > 0 ? raw : undefined;
+}
+
+export function clearOAuthStateCookie(
+  res: Response,
+  isProduction: boolean,
+): void {
+  res.clearCookie(OAUTH_STATE_COOKIE, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: "lax",
+    path: OAUTH_COOKIE_PATH,
+  });
 }

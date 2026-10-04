@@ -101,7 +101,7 @@ export class AuthService {
     },
     metadata: SessionMetadata,
   ): Promise<AuthSession> {
-    const lockout = this.lockout.check(input.email);
+    const lockout = await this.lockout.check(input.email);
     if (lockout.locked) {
       this.logger.warn(
         `Login bloqueado por lockout (email=${this.maskEmail(input.email)}, ip=${metadata.ip}, retryEn=${lockout.retryAfterSeconds}s)`,
@@ -116,26 +116,26 @@ export class AuthService {
       where: { email: input.email },
     });
 
-    // Mismo mensaje y mismo trabajo para "no existe" y "contraseña mala":
-    // si divergieran, /auth/login serviría para enumerar qué emails están
-    // registrados. Contra un email inexistente igual hasheamos la contraseña
-    // para que el tiempo de respuesta no lo delate.
+    // Mismo mensaje y mismo trabajo para "no existe", "contraseña mala" y
+    // "existe pero es una cuenta de Google": si divergieran, /auth/login
+    // serviría para enumerar qué emails están registrados y de qué tipo es cada
+    // cuenta. Contra un email inexistente, y también contra una cuenta sin
+    // contraseña, igual hasheamos para que el tiempo de respuesta no lo delate.
     let ok = false;
-    if (user) {
+    if (user?.passwordHash) {
       ok = await this.verifyPassword(input.password, user.passwordHash);
     } else {
       await this.hashPassword(input.password);
     }
-
     if (!user || !ok) {
-      this.lockout.recordFailure(input.email);
+      await this.lockout.recordFailure(input.email);
       this.logger.warn(
         `Login fallido (email=${this.maskEmail(input.email)}, ip=${metadata.ip}, device=${metadata.device})`,
       );
       throw new UnauthorizedException("Credenciales inválidas");
     }
 
-    this.lockout.recordSuccess(input.email);
+    await this.lockout.recordSuccess(input.email);
 
     if (!user.isEmailVerified) {
       this.logger.warn(
@@ -241,6 +241,16 @@ export class AuthService {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
     });
+
+    // Una cuenta creada con Google nunca tuvo contraseña, así que no hay "actual"
+    // que mandar. Se lo decimos en vez de reportar "contraseña incorrecta", que
+    // dejaría al usuario probando_strings al azar. El camino para ponerle
+    // contraseña es el reset por email, que además prueba que el email es suyo.
+    if (!user.passwordHash) {
+      throw new BadRequestException(
+        "Esta cuenta entra con Google y no tiene contraseña. Usá 'Olvidé mi contraseña' para crear una.",
+      );
+    }
 
     const ok = await this.verifyPassword(currentPassword, user.passwordHash);
     if (!ok) {
@@ -466,6 +476,21 @@ export class AuthService {
     return this.issueSessionForUser(user.id, metadata);
   }
 
+  /**
+   * Emite una sesión para un userId conocido.
+   *
+   * Público para que el canje del handoff de OAuth reuse exactamente la misma
+   * emisión que `register` y `login`. Que el login con Google produzca un token
+   * con la misma forma que el login con contraseña es lo que evita que el
+   * frontend tenga un camino de sesión paralelo.
+   */
+  async issueSessionFor(
+    userId: string,
+    metadata: SessionMetadata,
+  ): Promise<AuthSession> {
+    return this.issueSessionForUser(userId, metadata);
+  }
+
   private async issueSessionForUser(
     userId: string,
     metadata: SessionMetadata,
@@ -556,9 +581,16 @@ export class AuthService {
 
   private async verifyPassword(
     plain: string,
-    stored: string,
+    // Nullable desde que existen las cuentas que solo entran por proveedor
+    // externo. El tipo obliga a que cada llamador decida qué hacer con una
+    // cuenta sin contraseña, en vez de dejar que reviente un TypeError adentro
+    // de `startsWith` y termine en un 500.
+    stored: string | null,
   ): Promise<boolean> {
-    if (!stored.startsWith("scrypt$")) return false;
+    // Sin hash no hay nada que comparar: el login por contraseña es imposible
+    // para esta cuenta, pero la respuesta tiene que ser la misma de "contraseña
+    // incorrecta" y no una fuga de información sobre cómo se creó la cuenta.
+    if (!stored || !stored.startsWith("scrypt$")) return false;
     const [, salt, hashHex] = stored.split("$");
     if (!salt || !hashHex) return false;
 
@@ -576,6 +608,7 @@ export class AuthService {
       avatarUrl: user.avatarUrl,
       role: user.role,
       isEmailVerified: user.isEmailVerified,
+      hasPassword: !!user.passwordHash,
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
     };

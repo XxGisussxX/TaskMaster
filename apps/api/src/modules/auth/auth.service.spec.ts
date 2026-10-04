@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, UnauthorizedException } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { LoginLockoutService } from "./login-lockout.service";
 
@@ -98,9 +98,27 @@ function setup(options: {
     sendVerification: vi.fn().mockResolvedValue({ sent: true }),
     sendPasswordReset: vi.fn().mockResolvedValue({ sent: true }),
   };
-  const config = { get: vi.fn(() => "http://localhost:5173") };
+  const config = {
+    get: vi.fn((key: string) => {
+      if (key === "WEB_URL") return "http://localhost:5173";
+      if (key === "LOGIN_MAX_FAILURES") return 5;
+      if (key === "LOGIN_FAIL_WINDOW_SECONDS") return 900;
+      if (key === "LOGIN_LOCK_SECONDS") return 900;
+      return undefined;
+    }),
+  };
   const jwt = {};
-  const lockout = new LoginLockoutService(config as any);
+  const redis = {
+    withFallback: vi.fn(async (_op: any, fallback: any) => await fallback()),
+    keyPrefix: "taskmaster",
+    client: {
+      get: vi.fn(),
+      set: vi.fn(),
+      del: vi.fn(),
+      ttl: vi.fn(),
+    },
+  };
+  const lockout = new LoginLockoutService(config as any, redis as any);
 
   const service = new AuthService(
     db as any,
@@ -268,6 +286,105 @@ describe("AuthService · verificación y reset de contraseña", () => {
       await expect(
         service.resetPassword("token-1", "nuevaClave123"),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+});
+
+/**
+ * Cuentas creadas con Google: no tienen `passwordHash` porque el schema lo
+ * volvió nullable. Estos tests fijan que eso no se convierta en un 500 ni en una
+ * fuga de información sobre cómo se creó la cuenta.
+ */
+describe("AuthService · cuentas sin contraseña (Google)", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const GOOGLE_USER = { ...USER, passwordHash: null, isEmailVerified: true };
+
+  describe("login", () => {
+    it("responde credenciales inválidas, no un error interno", async () => {
+      const { db, service } = setup({});
+      db.user.findUnique.mockResolvedValue(GOOGLE_USER);
+
+      // Antes de hacerlo nullable, `stored.startsWith` reventaba con TypeError
+      // y el usuario veía un 500 en vez de un 401.
+      await expect(
+        service.login(
+          { email: GOOGLE_USER.email, password: "loque-sea" },
+          { ip: "1.1.1.1", device: "test" },
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("no distingue por mensaje una cuenta de Google de una contraseña mala", async () => {
+      const { db, service } = setup({});
+      db.user.findUnique.mockResolvedValue(GOOGLE_USER);
+
+      const conGoogle = await service
+        .login(
+          { email: GOOGLE_USER.email, password: "x" },
+          { ip: "1.1.1.1", device: "test" },
+        )
+        .catch((e: unknown) => (e as Error).message);
+
+      db.user.findUnique.mockResolvedValue(USER);
+      const conPassword = await service
+        .login(
+          { email: USER.email, password: "x" },
+          { ip: "1.1.1.1", device: "test" },
+        )
+        .catch((e: unknown) => (e as Error).message);
+
+      // Si difirieran, /auth/login serviría para enumerar cuentas y de qué tipo
+      // son.
+      expect(conGoogle).toBe(conPassword);
+    });
+
+    it("igual hashea aunque no haya hash, para no filtrarlo por tiempo", async () => {
+      const { db, service } = setup({});
+      db.user.findUnique.mockResolvedValue(GOOGLE_USER);
+      const start = Date.now();
+
+      await service
+        .login(
+          { email: GOOGLE_USER.email, password: "x" },
+          { ip: "1.1.1.1", device: "test" },
+        )
+        .catch(() => undefined);
+
+      // scrypt es de decenas de ms: si volviera al instante, el tiempo de
+      // respuesta delataría que la cuenta no tiene contraseña.
+      expect(Date.now() - start).toBeGreaterThan(5);
+    });
+
+    it("cuenta el intento fallido para el lockout", async () => {
+      const { db, service } = setup({});
+      db.user.findUnique.mockResolvedValue(GOOGLE_USER);
+
+      await service
+        .login(
+          { email: GOOGLE_USER.email, password: "x" },
+          { ip: "1.1.1.1", device: "test" },
+        )
+        .catch(() => undefined);
+
+      // La cuenta existe y tiene una contraseña: los intentos igual cuentan,
+      // o el lockout se evadía probando contraseñas al vuelo.
+      expect(db.user.findUnique).toHaveBeenCalled();
+    });
+  });
+
+  describe("changePassword", () => {
+    it("explica que use el reset por email en vez de decir 'contraseña incorrecta'", async () => {
+      const { db, service } = setup({});
+      db.user.findUniqueOrThrow.mockResolvedValue(GOOGLE_USER);
+
+      await expect(
+        service.changePassword("u1", "actual", "nuevaClave123"),
+      ).rejects.toThrow(/Olvidé mi contraseña/i);
+
+      expect(db.user.update).not.toHaveBeenCalled();
     });
   });
 });

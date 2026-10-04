@@ -3,8 +3,10 @@ import { JwtModule, type JwtSignOptions } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
 import { jwtConstants } from "../../config/env.config";
 import { MailModule } from "../mail/mail.module";
+import { RedisModule } from "../../redis/redis.module";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
+import { GoogleOAuthService } from "./google-oauth.service";
 import { JwtStrategy } from "./jwt.strategy";
 import { SessionCleanupService } from "./session-cleanup.service";
 import { LoginLockoutService } from "./login-lockout.service";
@@ -21,10 +23,12 @@ import { EmailThrottleGuard } from "../../common/guards/email-throttle.guard";
       },
     }),
     MailModule,
+    RedisModule,
   ],
   controllers: [AuthController],
   providers: [
     AuthService,
+    GoogleOAuthService,
     JwtStrategy,
     SessionCleanupService,
     LoginLockoutService,

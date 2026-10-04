@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ConfigService } from "@nestjs/config";
 import type { Request, Response } from "express";
 import { AuthController } from "./auth.controller";
+import { GoogleOAuthService } from "./google-oauth.service";
 import { REFRESH_COOKIE } from "./auth-cookie";
 import type { AuthService } from "./auth.service";
 
@@ -55,6 +56,10 @@ function setup(nodeEnv = "test") {
   const controller = new AuthController(
     authService as unknown as AuthService,
     config,
+    // El flujo OAuth es su propia unidad con sus propios tests: acá alcanza con
+    // que exista, porque los endpoints que lo usan están cubiertos en
+    // `google-oauth.service.spec.ts` y en los tests de controller de OAuth.
+    {} as GoogleOAuthService,
   );
 
   return {
@@ -80,11 +85,10 @@ const META = { headers: {}, cookies: {}, socket: {} } as unknown as Request;
 describe("AuthController: refresh token en cookie HttpOnly", () => {
   it("login no devuelve el refresh token en el cuerpo", async () => {
     const { controller, cookie, res } = setup();
-    const result = await controller.login(
-      META,
-      res,
-      { email: "a@b.c", password: "Password123!" },
-    );
+    const result = await controller.login(META, res, {
+      email: "a@b.c",
+      password: "Password123!",
+    });
 
     expect(result).not.toHaveProperty("refreshToken");
     expect(result).toMatchObject({ accessToken: ACCESS, user: USER });
