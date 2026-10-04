@@ -62,7 +62,37 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   private degradedOperations = 0;
   private lastDegradedLogAt = 0;
 
-  constructor(private readonly config: ConfigService) {}
+  /**
+   * Se resuelve cuando la conexión quedó lista, o se rechaza si el arranque
+   * falló.
+   *
+   * Existe porque Nest no garantiza el orden de los hooks `onModuleInit` entre
+   * providers de módulos distintos: `ThrottlerStorageRedis` puede correr antes que
+   * este servicio, y si leyera `client` en ese momento encontraría `undefined`.
+   * Los que dependen de la conexión esperan esta promesa en vez de asumir un
+   * orden que no está garantizado.
+   */
+  private readonly ready: Promise<void>;
+  private resolveReady!: () => void;
+  private rejectReady!: (error: unknown) => void;
+
+  constructor(private readonly config: ConfigService) {
+    this.ready = new Promise<void>((resolve, reject) => {
+      this.resolveReady = resolve;
+      this.rejectReady = reject;
+    });
+    // Nadie puedeaixir a esta promesa durante el arranque: si lo hiciera, sería
+    // un rejection no manejado que tumba el proceso sin explicar por qué.
+    this.ready.catch(() => undefined);
+  }
+
+  /**
+   * Espera a que la conexión esté lista. Lanza si Redis no estuvo disponible,
+   * que es el comportamiento fail-closed de arranque.
+   */
+  whenReady(): Promise<void> {
+    return this.ready;
+  }
 
   /**
    * Cliente crudo. Se expone para los scripts Lua (EVAL), que no tienen un tipo
@@ -98,25 +128,34 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit(): Promise<void> {
-    await this.assertReachable();
-
-    this.connection = new Redis(this.buildOptions());
-
-    // Sin este listener, ioredis emite 'error' sin ningún handler y el proceso
-    // muere por una excepción no manejada en el primer fallo de conexión.
-    this.connection.on("error", (error: Error) => this.noteFailure(error));
-
     try {
-      await this.connection.connect();
-      await this.ping();
+      await this.assertReachable();
+
+      this.connection = new Redis(this.buildOptions());
+
+      // Sin este listener, ioredis emite 'error' sin ningún handler y el proceso
+      // muere por una excepción no manejada en el primer fallo de conexión.
+      this.connection.on("error", (error: Error) => this.noteFailure(error));
+
+      try {
+        await this.connection.connect();
+        await this.ping();
+      } catch (error) {
+        // Redis estaba vivo un instante antes y ya no: se propaga igual, por la
+        // misma razón que en `assertReachable`.
+        this.connection.disconnect();
+        throw error;
+      }
+
+      this.logger.log(`Redis conectado en ${this.describeTarget()}`);
+      this.resolveReady();
     } catch (error) {
-      // Redis estaba vivo un instante antes y ya no: se propaga igual, por la
-      // misma razón que en `assertReachable`.
-      this.connection.disconnect();
+      // Los que esperan `whenReady()` tienen que enterarse del fallo, no quedar
+      // colgados: en un arranque sin Redis la promesa nunca se resolvería y
+      // el error real se perdería.
+      this.rejectReady(error);
       throw error;
     }
-
-    this.logger.log(`Redis conectado en ${this.describeTarget()}`);
   }
 
   /**
@@ -224,11 +263,25 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       // fallo sea un error de arranque, no una promesa que se rechaza sola.
       lazyConnect: true,
       connectTimeout: CONNECT_TIMEOUT_MS,
+      /**
+       * Un comando que no vuelve en COMMAND_TIMEOUT_MS se considera perdido y
+       * cae al fallback en memoria. Sin esto, un Redis lento cuelga requests en
+       * vez de degradar.
+       */
       commandTimeout: COMMAND_TIMEOUT_MS,
-      // Un comando que no vuelve en COMMAND_TIMEOUT_MS se considera perdido y
-      // cae al fallback en memoria. Sin esto, un Redis lento cuelga requests en
-      // vez de degradar.
-      socketTimeout: CONNECT_TIMEOUT_MS,
+      /**
+       * `socketTimeout` no se setea, y es deliberado.
+       *
+       * En ioredis no es un timeout de conexión sino un watchdog de *respuesta*:
+       * se arma en cada comando enviado y destruye el stream si no llegan datos
+       * dentro de la ventana. Con un Redis lento eso tira el socket justo en el
+       * caso que `commandTimeout` ya resolvió por su lado rechazando el comando,
+       * así que no agrega ningún timeout nuevo: agrega una reconexión, y con ella
+       * otra ronda de rechazos para todo lo que estaba en vuelo.
+       *
+       * Los dos plazos que sí importan ya están: `connectTimeout` para la
+       * apertura y `commandTimeout` para el comando.
+       */
       /**
        * 0 = en el primer intento de reconexión se descarta la cola de comandos.
        *
