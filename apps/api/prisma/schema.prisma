@@ -86,21 +86,30 @@ enum CustomFieldType {
 enum AuthTokenType {
   EMAIL_VERIFY
   PASSWORD_RESET
+  // Token de un solo uso que intercambia el frontend por una sesión después de un
+  // callback OAuth. Existe para que el access token nunca viaje en la URL: la
+  // redirección de Google vuelve al navegador con este token y el frontend lo
+  // canjea por la sesión en un POST.
+  OAUTH_HANDOFF
 }
 
 // ── Users & Auth ──────────────────────────────────────────────────────
 
 model User {
-  id              String     @id @default(cuid())
-  email           String     @unique
-  passwordHash    String
-  name            String
-  avatarUrl       String?
-  role            SystemRole @default(USER)
+  id      String  @id @default(cuid())
+  email   String  @unique
+  name    String
+  avatarUrl String?
+  role    SystemRole @default(USER)
+  // Nullable a propósito: una cuenta creada con Google no tiene contraseña. El
+  // login con password la trata como "no verificable" en vez de romper, y
+  // `change-password` deja que ese usuario se ponga una contraseña por primera vez.
+  passwordHash    String?
   isEmailVerified Boolean    @default(false)
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
+  accounts       Account[]
   settings        UserSettings?
   ownedWorkspaces Workspace[]        @relation("OwnedWorkspaces")
   workspaces      WorkspaceMember[]
@@ -120,6 +129,39 @@ model User {
   timeEntries     TimeEntry[]
   invitedMembers  Invite[]           @relation("InvitedBy")
   aiGenerations   AiGeneration[]
+}
+
+/// Identidad federada: una misma persona puede entrar por Google y por
+/// contraseña dentro de la misma cuenta de Taskmaster.
+///
+/// Genérico a propósito (`provider` es texto, no enum) para que sumar GitHub o
+/// Microsoft no requiera migración. Solo hay un provider implementado; el modelo
+/// lo primero para no atar el schema a Google.
+model Account {
+  id String @id @default(cuid())
+
+  /// Discriminante del proveedor: "google", "github", ...
+  provider String
+
+  /// Identificador estable del usuario dentro del proveedor (el `sub` de Google).
+  /// Nunca es el email: los proveedores permiten cambiarlo y reutilizar el email.
+  providerAccountId String
+
+  /// Email que tenía la cuenta en el proveedor al momento de vincularlo. Se guarda
+  /// solo como evidencia; la fuente de verdad del email es `User.email`.
+  emailAtLinkTime String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Un proveedor + providerAccountId identifica a una persona de forma única y
+  // global: sin este índice, dos requests con el mismo `sub` podrían crear dos
+  // cuentas en paralelo y dejar la segunda colgada.
+  @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model RefreshToken {
