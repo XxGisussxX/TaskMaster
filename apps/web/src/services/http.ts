@@ -1,39 +1,8 @@
-import type { AuthSessionResponse } from "@taskmaster/contracts";
 import { useAuthStore } from "@/store/auth.store";
+import { refreshAccessToken } from "./session-refresh";
+import { ApiError } from "./api-error";
 
-export class ApiError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-    public code?: string,
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
-
-let refreshing: Promise<string> | null = null;
-
-/**
- * El refresh token va en una cookie HttpOnly, así que acá no hay nada que
- * mandar: el navegador la adjunta solo. `credentials: "include"` es explícito
- * porque la misma función se usaría contra un origen distinto de la API.
- */
-async function refreshAccessToken(): Promise<string> {
-  const res = await fetch("/api/auth/refresh", {
-    method: "POST",
-    credentials: "include",
-  });
-
-  if (!res.ok) {
-    useAuthStore.getState().clear();
-    throw new ApiError(401, "Sesión expirada");
-  }
-
-  const session = (await res.json()) as AuthSessionResponse;
-  useAuthStore.getState().setSession(session);
-  return session.accessToken;
-}
+export { ApiError };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const accessToken = useAuthStore.getState().getAccessToken();
@@ -44,23 +13,22 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
-  let res = await fetch(`/api${path}`, {
-    ...options,
-    headers,
-    credentials: "include",
-  });
+  // `credentials` va dentro de `init` y no en la llamada a `fetch` para que el
+  // reintento post-refresh lo herede: la cookie `tm_refresh` es la que permite
+  // renovar la sesión y vive en el request, no en un header.
+  const init: RequestInit = { ...options, headers, credentials: "include" };
+
+  let res = await fetch(`/api${path}`, init);
 
   if (res.status === 401 && useAuthStore.getState().hasSession()) {
-    refreshing = refreshing ?? refreshAccessToken();
+    let token: string;
     try {
-      const token = await refreshing;
-      headers.Authorization = `Bearer ${token}`;
-      res = await fetch(`/api${path}`, { ...options, headers });
+      token = await refreshAccessToken();
     } catch {
       throw new ApiError(401, "Sesión expirada");
-    } finally {
-      refreshing = null;
     }
+    headers.Authorization = `Bearer ${token}`;
+    res = await fetch(`/api${path}`, { ...init, headers });
   }
 
   if (!res.ok) {

@@ -1,7 +1,61 @@
-import type { AuthSessionResponse } from "@taskmaster/contracts";
+import type {
+  AuthSessionResponse,
+  OauthProvider,
+  OauthProvidersResponse,
+} from "@taskmaster/contracts";
 import { http } from "@/services/http";
 import { useAuthStore } from "@/store/auth.store";
 import { usersApi } from "@/features/users/api/users.api";
+
+/**
+ * URL del backend para arrancar el flujo.
+ *
+ * Relativa a propósito, igual que todas las demás llamadas (`http.ts` usa
+ * `/api${path}` y el proxy de Vite resuelve). No por estilo: el navegador guarda
+ * la cookie `tm_oauth_state` en el origen con el que hablado, y Google vuelve a
+ * `GOOGLE_REDIRECT_URI`. Si el botón apuntara al puerto de la API y el redirect
+ * volviera al puerto del front (o al revés), la cookie se guardaría en un origen
+ * y se buscaría en otro, y el callback siempre daría `invalid_state`.
+ *
+ * Con todo en el mismo origen, la cookie que se setea en `authorize` es
+ * exactamente la que vuelve en `callback`.
+ */
+function oauthAuthorizeUrl(provider: OauthProvider): string {
+  return `/api/auth/oauth/${provider}/authorize`;
+}
+
+export async function getOauthProviders(): Promise<OauthProvider[]> {
+  const { providers } = await http.get<OauthProvidersResponse>(
+    "/auth/oauth/providers",
+  );
+  return providers;
+}
+
+/** Manda al navegador al consentimiento de Google. No hay fallback posible. */
+export function startGoogleLogin(): void {
+  window.location.href = oauthAuthorizeUrl("google");
+}
+
+/**
+ * Canjea el token de handoff por la sesión.
+ *
+ * Devuelve `false` en vez de propagar el error para que la página de callback
+ * pueda distinguir "el token no sirvió" de "la sesión se established pero algo
+ * después falló": el store ya queda seteado en el camino feliz.
+ */
+export async function exchangeOauthToken(token: string): Promise<boolean> {
+  try {
+    const session = await http.post<AuthSessionResponse>(
+      "/auth/oauth/exchange",
+      { token },
+    );
+    useAuthStore.getState().setSession(session);
+    return true;
+  } catch {
+    useAuthStore.getState().clear();
+    return false;
+  }
+}
 
 export async function login(input: {
   email: string;
@@ -53,12 +107,12 @@ export async function refreshCurrentUser(): Promise<void> {
 
 export async function logout(): Promise<void> {
   try {
-    // Sin cuerpo: el servidor revoca el token de la cookie HttpOnly y la
-    // borra. Solo tiene sentido si hay sesión en curso; sin sesión, `http`
-    // devolvería 401 y el catch lo terminaría tragando igual.
-    if (useAuthStore.getState().hasSession()) {
-      await http.post("/auth/logout");
-    }
+    // Siempre se golpea el endpoint, incluso sin sesión en el store: la cookie
+    // `tm_refresh` es HttpOnly y sobrevive a un cierre de sesión que falló a
+    // mitad de camino, así que llamarlo es la única forma de revocarla y
+    // borrarla. El endpoint es `@Public()` justamente para que una sesión con
+    // el access token vencido también pueda cerrarse.
+    await http.post("/auth/logout");
   } catch {
     // El token se revoca igual por expiración o por el cron de limpieza.
   } finally {
