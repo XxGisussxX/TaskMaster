@@ -24,7 +24,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     startDate: null,
     order: 0,
     parentId: null,
-    categoryId: null,
+    channelId: null,
     tags: [],
     assignees: [],
     subtasks: [],

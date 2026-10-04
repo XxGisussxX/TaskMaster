@@ -21,7 +21,7 @@ import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { HealthModule } from "./modules/health/health.module";
 import { ActivityModule } from "./modules/activity/activity.module";
 import { TagsModule } from "./modules/tags/tags.module";
-import { CategoriesModule } from "./modules/categories/categories.module";
+import { ChannelsModule } from "./modules/channels/channels.module";
 import { CommentsModule } from "./modules/comments/comments.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { RemindersModule } from "./modules/reminders/reminders.module";
@@ -99,7 +99,7 @@ import { TenantModule } from "./tenant/tenant.module";
     DashboardModule,
     ActivityModule,
     TagsModule,
-    CategoriesModule,
+    ChannelsModule,
     CommentsModule,
     NotificationsModule,
     RemindersModule,

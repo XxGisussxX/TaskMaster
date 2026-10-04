@@ -52,7 +52,7 @@ export class DashboardService {
       startDate: null,
       order: 0,
       parentId: null,
-      categoryId: null,
+      channelId: null,
       tags: [],
       assignees: [],
       subtasks: [],

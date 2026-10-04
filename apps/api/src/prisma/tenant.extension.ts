@@ -14,7 +14,7 @@ export const SCOPED_MODELS: ReadonlySet<string> = new Set([
   "ActivityLog",
   "AiGeneration",
   "Attachment",
-  "Category",
+  "Channel",
   "CustomFieldDefinition",
   "Invite",
   "Note",

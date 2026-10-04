@@ -17,7 +17,7 @@ describe("SCOPED_MODELS", () => {
         "ActivityLog",
         "AiGeneration",
         "Attachment",
-        "Category",
+        "Channel",
         "CustomFieldDefinition",
         "Invite",
         "Note",

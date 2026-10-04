@@ -222,7 +222,7 @@ model Workspace {
   tasks             Task[]
   notes             Note[]
   tags              Tag[]
-  categories        Category[]
+  channels          Channel[]
   reminders         Reminder[]
   activities        ActivityLog[]
   invites           Invite[]
@@ -287,7 +287,7 @@ model Task {
   startDate       DateTime?
   order           Float      @default(0)
   parentId        String?
-  categoryId      String?
+  channelId       String?
   isRecurring     Boolean    @default(false)
   recurrence      Json?
   completedAt     DateTime?
@@ -299,7 +299,7 @@ model Task {
   creator     User             @relation("Creator", fields: [creatorId], references: [id])
   parent      Task?            @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
   subtasks    Task[]           @relation("Subtasks")
-  category    Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  channel     Channel?         @relation(fields: [channelId], references: [id], onDelete: SetNull)
   tags        TaskTag[]
   assignees   TaskAssignee[]
   comments    Comment[]
@@ -338,7 +338,7 @@ model TaskTag {
   @@id([taskId, tagId])
 }
 
-model Category {
+model Channel {
   id          String   @id @default(cuid())
   workspaceId String
   name        String

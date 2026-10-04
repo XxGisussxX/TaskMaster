@@ -64,7 +64,7 @@ export interface Tag {
   createdAt: string;
 }
 
-export interface Category {
+export interface Channel {
   id: string;
   workspaceId: string;
   name: string;
@@ -84,8 +84,8 @@ export interface Task {
   startDate: string | null;
   order: number;
   parentId: string | null;
-  categoryId: string | null;
-  category?: { id: string; name: string; color: string | null } | null;
+  channelId: string | null;
+  channel?: { id: string; name: string; color: string | null } | null;
   tags: { id: string; name: string; color: string | null }[];
   assignees: Pick<User, "id" | "name" | "email" | "avatarUrl">[];
   subtasks: Task[];

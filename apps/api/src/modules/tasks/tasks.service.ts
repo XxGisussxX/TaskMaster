@@ -28,7 +28,7 @@ import { EventsService } from "../websocket/events.service";
 const TASK_INCLUDE = {
   tags: { include: { tag: true } },
   assignees: { include: { user: true } },
-  category: true,
+  channel: true,
 } satisfies Prisma.TaskInclude;
 
 type TaskWithRelations = Prisma.TaskGetPayload<{
@@ -113,14 +113,15 @@ export class TasksService {
         workspaceId,
         creatorId: userId,
         title: dto.title,
-        description: sanitizeRichText(dto.description ?? "", "tasks.description") ?? "",
+        description:
+          sanitizeRichText(dto.description ?? "", "tasks.description") ?? "",
         status: dto.status,
         priority: dto.priority,
         dueDate: dto.dueDate ?? null,
         startDate: dto.startDate ?? null,
         order,
         parentId: dto.parentId ?? null,
-        categoryId: dto.categoryId ?? null,
+        channelId: dto.channelId ?? null,
         isRecurring: dto.isRecurring,
         recurrence: dto.isRecurring
           ? (dto.recurrence as Prisma.InputJsonValue | undefined)
@@ -224,7 +225,7 @@ export class TasksService {
       dueDate: dto.dueDate,
       startDate: dto.startDate,
       parentId: dto.parentId,
-      categoryId: dto.categoryId,
+      channelId: dto.channelId,
       isRecurring: dto.isRecurring,
       recurrence: dto.recurrence
         ? (dto.recurrence as Prisma.InputJsonValue)
@@ -543,7 +544,7 @@ export class TasksService {
     if (filters.tagId) where.tags = { some: { tagId: filters.tagId } };
     if (filters.assigneeId)
       where.assignees = { some: { userId: filters.assigneeId } };
-    if (filters.categoryId) where.categoryId = filters.categoryId;
+    if (filters.channelId) where.channelId = filters.channelId;
     if (filters.parentId) where.parentId = filters.parentId;
 
     return where;
@@ -566,10 +567,10 @@ export class TasksService {
         }),
       );
     }
-    if (dto.categoryId) {
+    if (dto.channelId) {
       checks.push(
-        this.prisma.category.count({
-          where: { id: dto.categoryId, workspaceId },
+        this.prisma.channel.count({
+          where: { id: dto.channelId, workspaceId },
         }),
       );
     }
@@ -594,7 +595,7 @@ export class TasksService {
     const results = await Promise.all(checks);
     const expected = [
       dto.parentId && dto.parentId !== taskId ? 1 : 0,
-      dto.categoryId ? 1 : 0,
+      dto.channelId ? 1 : 0,
       tagIds?.length ?? 0,
       assigneeIds?.length ?? 0,
     ].filter((n) => n > 0);
@@ -602,7 +603,7 @@ export class TasksService {
     const mismatch = results.some((count, i) => count !== expected[i]);
     if (mismatch) {
       throw new BadRequestException(
-        "Alguna relaciÃ³n (padre, categorÃ­a, etiqueta o asignado) no existe en este workspace",
+        "Alguna relación (padre, canal, etiqueta o asignado) no existe en este workspace",
       );
     }
   }
@@ -695,7 +696,7 @@ export class TasksService {
         startDate: original.startDate,
         order,
         parentId: original.parentId,
-        categoryId: original.categoryId,
+        channelId: original.channelId,
         isRecurring: true,
         recurrence: recurrence as unknown as Prisma.InputJsonValue,
         tags: {
@@ -794,12 +795,12 @@ export class TasksService {
       startDate: task.startDate ? task.startDate.toISOString() : null,
       order: task.order,
       parentId: task.parentId,
-      categoryId: task.categoryId,
-      category: task.category
+      channelId: task.channelId,
+      channel: task.channel
         ? {
-            id: task.category.id,
-            name: task.category.name,
-            color: task.category.color,
+            id: task.channel.id,
+            name: task.channel.name,
+            color: task.channel.color,
           }
         : null,
       tags: task.tags.map((tt) => ({

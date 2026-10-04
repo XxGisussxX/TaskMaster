@@ -17,7 +17,7 @@ import { Select } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { useTags, useCreateTag } from "../hooks/useTags";
-import { useCategories, useCreateCategory } from "../hooks/useCategories";
+import { useChannels, useCreateChannel } from "../hooks/useChannels";
 import { useMembers } from "@/features/workspace/hooks/useMembers";
 import { SubtaskList, type SubtaskDraft } from "./SubtaskList";
 import { RecurrenceFields } from "./RecurrenceFields";
@@ -29,7 +29,7 @@ const formSchema = z.object({
   priority: z.nativeEnum(Priority),
   dueDate: z.string().nullable().optional(),
   startDate: z.string().nullable().optional(),
-  categoryId: z.string().nullable().optional(),
+  channelId: z.string().nullable().optional(),
 });
 
 export type TaskFormValues = z.infer<typeof formSchema> & {
@@ -78,7 +78,7 @@ export function TaskForm({
       priority: draft?.priority ?? task?.priority ?? Priority.MEDIUM,
       dueDate: draft?.dueDate ?? task?.dueDate ?? null,
       startDate: draft?.startDate ?? task?.startDate ?? null,
-      categoryId: draft?.categoryId ?? task?.categoryId ?? null,
+      channelId: draft?.channelId ?? task?.channelId ?? null,
     },
   });
 
@@ -88,8 +88,8 @@ export function TaskForm({
   const [assigneeIds, setAssigneeIds] = useState<string[]>(
     task?.assignees?.map((a) => a.id) ?? [],
   );
-  const [categoryId, setCategoryId] = useState<string | null>(
-    draft?.categoryId ?? task?.categoryId ?? null,
+  const [channelId, setChannelId] = useState<string | null>(
+    draft?.channelId ?? task?.channelId ?? null,
   );
   const [isRecurring, setIsRecurring] = useState(task?.isRecurring ?? false);
   const [recurrence, setRecurrence] = useState<{
@@ -108,10 +108,10 @@ export function TaskForm({
   );
 
   const { data: tags = [] } = useTags();
-  const { data: categories = [] } = useCategories();
+  const { data: channels = [] } = useChannels();
   const { data: members = [] } = useMembers();
   const createTag = useCreateTag();
-  const createCategory = useCreateCategory();
+  const createChannel = useCreateChannel();
 
   useEffect(() => {
     if (task) {
@@ -122,11 +122,11 @@ export function TaskForm({
         priority: task.priority,
         dueDate: task.dueDate,
         startDate: task.startDate,
-        categoryId: task.categoryId,
+        channelId: task.channelId,
       });
       setTagIds(task.tags.map((t) => t.id));
       setAssigneeIds(task.assignees.map((a) => a.id));
-      setCategoryId(task.categoryId);
+      setChannelId(task.channelId);
       setIsRecurring(task.isRecurring);
       if (task.recurrence) setRecurrence(task.recurrence);
     }
@@ -141,14 +141,14 @@ export function TaskForm({
         priority: (templateData.priority as Priority) ?? Priority.MEDIUM,
         dueDate: (templateData.dueDate as string) ?? null,
         startDate: (templateData.startDate as string) ?? null,
-        categoryId: (templateData.categoryId as string) ?? null,
+        channelId: (templateData.channelId as string) ?? null,
       });
       if (Array.isArray(templateData.tagIds))
         setTagIds(templateData.tagIds as string[]);
       if (Array.isArray(templateData.assigneeIds))
         setAssigneeIds(templateData.assigneeIds as string[]);
-      if (templateData.categoryId)
-        setCategoryId(templateData.categoryId as string);
+      if (templateData.channelId)
+        setChannelId(templateData.channelId as string);
       if (templateData.isRecurring)
         setIsRecurring(templateData.isRecurring as boolean);
       if (templateData.recurrence)
@@ -165,10 +165,10 @@ export function TaskForm({
         priority: draft.priority ?? Priority.MEDIUM,
         dueDate: draft.dueDate,
         startDate: draft.startDate,
-        categoryId: draft.categoryId,
+        channelId: draft.channelId,
       });
       setTagIds(draft.tagIds);
-      setCategoryId(draft.categoryId ?? null);
+      setChannelId(draft.channelId ?? null);
       setSubtasks(
         draft.subtasks.map((title) => ({ id: crypto.randomUUID(), title })),
       );
@@ -178,7 +178,7 @@ export function TaskForm({
   function handleFormSubmit(values: TaskFormValues) {
     onSubmit({
       ...values,
-      categoryId,
+      channelId,
       tagIds,
       assigneeIds,
       isRecurring,
@@ -198,12 +198,12 @@ export function TaskForm({
     );
   }
 
-  function handleCreateCategory(name: string) {
-    createCategory.mutate(
+  function handleCreateChannel(name: string) {
+    createChannel.mutate(
       { name },
       {
-        onSuccess: (newCat) => {
-          setCategoryId(newCat.id);
+        onSuccess: (newChannel) => {
+          setChannelId(newChannel.id);
         },
       },
     );
@@ -221,7 +221,7 @@ export function TaskForm({
     color: null,
   }));
 
-  const categoryOptions = categories.map((c) => ({
+  const channelOptions = channels.map((c) => ({
     value: c.id,
     label: c.name,
   }));
@@ -285,13 +285,13 @@ export function TaskForm({
       </div>
 
       <div className="space-y-2">
-        <Label>Categoría</Label>
+        <Label>Canal</Label>
         <Select
-          value={categoryId ?? ""}
-          onChange={(e) => setCategoryId(e.target.value || null)}
+          value={channelId ?? ""}
+          onChange={(e) => setChannelId(e.target.value || null)}
         >
-          <option value="">Sin categoría</option>
-          {categoryOptions.map((c) => (
+          <option value="">Sin canal</option>
+          {channelOptions.map((c) => (
             <option key={c.value} value={c.value}>
               {c.label}
             </option>
@@ -304,11 +304,11 @@ export function TaskForm({
           className="h-7 text-xs"
           disabled={disabled}
           onClick={() => {
-            const name = prompt("Nombre de la nueva categoría:");
-            if (name?.trim()) handleCreateCategory(name.trim());
+            const name = prompt("Nombre del nuevo canal:");
+            if (name?.trim()) handleCreateChannel(name.trim());
           }}
         >
-          + Nueva categoría
+          + Nuevo canal
         </Button>
       </div>
 

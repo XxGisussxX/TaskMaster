@@ -46,7 +46,7 @@ const NL_TASK_JSON_SCHEMA = {
     priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH", "URGENT"] },
     dueDate: { type: "string", nullable: true },
     startDate: { type: "string", nullable: true },
-    categoryId: { type: "string", nullable: true },
+    channelId: { type: "string", nullable: true },
     tagIds: { type: "array", items: { type: "string" } },
     subtasks: { type: "array", items: { type: "string" } },
   },
@@ -77,7 +77,7 @@ const ASSISTANT_ADVICE_SPEC: JsonSchemaSpec<{ reply: string }> = {
 
 interface NlTaskContext {
   tags: string[];
-  categories: string[];
+  channels: string[];
 }
 
 function isQuotaError(message: string): boolean {
@@ -116,12 +116,12 @@ export class AiService {
 
     await this.assertDailyQuota(userId);
 
-    const [tags, categories] = await Promise.all([
+    const [tags, channels] = await Promise.all([
       this.prisma.tag.findMany({
         where: { workspaceId },
         select: { id: true, name: true },
       }),
-      this.prisma.category.findMany({
+      this.prisma.channel.findMany({
         where: { workspaceId },
         select: { id: true, name: true },
       }),
@@ -131,14 +131,14 @@ export class AiService {
       const result = await this.provider.completeJson(
         this.buildNlTaskPrompt(text, {
           tags: tags.map((tag) => tag.name),
-          categories: categories.map((category) => category.name),
+          channels: channels.map((channel) => channel.name),
         }),
         NL_TASK_SPEC,
       );
 
       const draft = this.sanitizeDraft(result.data, {
         tagIds: tags.map((tag) => tag.id),
-        categoryIds: categories.map((category) => category.id),
+        channelIds: channels.map((channel) => channel.id),
       });
 
       await this.logGeneration(
@@ -450,10 +450,10 @@ export class AiService {
       ctx.tags.length > 0
         ? ctx.tags.join(", ")
         : "(no hay tags creados en el workspace)";
-    const categories =
-      ctx.categories.length > 0
-        ? ctx.categories.join(", ")
-        : "(no hay categorías creadas en el workspace)";
+    const channels =
+      ctx.channels.length > 0
+        ? ctx.channels.join(", ")
+        : "(no hay canales creados en el workspace)";
 
     return [
       "Convertí la descripción siguiente en una tarea de un gestor de tareas.",
@@ -464,7 +464,7 @@ export class AiService {
       `- Usá SOLO fechas YYYY-MM-DD relativas a hoy (${today}).`,
       "- status SOLO puede ser: TODO, IN_PROGRESS, IN_REVIEW, DONE, ARCHIVED.",
       "- priority SOLO puede ser: LOW, MEDIUM, HIGH, URGENT.",
-      `- categoryId: elegilo SOLO de esta lista de categorías existentes: ${categories}. Si ninguna encaja, null.`,
+      `- channelId: elegilo SOLO de esta lista de canales existentes: ${channels}. Si ninguno encaja, null.`,
       `- tagIds: elegí SOLO de esta lista de tags existentes: ${tags}. Si no aplica, array vacío.`,
       "- Si la fecha estimada o de inicio no están claras, usá null.",
       "- Si la descripción incluye pasos o subtareas, devolvelos en subtasks (array de strings cortos).",
@@ -475,22 +475,22 @@ export class AiService {
 
   private sanitizeDraft(
     draft: NlTaskDraft,
-    ctx: { tagIds: string[]; categoryIds: string[] },
+    ctx: { tagIds: string[]; channelIds: string[] },
   ): NlTaskDraft {
     const validTags = new Set(ctx.tagIds);
-    const validCategories = new Set(ctx.categoryIds);
+    const validChannels = new Set(ctx.channelIds);
     const tagIds = Array.from(
       new Set(draft.tagIds.filter((id) => validTags.has(id))),
     );
-    const categoryId =
-      draft.categoryId && validCategories.has(draft.categoryId)
-        ? draft.categoryId
+    const channelId =
+      draft.channelId && validChannels.has(draft.channelId)
+        ? draft.channelId
         : null;
     const subtasks = Array.from(
       new Set(draft.subtasks.map((subtask) => subtask.trim()).filter(Boolean)),
     ).slice(0, 20);
 
-    return { ...draft, categoryId, tagIds, subtasks };
+    return { ...draft, channelId, tagIds, subtasks };
   }
 
   private async logGeneration(

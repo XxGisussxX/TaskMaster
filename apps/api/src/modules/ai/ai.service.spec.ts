@@ -16,8 +16,8 @@ function setup(configured = true) {
         { id: "tag-2", name: "Cliente" },
       ]),
     },
-    category: {
-      findMany: vi.fn().mockResolvedValue([{ id: "cat-1", name: "Trabajo" }]),
+    channel: {
+      findMany: vi.fn().mockResolvedValue([{ id: "ch-1", name: "Trabajo" }]),
     },
     task: {
       findMany: vi.fn().mockResolvedValue([]),
@@ -75,7 +75,7 @@ describe("AiService.generateTaskDraft", () => {
     expect(provider.completeJson).not.toHaveBeenCalled();
   });
 
-  it("consulta tags y categorías del workspace para el contexto", async () => {
+  it("consulta tags y canales del workspace para el contexto", async () => {
     const { service, prisma, provider } = setup();
     provider.completeJson.mockResolvedValue({
       data: { title: "Tarea", description: "", tagIds: [], subtasks: [] },
@@ -90,7 +90,7 @@ describe("AiService.generateTaskDraft", () => {
       where: { workspaceId: "ws1" },
       select: { id: true, name: true },
     });
-    expect(prisma.category.findMany).toHaveBeenCalledWith({
+    expect(prisma.channel.findMany).toHaveBeenCalledWith({
       where: { workspaceId: "ws1" },
       select: { id: true, name: true },
     });
@@ -106,7 +106,7 @@ describe("AiService.generateTaskDraft", () => {
         priority: "HIGH",
         dueDate: "2026-09-18",
         startDate: null,
-        categoryId: "cat-inexistente",
+        channelId: "ch-inexistente",
         tagIds: ["tag-1", "tag-inexistente", "tag-1"],
         subtasks: ["  Reunir datos  ", "", "Redactar"],
       },
@@ -121,7 +121,7 @@ describe("AiService.generateTaskDraft", () => {
       "Preparar informe",
     );
 
-    expect(draft.categoryId).toBeNull();
+    expect(draft.channelId).toBeNull();
     expect(draft.tagIds).toEqual(["tag-1"]);
     expect(draft.subtasks).toEqual(["Reunir datos", "Redactar"]);
     expect(prisma.aiGeneration.create).toHaveBeenCalledWith({
@@ -152,13 +152,13 @@ describe("AiService.generateTaskDraft", () => {
     });
   });
 
-  it("respeta los ids válidos de categorías", async () => {
+  it("respeta los ids válidos de canales", async () => {
     const { service, provider } = setup();
     provider.completeJson.mockResolvedValue({
       data: {
         title: "Tarea",
         description: "",
-        categoryId: "cat-1",
+        channelId: "ch-1",
         tagIds: [],
         subtasks: [],
       },
@@ -169,7 +169,7 @@ describe("AiService.generateTaskDraft", () => {
 
     const draft = await service.generateTaskDraft("ws1", "u1", "Tarea");
 
-    expect(draft.categoryId).toBe("cat-1");
+    expect(draft.channelId).toBe("ch-1");
   });
 });
 

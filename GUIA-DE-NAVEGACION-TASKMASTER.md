@@ -40,7 +40,7 @@ activity            → bitácora de cambios
 admin               → panel de administración
 ai                  → asistente con IA
 auth                → login, refresh, logout, verificación por email
-categories          → categorías de tareas
+channels            → canales de proyecto (antes categorías)
 comments            → comentarios y menciones
 custom-fields       → campos personalizados
 dashboard           → métricas y tarjetas

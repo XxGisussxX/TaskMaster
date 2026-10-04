@@ -24,7 +24,7 @@ export const nlTaskDraftSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "startDate debe ser YYYY-MM-DD")
     .nullable()
     .optional(),
-  categoryId: z.string().nullable().optional(),
+  channelId: z.string().nullable().optional(),
   tagIds: z.array(z.string()).default([]),
   subtasks: z.array(z.string().trim().min(1).max(200)).default([]),
 });

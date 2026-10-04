@@ -6,7 +6,6 @@ import {
   Radio,
   UserPlus,
   Users,
-  WifiOff,
 } from "lucide-react";
 import { WorkspaceRole } from "@taskmaster/contracts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +20,7 @@ import {
 } from "@/features/tasks/hooks/useTasks";
 import { useWorkspaces } from "../hooks/useWorkspaces";
 import { useCurrentMembership, useMembers } from "../hooks/useMembers";
+import { useChannels } from "@/features/tasks/hooks/useChannels";
 import { useDashboardStats } from "@/features/dashboard/hooks/useDashboard";
 import { computeTeamLoad } from "@/features/dashboard/lib/dashboardStats";
 import { KpiCard } from "@/features/dashboard/components/KpiCard";
@@ -49,6 +49,8 @@ export function WorkspacePage() {
   const user = useAuthStore((s) => s.user);
   const { data } = useWorkspaces();
   const { data: members = [], isLoading, isError } = useMembers();
+  const channelsQuery = useChannels();
+  const channels = channelsQuery.data ?? [];
   const { role } = useCurrentMembership();
   const { data: tasksData } = useTasks({ pageSize: 200 });
   const { data: dashboard } = useDashboardStats();
@@ -143,10 +145,16 @@ export function WorkspacePage() {
         />
         <KpiCard
           label="Canales de proyecto"
-          value="—"
+          value={
+            channelsQuery.isLoading ? "—" : channels.length.toLocaleString("es")
+          }
           icon={FolderKanban}
           accent="primary"
-          hint="Entidad de canales pendiente en el backend"
+          hint={
+            channelsQuery.isError
+              ? "No se pudo consultar la API"
+              : "Agrupan tareas por proyecto o área"
+          }
         />
       </div>
 
@@ -190,12 +198,6 @@ export function WorkspacePage() {
           <SidePanel />
         </div>
       </div>
-
-      <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-        <WifiOff className="h-3.5 w-3.5" />
-        Los espacios marcados como pendiente se activarán cuando exista el
-        backend correspondiente; los datos mostrados son reales.
-      </p>
 
       <MemberInviteDialog open={inviteOpen} onOpenChange={setInviteOpen} />
     </div>

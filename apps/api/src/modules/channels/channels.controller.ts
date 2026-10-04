@@ -8,59 +8,59 @@ import {
   Post,
 } from "@nestjs/common";
 import {
-  categoryIdParamsSchema,
-  createCategorySchema,
-  updateCategorySchema,
+  channelIdParamsSchema,
+  createChannelSchema,
+  updateChannelSchema,
   workspaceIdParamsSchema,
-  type CreateCategoryInput,
-  type UpdateCategoryInput,
+  type CreateChannelInput,
+  type UpdateChannelInput,
 } from "@taskmaster/contracts";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { ParseIdPipe } from "../../common/pipes/parse-id.pipe";
 import { ZodPipe } from "../../common/pipes/zod.pipe";
 import type { AuthUser } from "../auth/types";
-import { CategoriesService } from "./categories.service";
+import { ChannelsService } from "./channels.service";
 
 const workspaceIdPipe = new ParseIdPipe(workspaceIdParamsSchema);
-const categoryIdPipe = new ParseIdPipe(categoryIdParamsSchema);
+const channelIdPipe = new ParseIdPipe(channelIdParamsSchema);
 
-@Controller("workspaces/:workspaceId/categories")
-export class CategoriesController {
-  constructor(private readonly categoriesService: CategoriesService) {}
+@Controller("workspaces/:workspaceId/channels")
+export class ChannelsController {
+  constructor(private readonly channelsService: ChannelsService) {}
 
   @Get()
   list(
     @Param("workspaceId", workspaceIdPipe) workspaceId: string,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.categoriesService.list(workspaceId, user.sub);
+    return this.channelsService.list(workspaceId, user.sub);
   }
 
   @Post()
   create(
     @Param("workspaceId", workspaceIdPipe) workspaceId: string,
     @CurrentUser() user: AuthUser,
-    @Body(new ZodPipe(createCategorySchema)) dto: CreateCategoryInput,
+    @Body(new ZodPipe(createChannelSchema)) dto: CreateChannelInput,
   ) {
-    return this.categoriesService.create(workspaceId, user.sub, dto);
+    return this.channelsService.create(workspaceId, user.sub, dto);
   }
 
   @Patch(":id")
   update(
     @Param("workspaceId", workspaceIdPipe) workspaceId: string,
-    @Param("id", categoryIdPipe) id: string,
+    @Param("id", channelIdPipe) id: string,
     @CurrentUser() user: AuthUser,
-    @Body(new ZodPipe(updateCategorySchema)) dto: UpdateCategoryInput,
+    @Body(new ZodPipe(updateChannelSchema)) dto: UpdateChannelInput,
   ) {
-    return this.categoriesService.update(workspaceId, id, user.sub, dto);
+    return this.channelsService.update(workspaceId, id, user.sub, dto);
   }
 
   @Delete(":id")
   remove(
     @Param("workspaceId", workspaceIdPipe) workspaceId: string,
-    @Param("id", categoryIdPipe) id: string,
+    @Param("id", channelIdPipe) id: string,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.categoriesService.remove(workspaceId, id, user.sub);
+    return this.channelsService.remove(workspaceId, id, user.sub);
   }
 }

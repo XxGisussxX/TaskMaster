@@ -1,9 +1,12 @@
+import { useMemo } from "react";
 import { FolderKanban, Radio, History } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ActivityTimeline } from "@/features/dashboard/components/ActivityTimeline";
 import { useDashboardStats } from "@/features/dashboard/hooks/useDashboard";
 import { useMembers } from "../hooks/useMembers";
+import { useChannels } from "@/features/tasks/hooks/useChannels";
+import { useTasks } from "@/features/tasks/hooks/useTasks";
 import { usePresenceStore } from "@/store/presence.store";
 import { Avatar } from "@/components/ui/avatar";
 
@@ -108,7 +111,20 @@ function RecentActivityCard() {
   );
 }
 
+/** Canales del workspace con cuántas tareas tienen asignadas. */
 function ProjectChannelsCard() {
+  const { data: channels = [], isLoading } = useChannels();
+  const { data: tasksData } = useTasks({ pageSize: 500 });
+
+  const counts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const task of tasksData?.items ?? []) {
+      if (!task.channelId) continue;
+      map.set(task.channelId, (map.get(task.channelId) ?? 0) + 1);
+    }
+    return map;
+  }, [tasksData]);
+
   return (
     <Card className="overflow-hidden">
       <CardHeader>
@@ -117,16 +133,39 @@ function ProjectChannelsCard() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <EmptyState
-          icon={FolderKanban}
-          title="Sin proyectos"
-          description="La entidad de canales/proyectos aún no existe en el backend. Las tareas se organizan hoy por categoría y prioridad."
-          action={
-            <span className="rounded-md border border-dashed bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-              Pendiente de backend
-            </span>
-          }
-        />
+        {isLoading ? (
+          <p className="rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground">
+            Cargando canales…
+          </p>
+        ) : channels.length === 0 ? (
+          <EmptyState
+            icon={FolderKanban}
+            title="Todavía no hay canales"
+            description="Los canales agrupan tareas por proyecto o área. Creá el primero desde el formulario de una tarea."
+          />
+        ) : (
+          <ul className="space-y-1.5">
+            {channels.map((channel) => (
+              <li
+                key={channel.id}
+                className="flex items-center justify-between gap-2 text-sm"
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  {channel.color && (
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: channel.color }}
+                    />
+                  )}
+                  <span className="truncate">{channel.name}</span>
+                </span>
+                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                  {counts.get(channel.id) ?? 0}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </CardContent>
     </Card>
   );

@@ -11,9 +11,43 @@ const STORAGE_KEY = "taskmaster.local.tasks";
 
 type StoredTasks = Record<string, Task[]>;
 
+/** Tarea tal como quedó guardada antes del rename Category -> Channel. */
+type LegacyTask = Partial<Task> & {
+  categoryId?: string | null;
+  category?: Task["channel"];
+};
+
+/**
+ * Lee el store local migrando las tareas del esquema viejo.
+ *
+ * `localStorage` es persistente entre recargas, así que sin esto las tareas del
+ * workspace demo quedarían con `categoryId` y sin `channelId`: el tipo prometería
+ * `channelId` pero valdría `undefined`, y el `?? null` de los formularios lo
+ * enmascararía como "sin canal" perdiendo el dato silenciosamente.
+ */
+function migrateTask(raw: unknown): Task {
+  const { categoryId, category, ...task } = raw as LegacyTask;
+
+  // Las claves viejas se descartan en vez de arrastrarse con el spread: si no,
+  // localStorage guardaría `categoryId` y `channelId` a la vez para siempre.
+  return {
+    ...task,
+    channelId: task.channelId ?? categoryId ?? null,
+    channel: task.channel ?? category ?? null,
+  } as Task;
+}
+
 function readStore(): StoredTasks {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as StoredTasks;
+    const parsed = JSON.parse(
+      localStorage.getItem(STORAGE_KEY) ?? "{}",
+    ) as Record<string, unknown[]>;
+    return Object.fromEntries(
+      Object.entries(parsed).map(([workspaceId, tasks]) => [
+        workspaceId,
+        Array.isArray(tasks) ? tasks.map(migrateTask) : [],
+      ]),
+    );
   } catch {
     return {};
   }
@@ -38,8 +72,8 @@ function seedTask(workspaceId: string): Task {
     startDate: null,
     order: 0,
     parentId: null,
-    categoryId: null,
-    category: null,
+    channelId: null,
+    channel: null,
     tags: [],
     assignees: [],
     subtasks: [],
@@ -107,8 +141,8 @@ export function createLocalTask(
     startDate: (input.startDate as string | null | undefined) ?? null,
     order: tasks.length,
     parentId: null,
-    categoryId: null,
-    category: null,
+    channelId: null,
+    channel: null,
     tags: [],
     assignees: [],
     subtasks: [],

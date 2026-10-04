@@ -131,7 +131,7 @@ export function CalendarPage() {
           ...taskInput,
           dueDate: taskInput.dueDate || null,
           startDate: taskInput.startDate || null,
-          categoryId: taskInput.categoryId || null,
+          channelId: taskInput.channelId || null,
         },
       });
     } else {
@@ -139,7 +139,7 @@ export function CalendarPage() {
         ...taskInput,
         dueDate: prefilledDate || taskInput.dueDate || null,
         startDate: taskInput.startDate || null,
-        categoryId: taskInput.categoryId || null,
+        channelId: taskInput.channelId || null,
       });
       for (const st of newSubtasks) {
         await http.post(

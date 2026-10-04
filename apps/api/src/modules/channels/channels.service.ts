@@ -4,27 +4,27 @@
   NotFoundException,
 } from "@nestjs/common";
 import type {
-  Category,
-  CreateCategoryInput,
-  UpdateCategoryInput,
+  Channel,
+  CreateChannelInput,
+  UpdateChannelInput,
 } from "@taskmaster/contracts";
 import { PrismaService } from "../../prisma/prisma.service";
 import { WorkspaceAccessService } from "../workspaces/workspace-access.service";
 
 @Injectable()
-export class CategoriesService {
+export class ChannelsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: WorkspaceAccessService,
   ) {}
 
-  async list(workspaceId: string, userId: string): Promise<Category[]> {
+  async list(workspaceId: string, userId: string): Promise<Channel[]> {
     await this.access.assertMembership(workspaceId, userId);
-    const categories = await this.prisma.category.findMany({
+    const channels = await this.prisma.channel.findMany({
       where: { workspaceId },
       orderBy: { name: "asc" },
     });
-    return categories.map((c) => ({
+    return channels.map((c) => ({
       id: c.id,
       workspaceId: c.workspaceId,
       name: c.name,
@@ -36,18 +36,18 @@ export class CategoriesService {
   async create(
     workspaceId: string,
     userId: string,
-    dto: CreateCategoryInput,
-  ): Promise<Category> {
+    dto: CreateChannelInput,
+  ): Promise<Channel> {
     await this.access.assertWriteRole(workspaceId, userId);
 
-    const existing = await this.prisma.category.findUnique({
+    const existing = await this.prisma.channel.findUnique({
       where: { workspaceId_name: { workspaceId, name: dto.name } },
     });
     if (existing) {
-      throw new ConflictException("Ya existe una categorÃ­a con ese nombre");
+      throw new ConflictException("Ya existe un canal con ese nombre");
     }
 
-    const category = await this.prisma.category.create({
+    const channel = await this.prisma.channel.create({
       data: {
         workspaceId,
         name: dto.name,
@@ -56,11 +56,11 @@ export class CategoriesService {
     });
 
     return {
-      id: category.id,
-      workspaceId: category.workspaceId,
-      name: category.name,
-      color: category.color,
-      createdAt: category.createdAt.toISOString(),
+      id: channel.id,
+      workspaceId: channel.workspaceId,
+      name: channel.name,
+      color: channel.color,
+      createdAt: channel.createdAt.toISOString(),
     };
   }
 
@@ -68,25 +68,25 @@ export class CategoriesService {
     workspaceId: string,
     id: string,
     userId: string,
-    dto: UpdateCategoryInput,
-  ): Promise<Category> {
+    dto: UpdateChannelInput,
+  ): Promise<Channel> {
     await this.access.assertWriteRole(workspaceId, userId);
 
-    const existing = await this.prisma.category.findFirst({
+    const existing = await this.prisma.channel.findFirst({
       where: { id, workspaceId },
     });
-    if (!existing) throw new NotFoundException("CategorÃ­a no encontrada");
+    if (!existing) throw new NotFoundException("Canal no encontrado");
 
     if (dto.name && dto.name !== existing.name) {
-      const conflict = await this.prisma.category.findUnique({
+      const conflict = await this.prisma.channel.findUnique({
         where: { workspaceId_name: { workspaceId, name: dto.name } },
       });
       if (conflict) {
-        throw new ConflictException("Ya existe una categorÃ­a con ese nombre");
+        throw new ConflictException("Ya existe un canal con ese nombre");
       }
     }
 
-    const category = await this.prisma.category.update({
+    const channel = await this.prisma.channel.update({
       where: { id },
       data: {
         name: dto.name,
@@ -95,11 +95,11 @@ export class CategoriesService {
     });
 
     return {
-      id: category.id,
-      workspaceId: category.workspaceId,
-      name: category.name,
-      color: category.color,
-      createdAt: category.createdAt.toISOString(),
+      id: channel.id,
+      workspaceId: channel.workspaceId,
+      name: channel.name,
+      color: channel.color,
+      createdAt: channel.createdAt.toISOString(),
     };
   }
 
@@ -109,12 +109,12 @@ export class CategoriesService {
     userId: string,
   ): Promise<{ id: string }> {
     await this.access.assertWriteRole(workspaceId, userId);
-    const existing = await this.prisma.category.findFirst({
+    const existing = await this.prisma.channel.findFirst({
       where: { id, workspaceId },
     });
-    if (!existing) throw new NotFoundException("CategorÃ­a no encontrada");
+    if (!existing) throw new NotFoundException("Canal no encontrado");
 
-    await this.prisma.category.delete({ where: { id } });
+    await this.prisma.channel.delete({ where: { id } });
     return { id };
   }
 }

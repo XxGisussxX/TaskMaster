@@ -66,15 +66,15 @@ describe("nlTaskDraftSchema", () => {
     ).toBe(true);
   });
 
-  it("acepta null en las fechas y categoryId", () => {
+  it("acepta null en las fechas y channelId", () => {
     const draft = nlTaskDraftSchema.parse({
       title: "x",
       dueDate: null,
       startDate: null,
-      categoryId: null,
+      channelId: null,
     });
     expect(draft.dueDate).toBeNull();
-    expect(draft.categoryId).toBeNull();
+    expect(draft.channelId).toBeNull();
   });
 });
 

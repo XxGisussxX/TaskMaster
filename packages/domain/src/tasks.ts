@@ -120,7 +120,7 @@ export interface TaskFilters {
   onlyMine?: boolean;
   assigneeId?: string;
   tagId?: string;
-  categoryId?: string;
+  channelId?: string;
   dueDateFrom?: Date | string;
   dueDateTo?: Date | string;
 }
@@ -135,8 +135,7 @@ export function filterTasks(
   return tasks.filter((task) => {
     if (filters.status && task.status !== filters.status) return false;
     if (filters.priority && task.priority !== filters.priority) return false;
-    if (filters.categoryId && task.categoryId !== filters.categoryId)
-      return false;
+    if (filters.channelId && task.channelId !== filters.channelId) return false;
     if (filters.tagId && !task.tags.some((t) => t.id === filters.tagId))
       return false;
     if (

@@ -157,18 +157,18 @@ async function main(): Promise<void> {
   });
 
   const [desarrollo, diseno, administracion] = await Promise.all([
-    prisma.category.create({
+    prisma.channel.create({
       data: { workspaceId, name: "Desarrollo", color: "#3b82f6" },
     }),
-    prisma.category.create({
+    prisma.channel.create({
       data: { workspaceId, name: "Diseño", color: "#a855f7" },
     }),
-    prisma.category.create({
+    prisma.channel.create({
       data: { workspaceId, name: "Administración", color: "#eab308" },
     }),
   ]);
 
-  console.log("Categories:", {
+  console.log("Canales:", {
     desarrollo: desarrollo.id,
     diseno: diseno.id,
     administracion: administracion.id,
@@ -211,7 +211,7 @@ async function main(): Promise<void> {
       status: TaskStatus.DONE,
       priority: Priority.HIGH,
       order: 1,
-      categoryId: desarrollo.id,
+      channelId: desarrollo.id,
       completedAt: new Date(Date.now() - 3 * 86_400_000),
     },
   });
@@ -229,7 +229,7 @@ async function main(): Promise<void> {
       priority: Priority.URGENT,
       dueDate: daysFromNow(1),
       order: 2,
-      categoryId: diseno.id,
+      channelId: diseno.id,
     },
   });
   console.log("Created t2", t2.id);
@@ -246,7 +246,7 @@ async function main(): Promise<void> {
       priority: Priority.HIGH,
       dueDate: daysFromNow(2),
       order: 3,
-      categoryId: desarrollo.id,
+      channelId: desarrollo.id,
     },
   });
   console.log("Created t3", t3.id);
@@ -262,7 +262,7 @@ async function main(): Promise<void> {
       priority: Priority.MEDIUM,
       dueDate: daysFromNow(5),
       order: 4,
-      // no category for this task
+      // este task queda sin canal
     },
   });
   console.log("Created t4", t4.id);
@@ -278,7 +278,7 @@ async function main(): Promise<void> {
       priority: Priority.MEDIUM,
       dueDate: daysFromNow(-1),
       order: 5,
-      categoryId: administracion.id,
+      channelId: administracion.id,
     },
   });
   console.log("Created t5", t5.id);
@@ -294,7 +294,7 @@ async function main(): Promise<void> {
       priority: Priority.LOW,
       dueDate: daysFromNow(-14),
       order: 6,
-      categoryId: administracion.id,
+      channelId: administracion.id,
     },
   });
   console.log("Created t6", t6.id);
@@ -310,7 +310,7 @@ async function main(): Promise<void> {
       priority: Priority.URGENT,
       dueDate: daysFromNow(7),
       order: 7,
-      categoryId: desarrollo.id,
+      channelId: desarrollo.id,
     },
   });
   console.log("Created t7", t7.id);

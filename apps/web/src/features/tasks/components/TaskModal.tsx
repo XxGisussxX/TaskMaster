@@ -160,7 +160,7 @@ export function TaskModal({
                   priority: task.priority,
                   dueDate: task.dueDate,
                   startDate: task.startDate,
-                  categoryId: task.categoryId,
+                  channelId: task.channelId,
                   tagIds: task.tags?.map((t) => t.id) ?? [],
                   assigneeIds: task.assignees?.map((a) => a.id) ?? [],
                 }}
