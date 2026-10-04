@@ -8,6 +8,7 @@ import {
 import {
   nlTaskDraftSchema,
   TaskStatus,
+  type AiCapabilities,
   type AiUsage,
   type AssistantCompleteAction,
   type AssistantReminderAction,
@@ -338,6 +339,28 @@ export class AiService {
       "",
       `Último mensaje del usuario: "${text}"`,
     ].join("\n");
+  }
+
+  /**
+   * Si hay un proveedor operativo y con qué modelo.
+   *
+   * El frontend lo consulta antes de dibujar el asistente. `GEMINI_API_KEY` es
+   * opcional a propósito (una instalación sin IA es válida), así que sin esto la
+   * UI dibujaba un orbe que respondía 503 a cada mensaje. A diferencia de
+   * `/auth/oauth/providers`, esto exige membresía: no dice si el backend tiene
+   * key, sino si el usuario que pregunta puede usar IA en este workspace.
+   */
+  async getCapabilities(
+    workspaceId: string,
+    userId: string,
+  ): Promise<AiCapabilities> {
+    await this.access.assertMembership(workspaceId, userId);
+
+    return {
+      configured: this.provider.isConfigured,
+      model: this.provider.model,
+      dailyLimit: this.config.get<number>("GEMINI_DAILY_LIMIT") ?? 15,
+    };
   }
 
   async getUsage(workspaceId: string, userId: string): Promise<AiUsage> {

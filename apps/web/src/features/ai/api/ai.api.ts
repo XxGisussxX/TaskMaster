@@ -1,5 +1,6 @@
 import { http } from "@/services/http";
 import type {
+  AiCapabilities,
   AiUsage,
   AssistantMessage,
   AssistantResponse,
@@ -17,6 +18,8 @@ export const aiApi = {
       `/workspaces/${workspaceId}/ai/assistant`,
       body,
     ),
+  getCapabilities: (workspaceId: string) =>
+    http.get<AiCapabilities>(`/workspaces/${workspaceId}/ai/capabilities`),
   getUsage: (workspaceId: string) =>
     http.get<AiUsage>(`/workspaces/${workspaceId}/ai/usage`),
 };

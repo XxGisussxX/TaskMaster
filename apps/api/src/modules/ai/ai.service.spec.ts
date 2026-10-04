@@ -508,3 +508,46 @@ describe("AiService.getUsage", () => {
     expect(access.assertMembership).toHaveBeenCalledWith("ws1", "u1");
   });
 });
+
+describe("AiService.getCapabilities", () => {
+  it("reporta el proveedor y el límite cuando hay key", async () => {
+    const { service } = setup(true);
+
+    expect(await service.getCapabilities("ws1", "u1")).toEqual({
+      configured: true,
+      model: "gemini-3.6-flash",
+      dailyLimit: 15,
+    });
+  });
+
+  it("reporta configured:false sin key, en vez de lanzar", async () => {
+    // Este es el caso que motivó el endpoint: una instalación sin IA es válida,
+    // y el throw de ServiceUnavailable era lo que hacía que la UI dibujara un
+    // asistente inservible. Acá se responde el estado, no se falla.
+    const { service } = setup(false);
+
+    const caps = await service.getCapabilities("ws1", "u1");
+
+    expect(caps.configured).toBe(false);
+    expect(caps.model).toBe("gemini-3.6-flash");
+  });
+
+  it("exige membresía: no revela la configuración a un intruso", async () => {
+    const { service, access } = setup();
+    access.assertMembership.mockRejectedValue(new Error("Forbidden"));
+
+    await expect(service.getCapabilities("ws1", "u1")).rejects.toThrow(
+      "Forbidden",
+    );
+    expect(access.assertMembership).toHaveBeenCalledWith("ws1", "u1");
+  });
+
+  it("no consulta ni escribe nada en la base", async () => {
+    const { service, prisma } = setup();
+
+    await service.getCapabilities("ws1", "u1");
+
+    expect(prisma.aiGeneration.count).not.toHaveBeenCalled();
+    expect(prisma.aiGeneration.create).not.toHaveBeenCalled();
+  });
+});

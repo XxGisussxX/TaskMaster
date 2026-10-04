@@ -41,6 +41,22 @@ export class AiController {
     return this.aiService.assistantStep(workspaceId, user.sub, dto);
   }
 
+  /**
+   * Qué hay operativo del lado del servidor, para que el frontend no dibuje el
+   * asistente cuando no hay proveedor configurado.
+   *
+   * Va antes de `usage` a propósito: es la consulta que decide si la UI monta el
+   * resto del módulo, y no debería competir por cuota con una que sí pesa.
+   */
+  @Get("capabilities")
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  capabilities(
+    @Param("workspaceId", workspaceIdPipe) workspaceId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.aiService.getCapabilities(workspaceId, user.sub);
+  }
+
   @Get("usage")
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
   usage(

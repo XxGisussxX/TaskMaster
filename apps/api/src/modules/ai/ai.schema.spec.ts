@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  aiCapabilitiesSchema,
   aiUsageSchema,
   nlTaskDraftSchema,
   nlTaskSchema,
@@ -91,6 +92,55 @@ describe("aiUsageSchema", () => {
     ).toBe(false);
     expect(
       aiUsageSchema.safeParse({ usedToday: 0, dailyLimit: 0 }).success,
+    ).toBe(false);
+  });
+});
+
+describe("aiCapabilitiesSchema", () => {
+  it("acepta un servidor con y uno sin proveedor", () => {
+    expect(
+      aiCapabilitiesSchema.parse({
+        configured: false,
+        model: "gemini-3.6-flash",
+        dailyLimit: 15,
+      }),
+    ).toEqual({ configured: false, model: "gemini-3.6-flash", dailyLimit: 15 });
+
+    expect(
+      aiCapabilitiesSchema.parse({
+        configured: true,
+        model: "gemini-3.6-flash",
+        dailyLimit: 15,
+      }).configured,
+    ).toBe(true);
+  });
+
+  it("exige `configured` explícito", () => {
+    // Si `configured` fuera opcional con default, el frontend no podría
+    // distinguir "no configurado" de "el servidor no respondió todavía", y
+    // acabaría dibujando el asistente en el primer caso.
+    expect(
+      aiCapabilitiesSchema.safeParse({
+        model: "gemini-3.6-flash",
+        dailyLimit: 15,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rechaza un modelo vacío o un límite no positivo", () => {
+    expect(
+      aiCapabilitiesSchema.safeParse({
+        configured: true,
+        model: "",
+        dailyLimit: 15,
+      }).success,
+    ).toBe(false);
+    expect(
+      aiCapabilitiesSchema.safeParse({
+        configured: true,
+        model: "gemini-3.6-flash",
+        dailyLimit: 0,
+      }).success,
     ).toBe(false);
   });
 });

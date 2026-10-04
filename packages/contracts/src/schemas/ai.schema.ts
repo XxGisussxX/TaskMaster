@@ -39,6 +39,27 @@ export const aiUsageSchema = z.object({
 
 export type AiUsage = z.infer<typeof aiUsageSchema>;
 
+/**
+ * Qué hay operativo del lado del servidor.
+ *
+ * El frontend consulta esto antes de dibujar el asistente. Sin este contrato
+ * había dos opciones malas: mostrar siempre el orbe y que cada mensaje falle con
+ * un 503, o duplicar la configuración del servidor en el front con una variable
+ * de Vite que puede desincronizarse de la real. El proveedor es opcional en el
+ * entorno, así que el caso "no hay key" es el estado por defecto en una
+ * instalación nueva y la UI tiene que poder adaptarse a él.
+ *
+ * No expone la key ni nada derivado de ella: solo si está presente y con qué
+ * modelo contaría.
+ */
+export const aiCapabilitiesSchema = z.object({
+  configured: z.boolean(),
+  model: z.string().min(1),
+  dailyLimit: z.number().int().positive(),
+});
+
+export type AiCapabilities = z.infer<typeof aiCapabilitiesSchema>;
+
 export const assistantMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
   text: z.string().trim().min(1).max(2000),

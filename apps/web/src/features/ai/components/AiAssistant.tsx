@@ -8,6 +8,7 @@ import { isLocalWorkspace } from "@/features/tasks/lib/localTasks";
 import { useUiStore } from "@/store/ui.store";
 import { useDashboardStats } from "@/features/dashboard/hooks/useDashboard";
 import { useAiUsage } from "../hooks/useAiUsage";
+import { useAiCapabilities } from "../hooks/useAiCapabilities";
 import { useTypewriter } from "../hooks/useTypewriter";
 import { pickPhrase, buildProactiveMessage } from "../lib/assistantScript";
 import {
@@ -22,6 +23,7 @@ const PROACTIVE_TICK_MS = 15_000;
 export function AiAssistant() {
   const workspaceId = useCurrentWorkspaceId();
   const local = !workspaceId || isLocalWorkspace(workspaceId);
+  const capabilities = useAiCapabilities();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
   const assistant = useAiAssistant();
@@ -35,7 +37,12 @@ export function AiAssistant() {
     setOpen(true);
   }, [assistantDraft, local, consumeAssistantDraft]);
 
-  if (local) return null;
+  // Sin proveedor configurado el orbe se oculta entero, en vez de quedar
+  // deshabilitado: un control que no se puede usar ocupa espacio y hace que la
+  // app parezca rota. `null` es "todavía consultando" y en ese frame tampoco se
+  // dibuja, para que no aparezca y desaparezca. Ajustes explica qué variable
+  // falta cuando esto está oculto.
+  if (local || capabilities?.configured !== true) return null;
 
   return (
     <div className="fixed bottom-4 right-4 z-50">

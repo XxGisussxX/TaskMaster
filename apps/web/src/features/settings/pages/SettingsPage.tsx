@@ -1,10 +1,11 @@
-import { Moon, Sun, Monitor, LogOut, KeyRound } from "lucide-react";
+import { Moon, Sun, Monitor, LogOut, KeyRound, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { useUiStore, type Theme } from "@/store/ui.store";
 import { useNavigate } from "react-router-dom";
 import { useProfile } from "@/features/users/hooks/useProfile";
+import { useAiCapabilities } from "@/features/ai/hooks/useAiCapabilities";
 import { logout } from "@/features/auth/api/auth.api";
 import { MemberManagement } from "@/features/workspace/components/MemberManagement";
 import { WorkspaceManagement } from "@/features/workspace/components/WorkspaceManagement";
@@ -21,6 +22,7 @@ const THEMES: { value: Theme; label: string; icon: typeof Sun }[] = [
 export function SettingsPage() {
   const { theme, setTheme } = useUiStore();
   const navigate = useNavigate();
+  const capabilities = useAiCapabilities();
   // Del perfil, no del store: el store persiste el usuario y una sesión
   // rehidratada de una versión anterior viene sin `hasPassword`. Con
   // `undefined` como falsy, un usuario con contraseña vería el aviso de cuenta
@@ -94,6 +96,30 @@ export function SettingsPage() {
           ))}
         </CardContent>
       </Card>
+
+      {/* El asistente se oculta cuando no hay proveedor, así que el aviso de
+          "cómo se activa" va acá. Un botón deshabilitado no cumpliría: es el
+          mismo patrón que ya se descartó en la tarjeta de agenda, que quedó
+          gris sin explicar qué variable falta. */}
+      {capabilities && !capabilities.configured ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Sparkles className="h-4 w-4" /> Asistente de IA
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              El asistente está desactivado en esta instalación. Para activarlo,
+              agregá <code>GEMINI_API_KEY</code> al entorno del servidor y
+              reiniciá la API.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Es opcional por diseño: TaskMaster funciona completo sin IA.
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>
