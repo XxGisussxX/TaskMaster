@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { namedIdSchema } from "./common.schema";
 
 export const savedViewFiltersSchema = z
   .object({
@@ -19,7 +20,7 @@ export const createSavedViewSchema = z.object({
 export const updateSavedViewSchema = createSavedViewSchema.partial();
 
 export const savedViewIdParamsSchema = z.object({
-  id: z.string().cuid("ID de vista inválido"),
+  id: namedIdSchema("ID de vista inválido"),
 });
 
 export type SavedViewFilters = z.infer<typeof savedViewFiltersSchema>;

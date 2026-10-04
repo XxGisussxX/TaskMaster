@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { ReminderRepeat } from "../enums";
+import { idSchema } from "./common.schema";
 
 export const createReminderSchema = z.object({
   title: z.string().trim().min(1, "El título es requerido").max(200),
   triggerAt: z.coerce.date(),
   repeat: z.nativeEnum(ReminderRepeat).default(ReminderRepeat.NONE),
-  taskId: z.string().cuid().nullable().optional(),
-  noteId: z.string().cuid().nullable().optional(),
+  taskId: idSchema.nullable().optional(),
+  noteId: idSchema.nullable().optional(),
 });
 
 export const updateReminderSchema = createReminderSchema.partial();

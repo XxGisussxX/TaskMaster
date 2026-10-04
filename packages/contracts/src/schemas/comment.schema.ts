@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { idSchema, namedIdSchema } from "./common.schema";
 
 export const createCommentSchema = z.object({
   body: z
@@ -6,16 +7,16 @@ export const createCommentSchema = z.object({
     .trim()
     .min(1, "El comentario no puede estar vacío")
     .max(5000),
-  mentionedUserIds: z.array(z.string().cuid()).optional(),
+  mentionedUserIds: z.array(idSchema).optional(),
 });
 
 export const updateCommentSchema = z.object({
   body: z.string().trim().min(1).max(5000),
-  mentionedUserIds: z.array(z.string().cuid()).optional(),
+  mentionedUserIds: z.array(idSchema).optional(),
 });
 
 export const commentIdParamsSchema = z.object({
-  id: z.string().cuid("ID de comentario inválido"),
+  id: namedIdSchema("ID de comentario inválido"),
 });
 
 export type CreateCommentInput = z.infer<typeof createCommentSchema>;

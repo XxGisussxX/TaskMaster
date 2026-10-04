@@ -1,12 +1,13 @@
 import { z } from "zod";
+import { namedIdSchema } from "./common.schema";
 
 export const createTaskDependencySchema = z.object({
-  fromTaskId: z.string().cuid("ID de tarea inválido"),
-  toTaskId: z.string().cuid("ID de tarea inválido"),
+  fromTaskId: namedIdSchema("ID de tarea inválido"),
+  toTaskId: namedIdSchema("ID de tarea inválido"),
 });
 
 export const taskDependencyIdParamsSchema = z.object({
-  id: z.string().cuid("ID de dependencia inválido"),
+  id: namedIdSchema("ID de dependencia inválido"),
 });
 
 export type CreateTaskDependencyInput = z.infer<

@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { NoteType, StickyColor } from "../enums";
+import { idSchema, namedIdSchema } from "./common.schema";
 
 export const checklistItemSchema = z.object({
-  id: z.string().cuid().optional(),
+  id: idSchema.optional(),
   text: z.string().trim().min(1).max(500),
   done: z.boolean().default(false),
   order: z.number().int().min(0).default(0),
@@ -16,13 +17,13 @@ export const createNoteSchema = z.object({
   pinned: z.boolean().default(false),
   tags: z.array(z.string().trim().min(1).max(40)).default([]),
   items: z.array(checklistItemSchema).default([]),
-  collaborators: z.array(z.string().cuid()).default([]),
+  collaborators: z.array(idSchema).default([]),
 });
 
 export const updateNoteSchema = createNoteSchema.partial();
 
 export const noteIdParamsSchema = z.object({
-  id: z.string().cuid("ID de nota inválido"),
+  id: namedIdSchema("ID de nota inválido"),
 });
 
 export const addChecklistItemSchema = z.object({
@@ -36,7 +37,7 @@ export const toggleChecklistItemSchema = z.object({
 export const noteFiltersSchema = z.object({
   type: z.nativeEnum(NoteType).optional(),
   search: z.string().max(200).optional(),
-  tagId: z.string().cuid().optional(),
+  tagId: idSchema.optional(),
   pinned: z.coerce.boolean().optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(24),

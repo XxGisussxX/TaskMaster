@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { CustomFieldType } from "../enums";
 import type { CustomFieldType as TCustomFieldType } from "../enums";
+import { idSchema, namedIdSchema } from "./common.schema";
 
 export const createCustomFieldDefinitionSchema = z.object({
   name: z.string().trim().min(1, "El nombre es requerido").max(100),
@@ -14,16 +15,16 @@ export const updateCustomFieldDefinitionSchema =
   createCustomFieldDefinitionSchema.partial();
 
 export const reorderCustomFieldDefinitionsSchema = z.object({
-  orderedIds: z.array(z.string().cuid("ID de campo inválido")).min(1),
+  orderedIds: z.array(namedIdSchema("ID de campo inválido")).min(1),
 });
 
 export const customFieldDefinitionIdParamsSchema = z.object({
-  id: z.string().cuid("ID de campo inválido"),
+  id: namedIdSchema("ID de campo inválido"),
 });
 
 export const setCustomFieldValueSchema = z.object({
-  definitionId: z.string().cuid("ID de definición inválido"),
-  entityId: z.string().cuid("ID de entidad inválido"),
+  definitionId: namedIdSchema("ID de definición inválido"),
+  entityId: namedIdSchema("ID de entidad inválido"),
   entityType: z
     .enum(["task", "note"], {
       message: "entityType debe ser task o note",
@@ -36,14 +37,14 @@ export const customFieldValueFiltersSchema = z.object({
   entityType: z
     .enum(["task", "note"], { message: "entityType debe ser task o note" })
     .default("task"),
-  entityId: z.string().cuid(),
+  entityId: idSchema,
 });
 
 export const customFieldValuesManySchema = z.object({
   entityType: z
     .enum(["task", "note"], { message: "entityType debe ser task o note" })
     .default("task"),
-  entityIds: z.array(z.string().cuid("ID de entidad inválido")).min(1).max(100),
+  entityIds: z.array(namedIdSchema("ID de entidad inválido")).min(1).max(100),
 });
 
 /** Datos mínimos que necesita `parseCustomFieldValue` para validar un valor. */

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { namedIdSchema } from "./common.schema";
 
 export const createTagSchema = z.object({
   name: z.string().trim().min(1, "El nombre es requerido").max(40),
@@ -8,7 +9,7 @@ export const createTagSchema = z.object({
 export const updateTagSchema = createTagSchema.partial();
 
 export const tagIdParamsSchema = z.object({
-  id: z.string().cuid("ID de etiqueta inválido"),
+  id: namedIdSchema("ID de etiqueta inválido"),
 });
 
 export type CreateTagInput = z.infer<typeof createTagSchema>;

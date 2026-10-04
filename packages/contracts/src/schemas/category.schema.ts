@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { namedIdSchema } from "./common.schema";
 
 export const createCategorySchema = z.object({
   name: z.string().trim().min(1, "El nombre es requerido").max(40),
@@ -8,7 +9,7 @@ export const createCategorySchema = z.object({
 export const updateCategorySchema = createCategorySchema.partial();
 
 export const categoryIdParamsSchema = z.object({
-  id: z.string().cuid("ID de categoría inválido"),
+  id: namedIdSchema("ID de categoría inválido"),
 });
 
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;

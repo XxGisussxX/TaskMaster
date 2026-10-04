@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Priority, TaskStatus, RecurrenceFrequency } from "../enums";
+import { idSchema, namedIdSchema } from "./common.schema";
 
 export const recurrenceSchema = z
   .object({
@@ -17,10 +18,10 @@ export const createTaskSchema = z.object({
   priority: z.nativeEnum(Priority).default(Priority.MEDIUM),
   dueDate: z.coerce.date().nullable().optional(),
   startDate: z.coerce.date().nullable().optional(),
-  parentId: z.string().cuid().nullable().optional(),
-  categoryId: z.string().cuid().nullable().optional(),
-  tagIds: z.array(z.string().cuid()).default([]),
-  assigneeIds: z.array(z.string().cuid()).default([]),
+  parentId: idSchema.nullable().optional(),
+  categoryId: idSchema.nullable().optional(),
+  tagIds: z.array(idSchema).default([]),
+  assigneeIds: z.array(idSchema).default([]),
   isRecurring: z.boolean().default(false),
   recurrence: recurrenceSchema,
 });
@@ -30,7 +31,7 @@ export const updateTaskSchema = createTaskSchema
   .omit({ tagIds: true, assigneeIds: true });
 
 export const taskIdParamsSchema = z.object({
-  id: z.string().cuid("ID de tarea inválido"),
+  id: namedIdSchema("ID de tarea inválido"),
 });
 
 export const taskFiltersSchema = z.object({
@@ -39,12 +40,12 @@ export const taskFiltersSchema = z.object({
   dueDateFrom: z.coerce.date().optional(),
   dueDateTo: z.coerce.date().optional(),
   search: z.string().max(200).optional(),
-  tagId: z.string().cuid().optional(),
-  assigneeId: z.string().cuid().optional(),
-  categoryId: z.string().cuid().optional(),
+  tagId: idSchema.optional(),
+  assigneeId: idSchema.optional(),
+  categoryId: idSchema.optional(),
   onlyOverdue: z.coerce.boolean().optional(),
   onlyMine: z.coerce.boolean().optional(),
-  parentId: z.string().cuid().optional(),
+  parentId: idSchema.optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(500).default(20),
 });
@@ -58,7 +59,7 @@ export const createSubtaskSchema = z.object({
 });
 
 const bulkTaskIds = z
-  .array(z.string().cuid())
+  .array(idSchema)
   .min(1, "Selecciona al menos una tarea")
   .max(100, "Máximo 100 tareas por operación");
 

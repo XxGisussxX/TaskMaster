@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { namedIdSchema } from "./common.schema";
 
 export const createTaskTemplateSchema = z.object({
   name: z.string().trim().min(1, "El nombre es requerido").max(100),
@@ -9,7 +10,7 @@ export const createTaskTemplateSchema = z.object({
 export const updateTaskTemplateSchema = createTaskTemplateSchema.partial();
 
 export const taskTemplateIdParamsSchema = z.object({
-  id: z.string().cuid("ID de plantilla inválido"),
+  id: namedIdSchema("ID de plantilla inválido"),
 });
 
 export type CreateTaskTemplateInput = z.infer<typeof createTaskTemplateSchema>;
