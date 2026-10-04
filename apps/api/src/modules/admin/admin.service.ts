@@ -126,6 +126,7 @@ export class AdminService {
       avatarUrl: updated.avatarUrl,
       role: updated.role,
       isEmailVerified: updated.isEmailVerified,
+      hasPassword: !!updated.passwordHash,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
     };

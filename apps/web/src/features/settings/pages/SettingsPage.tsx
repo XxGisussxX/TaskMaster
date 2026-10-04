@@ -1,9 +1,10 @@
-import { Moon, Sun, Monitor, LogOut } from "lucide-react";
+import { Moon, Sun, Monitor, LogOut, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { useUiStore, type Theme } from "@/store/ui.store";
 import { useNavigate } from "react-router-dom";
+import { useProfile } from "@/features/users/hooks/useProfile";
 import { logout } from "@/features/auth/api/auth.api";
 import { MemberManagement } from "@/features/workspace/components/MemberManagement";
 import { WorkspaceManagement } from "@/features/workspace/components/WorkspaceManagement";
@@ -20,6 +21,11 @@ const THEMES: { value: Theme; label: string; icon: typeof Sun }[] = [
 export function SettingsPage() {
   const { theme, setTheme } = useUiStore();
   const navigate = useNavigate();
+  // Del perfil, no del store: el store persiste el usuario y una sesión
+  // rehidratada de una versión anterior viene sin `hasPassword`. Con
+  // `undefined` como falsy, un usuario con contraseña vería el aviso de cuenta
+  // Google hasta que se recargara la página.
+  const { data: profile } = useProfile();
 
   const handleLogout = () => {
     logout();
@@ -39,14 +45,37 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Contraseña</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ChangePasswordForm />
-        </CardContent>
-      </Card>
+      {/* Mientras el perfil no llega no se sabe si hay contraseña, y adivinar
+          muestra el formulario equivocado. Se espera en vez de parpadear. */}
+      {profile === undefined ? null : profile.hasPassword ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Contraseña</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ChangePasswordForm />
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Contraseña</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Esta cuenta inicia sesión con Google. No tienes una contraseña
+              establecida.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => navigate("/forgot-password")}
+            >
+              <KeyRound className="h-4 w-4" />
+              Crear contraseña
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

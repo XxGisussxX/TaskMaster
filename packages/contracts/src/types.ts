@@ -20,6 +20,8 @@ export interface User {
   avatarUrl: string | null;
   role: SystemRole;
   isEmailVerified: boolean;
+  /** Indica si el usuario tiene contraseña establecida (cuenta local). */
+  hasPassword: boolean;
   createdAt: string;
   updatedAt: string;
 }

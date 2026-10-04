@@ -51,6 +51,7 @@ export class UsersService {
     avatarUrl: string | null;
     role: User["role"];
     isEmailVerified: boolean;
+    passwordHash: string | null;
     createdAt: Date;
     updatedAt: Date;
   }): User {
@@ -61,6 +62,7 @@ export class UsersService {
       avatarUrl: user.avatarUrl,
       role: user.role,
       isEmailVerified: user.isEmailVerified,
+      hasPassword: !!user.passwordHash,
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
     };
