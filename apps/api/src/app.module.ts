@@ -1,8 +1,9 @@
 import { Module } from "@nestjs/common";
-import { ConfigModule } from "@nestjs/config";
+import { ConfigModule, ConfigService } from "@nestjs/config";
 import { ScheduleModule } from "@nestjs/schedule";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { LoggerModule } from "nestjs-pino";
 import { validateEnv } from "./config/env.config";
 import { PrismaModule } from "./prisma/prisma.module";
 import { RedisModule } from "./redis/redis.module";
@@ -41,13 +42,44 @@ import { TenantModule } from "./tenant/tenant.module";
       envFilePath: ["../../.env", ".env"],
       validate: validateEnv,
     }),
+    LoggerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const isProduction = config.get<string>("NODE_ENV") === "production";
+        const level =
+          config.get<string>("LOG_LEVEL") ?? (isProduction ? "info" : "debug");
+        return {
+          pinoHttp: {
+            level,
+            transport: isProduction
+              ? undefined
+              : {
+                  target: "pino-pretty",
+                  options: { colorize: true, translateTime: "SYS:standard" },
+                },
+            redact: {
+              paths: [
+                "req.headers.authorization",
+                "req.headers.cookie",
+                "req.body.password",
+                "req.body.refreshToken",
+              ],
+              censor: "[REDACTED]",
+            },
+            autoLogging: {
+              ignore: (req: { url: string }) =>
+                req.url === "/api/health/live" ||
+                req.url === "/api/health/ready",
+            },
+          },
+        };
+      },
+    }),
     ThrottlerModule.forRootAsync({
       imports: [RedisModule],
       inject: [RedisService],
       useFactory: (redis: RedisService) => ({
-        // Mismos valores que antes de esta fase: 120 requests por minuto por
-        // tracker. Cambiar el límite junto con el store haría imposible
-        // atribuir a cuál de las dos cosas se debe una diferencia de tráfico.
         throttlers: [{ name: "default", ttl: 60_000, limit: 120 }],
         storage: new ThrottlerStorageRedis(redis),
       }),
