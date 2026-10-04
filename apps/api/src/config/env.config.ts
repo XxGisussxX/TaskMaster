@@ -6,10 +6,6 @@ const envSchema = z.object({
     .default("development"),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   DATABASE_URL: z.string().min(1, "DATABASE_URL es requerida"),
-  // Redis guarda el estado que no puede vivir en el proceso: rate limit,
-  // bloqueo de cuenta por intentos fallidos y cuota diaria de IA. Con una sola
-  // réplica el comportamiento es idéntico al de memoria, pero al reiniciar la
-  // API esos contadores no se pierden y varias réplicas los comparten.
   REDIS_HOST: z.string().min(1).default("localhost"),
   REDIS_PORT: z.coerce.number().int().min(1).max(65535).default(6379),
   REDIS_PASSWORD: z.preprocess(
@@ -17,8 +13,6 @@ const envSchema = z.object({
     z.string().optional(),
   ),
   REDIS_DB: z.coerce.number().int().min(0).default(0),
-  // Prefijo de todas las keys. Evita colisiones si un mismo Redis sirve a
-  // varios entornos, y hace localizable el origen de cada key con SCAN.
   REDIS_KEY_PREFIX: z.string().min(1).default("taskmaster"),
   JWT_ACCESS_SECRET: z
     .string()
@@ -45,7 +39,7 @@ const envSchema = z.object({
     ),
   JWT_ACCESS_TTL: z.string().default("15m"),
   JWT_REFRESH_TTL: z.string().default("30d"),
-  API_ORIGINS: z.string().default("*"),
+  API_ORIGINS: z.string().default(""),
   TRUST_PROXY: z.coerce.number().int().min(0).default(0),
   LOGIN_MAX_FAILURES: z.coerce.number().int().min(1).default(5),
   LOGIN_FAIL_WINDOW_SECONDS: z.coerce.number().int().min(1).default(900),
@@ -75,7 +69,58 @@ const envSchema = z.object({
   GEMINI_MODEL: z.string().default("gemini-3.6-flash"),
   GEMINI_EMBEDDING_MODEL: z.string().default("text-embedding-004"),
   GEMINI_DAILY_LIMIT: z.coerce.number().int().positive().default(15),
+  // Google OAuth es opcional y entero: los tres se configuran juntos o ninguno.
+  // La regla cruzada que lo fuerza está en `oauthRules`.
+  GOOGLE_CLIENT_ID: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().optional(),
+  ),
+  GOOGLE_CLIENT_SECRET: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().optional(),
+  ),
+  GOOGLE_REDIRECT_URI: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().url("GOOGLE_REDIRECT_URI debe ser una URL válida").optional(),
+  ),
 });
+
+/**
+ * Google OAuth se activa solo si están las tres piezas.
+ *
+ * Medio configurado es peor que no configurado: el botón aparece, el usuario
+ * llega a la pantalla de consentimiento de Google y solo después se le dice que
+ * algo falla. Conviene refuse to start.
+ */
+const oauthRules = z
+  .object({
+    GOOGLE_CLIENT_ID: z.string().optional(),
+    GOOGLE_CLIENT_SECRET: z.string().optional(),
+    GOOGLE_REDIRECT_URI: z.string().optional(),
+  })
+  .superRefine((env, ctx) => {
+    const present = [
+      env.GOOGLE_CLIENT_ID,
+      env.GOOGLE_CLIENT_SECRET,
+      env.GOOGLE_REDIRECT_URI,
+    ].filter((value) => value !== undefined);
+
+    if (present.length === 0 || present.length === 3) return;
+
+    const missing = [
+      ["GOOGLE_CLIENT_ID", env.GOOGLE_CLIENT_ID],
+      ["GOOGLE_CLIENT_SECRET", env.GOOGLE_CLIENT_SECRET],
+      ["GOOGLE_REDIRECT_URI", env.GOOGLE_REDIRECT_URI],
+    ]
+      .filter(([, value]) => value === undefined)
+      .map(([name]) => name);
+
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["GOOGLE_CLIENT_ID"],
+      message: `Google OAuth está a medio configurar. Faltan: ${missing.join(", ")}. Dejalo completo o vacialo: con la mitad, el login con Google llega a Google y recién ahí falla.`,
+    });
+  });
 
 /**
  * Reglas que dependen del entorno y no se pueden expresar con el tipo del campo.
@@ -88,6 +133,7 @@ const productionRules = z
   .object({
     NODE_ENV: z.string(),
     API_ORIGINS: z.string(),
+    TRUST_PROXY: z.coerce.number().int().min(0),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== "production") return;
@@ -125,6 +171,15 @@ const productionRules = z
         message: `API_ORIGINS debe usar https en producción. Inseguro(s): ${insecure.join(", ")}`,
       });
     }
+
+    if (env.TRUST_PROXY === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["TRUST_PROXY"],
+        message:
+          "TRUST_PROXY debe ser >= 1 en producción (ej: 1 si hay un reverse proxy como Caddy). Sin esto, el rate limit ve la IP del proxy y no la del cliente real.",
+      });
+    }
   });
 
 export type Env = z.infer<typeof envSchema>;
@@ -141,6 +196,7 @@ export function validateEnv(config: Record<string, unknown>): Env {
   const crossField = productionRules.safeParse({
     NODE_ENV: parsed.data.NODE_ENV,
     API_ORIGINS: parsed.data.API_ORIGINS,
+    TRUST_PROXY: parsed.data.TRUST_PROXY,
   });
   if (!crossField.success) {
     const issues = crossField.error.issues
@@ -149,7 +205,36 @@ export function validateEnv(config: Record<string, unknown>): Env {
     throw new Error(`Configuración de entorno inválida: ${issues}`);
   }
 
+  const oauth = oauthRules.safeParse({
+    GOOGLE_CLIENT_ID: parsed.data.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: parsed.data.GOOGLE_CLIENT_SECRET,
+    GOOGLE_REDIRECT_URI: parsed.data.GOOGLE_REDIRECT_URI,
+  });
+  if (!oauth.success) {
+    const issues = oauth.error.issues
+      .map((i) => `${i.path.join(".")}: ${i.message}`)
+      .join(", ");
+    throw new Error(`Configuración de entorno inválida: ${issues}`);
+  }
+
   return parsed.data;
+}
+
+/**
+ * Si el login con Google está operativo.
+ *
+ * Los tres campos son opcionales, así que la respuesta se deriva de que estén
+ * todos: es lo que decide si la web dibuja el botón y si `/auth/oauth/google/*`
+ * responde o dice que no está configurado.
+ */
+export function isGoogleOAuthConfigured(
+  config: Record<string, unknown>,
+): boolean {
+  return Boolean(
+    config.GOOGLE_CLIENT_ID &&
+    config.GOOGLE_CLIENT_SECRET &&
+    config.GOOGLE_REDIRECT_URI,
+  );
 }
 
 export const jwtConstants = {
