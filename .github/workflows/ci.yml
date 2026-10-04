@@ -1,0 +1,220 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+# Cancela la corrida anterior del mismo ref: si empujás commits seguidos, no
+# gastas minutos corriendo el gate de una versión que ya quedó atrás.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------
+  # Gate rápido: corre en cada push, es lo que dice si el código está sano.
+  # ---------------------------------------------------------------------
+  verify:
+    name: Lint + typecheck + test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: taskmaster
+          POSTGRES_PASSWORD: taskmaster
+          POSTGRES_DB: taskmaster_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taskmaster"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Generar Prisma Client
+        # Sin esto, `tsc` no encuentra los tipos de Prisma y el typecheck falla
+        # con errores que no existen en tu máquina (donde ya lo generaste).
+        run: pnpm --filter @taskmaster/api prisma:generate
+
+      # Los pasos repeten los scripts del package.json en vez de inventar
+      # comandos: si el gate local cambia, el de CI cambia con él.
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      # Redis y Postgres levantados a propósito: las specs de integración se
+      # saltean solas si no los encuentran, y sin ellas el script Lua del rate
+      # limit y el aislamiento por tenant quedan sin probar de verdad.
+      - name: Test
+        run: pnpm test
+        env:
+          DATABASE_URL: postgresql://taskmaster:taskmaster@localhost:5432/taskmaster_test?schema=public
+          REDIS_HOST: localhost
+          REDIS_PORT: "6379"
+
+      - name: Build
+        run: pnpm build
+
+  # ---------------------------------------------------------------------
+  # Migraciones: pruebas que la base se puede construir desde cero.
+  # ---------------------------------------------------------------------
+  migrations:
+    name: Migraciones desde cero
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: verify
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: taskmaster
+          POSTGRES_PASSWORD: taskmaster
+          POSTGRES_DB: taskmaster
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taskmaster"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://taskmaster:taskmaster@localhost:5432/taskmaster?schema=public
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Aplicar migraciones
+        run: pnpm --filter @taskmaster/api prisma:deploy
+
+      - name: Verificar que no hay drift
+        # Si alguien edita schema.prisma sin generar la migración, el deploy
+        # deja columnas sin usar. Este paso es el que lo detecta.
+        run: |
+          pnpm --filter @taskmaster/api exec prisma migrate diff \
+            --from-url "$DATABASE_URL" \
+            --to-schema-datamodel prisma/schema.prisma \
+            --exit-code
+
+  # ---------------------------------------------------------------------
+  # Las imágenes que se van a desplegar tienen que construirse.
+  # ---------------------------------------------------------------------
+  docker:
+    name: Build de imágenes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: verify
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: taskmaster
+          POSTGRES_PASSWORD: taskmaster
+          POSTGRES_DB: taskmaster
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taskmaster"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Construir API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/api.Dockerfile
+          push: false
+          load: true
+          tags: taskmaster-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Construir web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/web.Dockerfile
+          push: false
+          load: true
+          tags: taskmaster-web:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Arranca el compose de producción sin Caddy ni el dominio real: verifica
+      # que las migraciones corren dentro del entrypoint y que la API levanta y
+      # queda healthy con una imagen recién construida.
+      - name: Levantar la app con la imagen recién construida
+        run: |
+          docker compose -f docker-compose.prod.yml up -d --no-deps redis
+          docker run -d --name api-smoke --network taskmaster_taskmaster \
+            -e DATABASE_URL="postgresql://taskmaster:taskmaster@host.docker.internal:5432/taskmaster?schema=public" \
+            -e API_ORIGINS="https://app.taskmaster.app" \
+            -e WEB_URL="https://app.taskmaster.app" \
+            -e JWT_ACCESS_SECRET="ciSmokeTest9xQw2mZ" \
+            taskmaster-api:ci
+
+      - name: Esperar el healthcheck
+        run: |
+          for i in $(seq 1 40); do
+            if docker exec api-smoke node -e "
+              require('http').get('http://127.0.0.1:4000/api/health', r => process.exit(r.statusCode === 200 ? 0 : 1))
+                .on('error', () => process.exit(1));
+            " 2>/dev/null; then
+              echo "API healthy"
+              docker logs api-smoke --tail 40
+              docker rm -f api-smoke
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::La API no respondió healthy"
+          docker logs api-smoke --tail 80
+          docker rm -f api-smoke
+          exit 1

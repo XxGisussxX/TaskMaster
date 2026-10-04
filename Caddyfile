@@ -1,0 +1,105 @@
+# Caddy: TLS automático y reverse proxy.
+#
+# Rutas:
+#   /api/*      -> api:4000
+#   /socket.io/*-> api:4000 (WebSocket del gateway)
+#   /*          -> web:80 (SPA estática)
+#
+# Todo en el mismo dominio a propósito. La cookie del refresh token es
+# SameSite=Strict y Secure: si la API viviera en otro origen, el navegador
+# igual la mandaría, pero dividir los orígenes multiplica la superficie de CORS
+# sin ganar nada.
+
+{
+	# Correo para los avisos de Let's Encrypt. Vacío = sin avisos.
+	email {$ACME_EMAIL}
+
+	# Storage en memoria con backup a disco: sobrevive al restart del contenedor.
+	# Sin esto, cada reinicio vuelve a pedir el certificado y los navegadores
+	# ven un error de intermediates.
+	storage file_system {
+		root /data/caddy/storage
+	}
+
+	admin off
+}
+
+# ---- HTTP: solo para el redirect y el desafío de ACME -----------------------
+# No sirve el sitio en claro: todo lo real pasa por HTTPS.
+:80 {
+	# Let's Encrypt tiene que poder consultar /.well-known/acme-challenge/ sin
+	# completar el desafío. Por eso el redirect excluye esa ruta.
+	@acme path /.well-known/acme-challenge/*
+	redir @acme https://{host}{uri} permanent
+
+	redir https://{host}{uri} permanent
+}
+
+# ---- HTTPS -----------------------------------------------------------------
+{$CADDY_DOMAIN} {
+	encode zstd gzip
+
+	# -----------------------------------------------------------------------
+	# API
+	# -----------------------------------------------------------------------
+	@api path /api /api/* /socket.io /socket.io/*
+	reverse_proxy @api api:4000 {
+		# Caddy no hace buffering de WebSockets: el gateway de Socket.io
+		# necesita streaming bidireccional, y un buffer los deja colgados.
+		# No hace falta configurarlo: Caddy detecta el upgrade automáticamente.
+
+		# Caddy corre en otra red y el cliente es el visitante: hay que
+		# reconstruir la IP real, o el throttler de la API ve siempre la de Caddy
+		# y rate-limita a todos juntos. Caddy ya manda X-Forwarded-For; con el
+		# TRUST_PROXY=1 de la API se usa exactamente ese valor.
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+
+		# Errores de la API (5xx) no se muestran al visitante: Caddy sirve una
+		# página genérica y el detalle queda solo en el log del contenedor.
+		handle_errors {
+			@api-error expression {err.status_code} >= 500
+			handle @api-error {
+				rewrite * /api/internal-error
+				respond "Error interno del servidor" 500
+			}
+			respond "{err.status_code} {err.status_text}" {err.status_code}
+		}
+	}
+
+	# -----------------------------------------------------------------------
+	# Cabeceras de seguridad
+	# -----------------------------------------------------------------------
+	# Helmet ya pone las suyas en la API; estas son para el HTML y los assets
+	# que sirve nginx.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+		# El bundle se construye con Vite: no necesita 'unsafe-eval' en
+		# producción. Sin él, un XSS inyectado podría ejecutar código arbitrario.
+		# 'strict-dynamic' permite los scripts que Vite carga por modules.
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'strict-dynamic'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://res.cloudinary.com; font-src 'self' data:; connect-src 'self' wss://{$CADDY_DOMAIN} https://{$CADDY_DOMAIN}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+		# Deja de exponer la versión del server.
+		-Server
+	}
+
+	# -----------------------------------------------------------------------
+	# Web estática
+	# -----------------------------------------------------------------------
+	reverse_proxy web:80
+
+	# Rutas cuyo path contiene un token de un solo uso. El access log escribe el
+	# path completo, así que /invite/abc123 dejaría el token de invitación en los
+	# logs, donde sobrevive al click y a la redirección. No es un request
+	# anómalo: se lo pierde, y de paso no se guarda nada útil.
+	@secret path /invite/* /verify-email* /reset-password*
+	log_skip @secret
+
+	log {
+		output stdout
+		format json
+		level INFO
+	}
+}

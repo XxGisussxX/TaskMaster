@@ -1,0 +1,153 @@
+# TaskMaster en producción.
+#
+# Perfil: solo app. Postgres NO está en este archivo a propósito: en producción
+# la base es un servicio gestionado (Neon, Supabase, RDS) con backups, PITR y
+# réplicas, que es justamente lo que no querés administrar vos con un contenedor.
+#
+# Lo que sí corre acá: la app y Redis. Redis sí es descartable, y sus datos
+# (contadores de rate limit, locks, cuotas) son regenerables.
+#
+# Uso:
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml logs -f api
+#   docker compose -f docker-compose.prod.yml down
+#
+# Las variables sensibles vienen de un .env en la raíz (ver .env.example). No las
+# pongas acá: este archivo se versiona.
+
+name: taskmaster
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: taskmaster-caddy
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    environment:
+      # El email para los avisos de expiración del certificado de Let's Encrypt.
+      ACME_EMAIL: ${ACME_EMAIL:-}
+      # taskmaster.app mientras se espera el DNS; sirve para pedir el cert de
+      # prueba y confirmar que el puerto 80 responde.
+      CADDY_DOMAIN: ${CADDY_DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_started
+    networks:
+      - taskmaster
+    # Los puertos 80/443 son TCP. Declararlo hace que Compose mapee el rango
+    # correcto si se cambia a 443/udp para HTTP/3.
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    container_name: taskmaster-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      API_PORT: 4000
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL es obligatoria}
+      # Un Postgres gestionado detrás de un pooler (PgBouncer, Supabase) rechaza
+      # conexiones preparadas en modo transaction: Prisma necesita_pooling=true
+      # para usar pools de conexiones.
+      DIRECT_URL: ${DIRECT_URL:-}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: "0"
+      REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX:-taskmaster}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET es obligatoria}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-30d}
+      # Obligatoria y sin "*" en producción: la API no arranca si no está.
+      API_ORIGINS: ${API_ORIGINS:?API_ORIGINS es obligatoria en producción}
+      # 1 porque hay exactamente un proxy (Caddy) adelante. El valor decide qué
+      # entrada de X-Forwarded-For ve el throttler: con el número incorrecto, el
+      # visitante elige el IP con el que se lo rate-limita.
+      TRUST_PROXY: "1"
+      WEB_URL: ${WEB_URL:?WEB_URL es obligatoria}
+      LOGIN_MAX_FAILURES: ${LOGIN_MAX_FAILURES:-5}
+      LOGIN_FAIL_WINDOW_SECONDS: ${LOGIN_FAIL_WINDOW_SECONDS:-900}
+      LOGIN_LOCK_SECONDS: ${LOGIN_LOCK_SECONDS:-900}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.6-flash}
+      GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-text-embedding-004}
+      GEMINI_DAILY_LIMIT: ${GEMINI_DAILY_LIMIT:-15}
+      # Observabilidad (Fase 4). Vacío = desactivado.
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - taskmaster
+    logging: *logging
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    container_name: taskmaster-web
+    restart: unless-stopped
+    networks:
+      - taskmaster
+    logging: *logging
+
+  redis:
+    image: redis:7-alpine
+    container_name: taskmaster-redis
+    restart: unless-stopped
+    # --save "" desactiva la persistencia a disco (appendonly off por defecto).
+    # Los contadores de rate limit y las cuotas se regeneran solos; persistirlos
+    # en un VPS suma I/O sin beneficio y crea la illusion de que el cache es
+    # una fuente de verdad.
+    command:
+      - redis-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+      - --maxmemory
+      - ${REDIS_MAXMEMORY:-256mb}
+      - --maxmemory-policy
+      - allkeys-lru
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    # Sin `ports`: Redis queda en la red interna de Compose. Publicarlo en
+    # 0.0.0.0 sin password es una puerta abierta a que cualquiera lea los
+    # contadores y los llene.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - taskmaster
+    logging: *logging
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  taskmaster:
+    driver: bridge

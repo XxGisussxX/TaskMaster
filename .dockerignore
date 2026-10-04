@@ -1,0 +1,59 @@
+# Dependencias y builds: se rehacen dentro de la imagen. Copiarlas desde el host
+# rompe el build (binarios nativos y symlinks de pnpm no son portables) y además
+# manda al contexto de build lo que no debe.
+node_modules
+**/node_modules
+dist
+**/dist
+build
+**/build
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# Prisma: el schema y las migraciones SÍ se necesitan (el entrypoint corre
+# `migrate deploy`), pero la base local no.
+apps/api/prisma/*.db
+apps/api/prisma/dev.db
+
+# Secretos. La imagen se construye en el host y en CI: un .env en el contexto
+# terminaría en una capa de la imagen, visible con `docker history`.
+.env
+.env.*
+!.env.example
+
+# VCS y tooling
+.git
+.gitignore
+.github
+.husky
+.claude
+.vscode
+.idea
+
+# Ruido del repo
+screen.png
+dev-web.log
+*.log
+logs
+coverage
+**/coverage
+test-results
+playwright-report
+.turbo
+.cache
+
+# Documentación y editor
+*.md
+!README.md
+.DS_Store
+Thumbs.db
+
+# Los Dockerfiles no hacen falta dentro de la imagen, pero sí los archivos que
+# se COPYean desde acá (el entrypoint y la config de nginx). Por eso se excluye
+# la carpeta y se re-incluyen esos dos.
+docker
+docker/*.Dockerfile
+!docker/api-entrypoint.sh
+!docker/nginx.conf
+docker-compose*.yml
+Caddyfile
