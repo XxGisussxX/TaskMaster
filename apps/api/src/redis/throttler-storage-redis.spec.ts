@@ -23,6 +23,8 @@ interface FakeRedis {
   calls: CommandArgs[];
   /** Body del script registrado, para inspeccionarlo desde el test. */
   registered: { numberOfKeys?: number | null; lua?: string } | undefined;
+  /** Veces que se llamó a `defineCommand`. */
+  defineCalls: number;
 }
 
 /**
@@ -42,9 +44,11 @@ function fakeRedis(respond: (args: CommandArgs) => unknown): FakeRedis {
 
   const calls: CommandArgs[] = [];
   let registered: FakeRedis["registered"];
+  let defineCalls = 0;
 
   const client = {
     defineCommand(name: string, definition: FakeRedis["registered"]) {
+      defineCalls += 1;
       registered = definition;
       (this as unknown as Record<string, unknown>)[name] = (
         ...args: CommandArgs
@@ -63,13 +67,14 @@ function fakeRedis(respond: (args: CommandArgs) => unknown): FakeRedis {
     get registered() {
       return registered;
     },
+    get defineCalls() {
+      return defineCalls;
+    },
   };
 }
 
 function build(fake: FakeRedis): ThrottlerStorageRedis {
-  const storage = new ThrottlerStorageRedis(fake.service);
-  storage.onModuleInit();
-  return storage;
+  return new ThrottlerStorageRedis(fake.service);
 }
 
 describe("ThrottlerStorageRedis", () => {
@@ -83,14 +88,15 @@ describe("ThrottlerStorageRedis", () => {
   });
 
   describe("registro del script", () => {
-    it("lo registra una sola vez con 2 keys", () => {
+    it("lo registra una sola vez con 2 keys", async () => {
       const fake = fakeRedis(() => [1, 60, 0, 0]);
       const storage = new ThrottlerStorageRedis(fake.service);
 
-      storage.onModuleInit();
-      storage.onModuleInit();
-      storage.onModuleInit();
+      await storage.increment("k", 60_000, 120, 60_000, "default");
+      await storage.increment("k", 60_000, 120, 60_000, "default");
+      await storage.increment("k", 60_000, 120, 60_000, "default");
 
+      expect(fake.defineCalls).toBe(1);
       expect(fake.registered?.numberOfKeys).toBe(2);
       // El nombre del comando tiene que ser el que el storage invoca: si uno de
       // los dos cambia, la llamada falla en runtime con "not a function".

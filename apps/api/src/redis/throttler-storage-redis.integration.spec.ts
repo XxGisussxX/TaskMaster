@@ -56,9 +56,7 @@ function buildService(): RedisService {
 async function buildStorage(
   service: RedisService,
 ): Promise<ThrottlerStorageRedis> {
-  const storage = new ThrottlerStorageRedis(service);
-  storage.onModuleInit();
-  return storage;
+  return new ThrottlerStorageRedis(service);
 }
 
 let counter = 0;

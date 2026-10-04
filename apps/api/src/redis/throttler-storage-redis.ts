@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  type OnApplicationShutdown,
-  type OnModuleInit,
-} from "@nestjs/common";
+import { Injectable, type OnApplicationShutdown } from "@nestjs/common";
 import {
   ThrottlerStorageService,
   type ThrottlerStorage,
@@ -152,7 +148,7 @@ function toNumber(value: unknown): number {
 
 @Injectable()
 export class ThrottlerStorageRedis
-  implements ThrottlerStorage, OnModuleInit, OnApplicationShutdown
+  implements ThrottlerStorage, OnApplicationShutdown
 {
   /**
    * Contador en memoria con la misma semántica que el script, para cuando Redis
@@ -181,10 +177,16 @@ export class ThrottlerStorageRedis
 
   constructor(private readonly redis: RedisService) {}
 
-  onModuleInit(): void {
-    // `defineCommand` muta la instancia del cliente compartido, así que se
-    // registra una sola vez. Con `lazyConnect` el cliente existe desde el
-    // constructor, no hace falta esperar al PING.
+  /**
+   * Registra el script en el cliente compartido la primera vez que se usa.
+   *
+   * No puede hacerse en `onModuleInit`: este storage se instancia desde
+   * `ThrottlerModule.forRootAsync` y Nest ejecuta los hooks en orden de módulos,
+   * así que corría antes que `RedisService.onModuleInit`; esperar `whenReady()`
+   * ahí colgaba el arranque y el event loop se vaciaba sin error. En `increment`
+   * el cliente ya existe: la app no atiende requests hasta terminar el arranque.
+   */
+  private ensureCommand(): void {
     if (this.commandRegistered) return;
     this.redis.client.defineCommand(COMMAND, {
       numberOfKeys: 2,
@@ -209,6 +211,7 @@ export class ThrottlerStorageRedis
 
     return this.redis.withFallback(
       async () => {
+        this.ensureCommand();
         const client = this.redis.client as RedisWithRateLimit;
         const raw = await client[COMMAND](
           hitsKey,

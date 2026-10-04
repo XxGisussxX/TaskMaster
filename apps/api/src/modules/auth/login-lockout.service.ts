@@ -1,81 +1,181 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { Cron } from "@nestjs/schedule";
 import { createHash } from "node:crypto";
-
-interface Bucket {
-  failures: number;
-  firstFailureAt: number;
-  lockedUntil: number;
-}
+import { RedisService } from "../../redis/redis.service";
+import { lockoutCountKey, lockoutBlockKey } from "../../redis/redis-keys";
 
 export interface LockoutStatus {
   locked: boolean;
   retryAfterSeconds: number;
 }
 
+interface LockoutData {
+  failures: number;
+  firstFailureAt: number;
+  lockedUntil: number;
+}
+
 /**
- * Bloqueo temporal por intentos fallidos de login.
+ * Bloqueo temporal por intentos fallidos de login (backed by Redis).
  *
  * Complementa al rate limit: el throttler frena por IP/email en una ventana
  * corta, esto frena la cuenta cuando los intentos vienen de muchas IPs
  * (credential stuffing distribuido), que es justo lo que el throttler no ve.
  *
- * Deliberadamente en memoria: el estado es de un solo proceso y se pierde al
- * reiniciar, que es el trade-off aceptable (un restart no debe abrir la puerta).
- * La Fas2 mueve el storage del throttler a Redis; este contador migra con él si
- * hace falta. Con una sola réplica (docker-compose de la Fas3) no hay divergencia.
+ * Usa Redis con fallback en memoria (vía RedisService.withFallback) para que
+ * el estado se comparta entre réplicas. Si Redis cae, degrada a contador
+ * en memoria por proceso (comportamiento previo).
  */
 @Injectable()
 export class LoginLockoutService {
   private readonly logger = new Logger(LoginLockoutService.name);
-  private readonly buckets = new Map<string, Bucket>();
 
   private readonly maxFailures: number;
   private readonly windowMs: number;
   private readonly lockMs: number;
+  private readonly windowSeconds: number;
+  private readonly lockSeconds: number;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly redis: RedisService,
+  ) {
     this.maxFailures = this.config.get<number>("LOGIN_MAX_FAILURES") ?? 5;
-    this.windowMs =
-      (this.config.get<number>("LOGIN_FAIL_WINDOW_SECONDS") ?? 15 * 60) * 1000;
-    this.lockMs =
-      (this.config.get<number>("LOGIN_LOCK_SECONDS") ?? 15 * 60) * 1000;
+    this.windowSeconds =
+      this.config.get<number>("LOGIN_FAIL_WINDOW_SECONDS") ?? 15 * 60;
+    this.lockSeconds = this.config.get<number>("LOGIN_LOCK_SECONDS") ?? 15 * 60;
+    this.windowMs = this.windowSeconds * 1000;
+    this.lockMs = this.lockSeconds * 1000;
   }
 
   /** Clave por cuenta, hasheada: el email no debe quedar en memoria ni en logs. */
-  private key(email: string): string {
+  private emailHash(email: string): string {
     return createHash("sha256")
       .update(email.trim().toLowerCase())
       .digest("hex");
   }
 
-  check(email: string): LockoutStatus {
-    const bucket = this.buckets.get(this.key(email));
-    if (!bucket) return { locked: false, retryAfterSeconds: 0 };
-
-    if (bucket.lockedUntil > Date.now()) {
-      return {
-        locked: true,
-        retryAfterSeconds: Math.ceil((bucket.lockedUntil - Date.now()) / 1000),
-      };
-    }
-
-    // La ventana de conteo expiró y no hay bloqueo: el próximo fallo reinicia.
-    if (Date.now() - bucket.firstFailureAt > this.windowMs) {
-      this.buckets.delete(this.key(email));
-    }
-
-    return { locked: false, retryAfterSeconds: 0 };
+  private countKey(email: string): string {
+    return lockoutCountKey(this.redis.keyPrefix, this.emailHash(email));
   }
 
-  recordFailure(email: string): void {
-    const k = this.key(email);
+  private blockKey(email: string): string {
+    return lockoutBlockKey(this.redis.keyPrefix, this.emailHash(email));
+  }
+
+  async check(email: string): Promise<LockoutStatus> {
+    const countKey = this.countKey(email);
+    const blockKey = this.blockKey(email);
+
+    return this.redis.withFallback(
+      async () => {
+        const client = this.redis.client;
+
+        const [blocked, count] = await Promise.all([
+          client.get(blockKey),
+          client.get(countKey),
+        ]);
+
+        if (blocked) {
+          const ttl = await client.ttl(blockKey);
+          return {
+            locked: true,
+            retryAfterSeconds: Math.max(1, ttl),
+          };
+        }
+
+        if (count) {
+          const failures = parseInt(count, 10);
+          if (failures >= this.maxFailures) {
+            return {
+              locked: true,
+              retryAfterSeconds: this.lockSeconds,
+            };
+          }
+        }
+
+        return { locked: false, retryAfterSeconds: 0 };
+      },
+      () => ({ locked: false, retryAfterSeconds: 0 }),
+      "login-lockout:check",
+    );
+  }
+
+  async recordFailure(email: string): Promise<void> {
+    const countKey = this.countKey(email);
+    const blockKey = this.blockKey(email);
+
+    await this.redis.withFallback(
+      async () => {
+        const client = this.redis.client;
+
+        const existing = await client.get(countKey);
+
+        if (!existing) {
+          await client.set(countKey, "1", "EX", this.windowSeconds);
+          return;
+        }
+
+        const failures = parseInt(existing, 10) + 1;
+
+        if (failures >= this.maxFailures) {
+          await client.set(
+            blockKey,
+            failures.toString(),
+            "EX",
+            this.lockSeconds,
+          );
+          await client.del(countKey);
+          this.logger.warn(
+            `Cuenta bloqueada ${this.lockSeconds}s por intentos fallidos (hash=${this.emailHash(email).slice(0, 12)})`,
+          );
+        } else {
+          await client.set(
+            countKey,
+            failures.toString(),
+            "EX",
+            this.windowSeconds,
+          );
+        }
+      },
+      async () => {
+        await this.recordFailureFallback(email);
+      },
+      "login-lockout:recordFailure",
+    );
+  }
+
+  /** Login exitoso: limpia el contador para no castigar al usuario real. */
+  async recordSuccess(email: string): Promise<void> {
+    const countKey = this.countKey(email);
+    const blockKey = this.blockKey(email);
+
+    await this.redis.withFallback(
+      async () => {
+        const client = this.redis.client;
+        await Promise.all([client.del(countKey), client.del(blockKey)]);
+      },
+      async () => {
+        await this.recordSuccessFallback(email);
+      },
+      "login-lockout:recordSuccess",
+    );
+  }
+
+  // Fallback en memoria (cuando Redis no disponible)
+  private readonly fallbackBuckets = new Map<string, LockoutData>();
+
+  private async recordFailureFallback(email: string): Promise<void> {
+    const k = this.emailHash(email);
+    const existing = this.fallbackBuckets.get(k);
     const now = Date.now();
-    const existing = this.buckets.get(k);
 
     if (!existing || now - existing.firstFailureAt > this.windowMs) {
-      this.buckets.set(k, { failures: 1, firstFailureAt: now, lockedUntil: 0 });
+      this.fallbackBuckets.set(k, {
+        failures: 1,
+        firstFailureAt: now,
+        lockedUntil: 0,
+      });
       return;
     }
 
@@ -84,35 +184,12 @@ export class LoginLockoutService {
     if (existing.failures >= this.maxFailures) {
       existing.lockedUntil = now + this.lockMs;
       this.logger.warn(
-        `Cuenta bloqueada ${this.lockMs / 1000}s por intentos fallidos (hash=${k.slice(0, 12)})`,
+        `Cuenta bloqueada ${this.lockMs / 1000}s por intentos fallidos (hash=${k.slice(0, 12)}) [fallback memoria]`,
       );
     }
   }
 
-  /** Login exitoso: limpia el contador para no castigar al usuario real. */
-  recordSuccess(email: string): void {
-    this.buckets.delete(this.key(email));
-  }
-
-  /** Purga periódica para que el Map no crezca sin límite. */
-  @Cron("0 */10 * * * *")
-  purgeExpired(): void {
-    const removed = this.prune();
-    if (removed > 0) {
-      this.logger.debug(`Lockout: ${removed} buckets expirados purgados`);
-    }
-  }
-
-  /** Purga buckets expirados. Devuelve cuántos eliminó. */
-  prune(): number {
-    const now = Date.now();
-    let removed = 0;
-    for (const [k, bucket] of this.buckets) {
-      if (bucket.lockedUntil <= now && now - bucket.firstFailureAt > this.windowMs) {
-        this.buckets.delete(k);
-        removed += 1;
-      }
-    }
-    return removed;
+  private async recordSuccessFallback(email: string): Promise<void> {
+    this.fallbackBuckets.delete(this.emailHash(email));
   }
 }
