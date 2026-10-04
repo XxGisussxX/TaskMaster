@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Task, TaskStatus, CustomFieldValue } from "@taskmaster/contracts";
+import { resolveDropStatus } from "../lib/boardDrop";
 import {
   DndContext,
   DragOverlay,
@@ -198,10 +199,10 @@ export function BoardView({
     if (!over) return;
 
     const taskId = active.id as string;
-    const newStatus = over.id as TaskStatus;
+    const newStatus = resolveDropStatus(over.id as string, tasks);
 
     const task = tasks.find((t) => t.id === taskId);
-    if (task && task.status !== newStatus) {
+    if (task && newStatus && task.status !== newStatus) {
       onStatusChange(taskId, newStatus);
     }
   }

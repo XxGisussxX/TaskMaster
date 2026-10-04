@@ -17,6 +17,46 @@ export default defineConfig({
         target: "http://localhost:4000",
         changeOrigin: true,
       },
+      "/socket.io": {
+        target: "http://localhost:4000",
+        changeOrigin: true,
+        ws: true,
+      },
+    },
+  },
+  build: {
+    cssCodeSplit: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: [
+            "react",
+            "react-dom",
+            "react-router-dom",
+            "@tanstack/react-query",
+          ],
+          editor: [
+            "@tiptap/react",
+            "@tiptap/starter-kit",
+            "@tiptap/extension-link",
+            "@tiptap/extension-placeholder",
+            "@tiptap/extension-task-item",
+            "@tiptap/extension-task-list",
+          ],
+          dnd: ["@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"],
+          charts: ["frappe-gantt"],
+          forms: ["react-hook-form", "@hookform/resolvers", "zod"],
+          socket: ["socket.io-client"],
+          zustand: ["zustand"],
+          utils: [
+            "clsx",
+            "tailwind-merge",
+            "class-variance-authority",
+            "lucide-react",
+            "sonner",
+          ],
+        },
+      },
     },
   },
 });

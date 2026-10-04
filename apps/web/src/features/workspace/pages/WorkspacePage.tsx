@@ -22,6 +22,7 @@ import { useWorkspaces } from "../hooks/useWorkspaces";
 import { useCurrentMembership, useMembers } from "../hooks/useMembers";
 import { useDashboardStats } from "@/features/dashboard/hooks/useDashboard";
 import { computeTeamLoad } from "@/features/dashboard/lib/dashboardStats";
+import { KpiCard } from "@/features/dashboard/components/KpiCard";
 import { MemberInviteDialog } from "../components/MemberInviteDialog";
 import { MembersTable } from "../components/MembersTable";
 import { InvitesTab } from "../components/InvitesTab";
@@ -107,9 +108,9 @@ export function WorkspacePage() {
       />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <TeamStatCard
+        <KpiCard
           label="Miembros del equipo"
-          value={isLoading ? "—" : members.length}
+          value={isLoading ? "—" : members.length.toLocaleString("es")}
           icon={Users}
           accent="primary"
           hint={
@@ -118,21 +119,21 @@ export function WorkspacePage() {
               : `${managers} con permisos de gestión`
           }
         />
-        <TeamStatCard
+        <KpiCard
           label="Activos ahora"
           value="—"
           icon={Radio}
           accent="success"
           hint="Presencia requiere sockets de presencia (pendiente)"
         />
-        <TeamStatCard
+        <KpiCard
           label="Carga operativa"
           value={team.totalOpen.toLocaleString("es")}
           icon={ListTodo}
           accent="warning"
           hint={`${team.totalOpen} abiertas · ${team.unassignedOpen} sin asignar`}
         />
-        <TeamStatCard
+        <KpiCard
           label="Canales de proyecto"
           value="—"
           icon={FolderKanban}
@@ -231,41 +232,5 @@ function WorkspaceTabs({
         </button>
       ))}
     </div>
-  );
-}
-
-function TeamStatCard({
-  label,
-  value,
-  hint,
-  icon: Icon,
-  accent,
-}: {
-  label: string;
-  value: number | string;
-  hint?: string;
-  icon: typeof Users;
-  accent: "primary" | "success" | "warning" | "secondary";
-}) {
-  const accentClasses = {
-    primary: "bg-primary/10 text-primary",
-    success: "bg-success/10 text-success",
-    warning: "bg-warning/20 text-warning-foreground",
-    secondary: "bg-secondary/60 text-secondary-foreground",
-  } as const;
-
-  return (
-    <Card className="p-4">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">{label}</p>
-        <span className={cn("rounded-md p-1.5", accentClasses[accent])}>
-          <Icon className="h-4 w-4" />
-        </span>
-      </div>
-      <p className="mt-2 text-3xl font-bold tabular-nums">
-        {typeof value === "number" ? value.toLocaleString("es") : value}
-      </p>
-      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
-    </Card>
   );
 }

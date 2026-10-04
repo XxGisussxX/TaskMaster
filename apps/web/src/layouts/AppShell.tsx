@@ -21,7 +21,7 @@ export function AppShell() {
   useSocket();
   const setSidebarOpen = useUiStore((s) => s.setSidebarOpen);
   const { currentWorkspaceId, setCurrentWorkspaceId } = useWorkspaceStore();
-  const { data: workspaces } = useWorkspaces();
+  const { data: workspaces, isSuccess: workspacesLoaded } = useWorkspaces();
   const location = useLocation();
   const recordRecent = useRecentStore((s) => s.record);
 
@@ -41,12 +41,16 @@ export function AppShell() {
   }, [setSidebarOpen]);
 
   useEffect(() => {
-    if (!workspaces || workspaces.length === 0) return;
-    const realIds = new Set(workspaces.map((w) => w.id));
-    if (!currentWorkspaceId || !realIds.has(currentWorkspaceId)) {
-      setCurrentWorkspaceId(workspaces[0]!.id);
-    }
-  }, [currentWorkspaceId, workspaces, setCurrentWorkspaceId]);
+    // Se espera a que la lista haya resuelto, no a que exista: si el usuario ya
+    // no pertenece al workspace guardado (fue borrado, o la base se reseedeó),
+    // la lista llega vacía y hay que soltar el id igual. Sin esto el id muerto
+    // sobrevive en localStorage y cada query del workspace responde 404 para
+    // siempre.
+    if (!workspacesLoaded) return;
+    const realIds = new Set((workspaces ?? []).map((w) => w.id));
+    if (currentWorkspaceId && realIds.has(currentWorkspaceId)) return;
+    setCurrentWorkspaceId(workspaces?.[0]?.id ?? null);
+  }, [currentWorkspaceId, workspaces, workspacesLoaded, setCurrentWorkspaceId]);
 
   return (
     <div className="flex h-full">

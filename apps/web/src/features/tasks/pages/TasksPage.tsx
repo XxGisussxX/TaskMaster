@@ -125,13 +125,9 @@ export function TasksPage() {
   };
 
   const handleStatusChange = (taskId: string, newStatus: TaskStatus) => {
-    updateTask.mutate({
-      id: taskId,
-      input: {
-        status: newStatus,
-        completedAt: newStatus === "DONE" ? new Date().toISOString() : null,
-      },
-    });
+    // `completedAt` no se manda: el contrato no lo acepta y el servicio lo
+    // deriva de `status` (cerrada al pasar a DONE, limpia al salir de ahí).
+    updateTask.mutate({ id: taskId, input: { status: newStatus } });
   };
 
   const openCreate = () => {

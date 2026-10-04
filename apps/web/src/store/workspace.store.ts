@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 
 interface WorkspaceState {
   currentWorkspaceId: string | null;
-  setCurrentWorkspaceId: (id: string) => void;
+  setCurrentWorkspaceId: (id: string | null) => void;
   clearCurrentWorkspaceId: () => void;
 }
 

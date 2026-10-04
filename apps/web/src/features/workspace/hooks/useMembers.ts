@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { workspacesApi } from "../api/workspace.api";
 import { showInviteDevToast } from "../components/InviteLinkToastContent";
 import { useCurrentWorkspaceId } from "@/features/tasks/hooks/useTasks";
+import { isLocalWorkspace } from "@/features/tasks/lib/localTasks";
 import { useAuthStore } from "@/store/auth.store";
 
 export function useMembers() {
@@ -11,7 +12,7 @@ export function useMembers() {
   return useQuery({
     queryKey: ["members", workspaceId],
     queryFn: () => workspacesApi.members(workspaceId!),
-    enabled: !!workspaceId,
+    enabled: !!workspaceId && !isLocalWorkspace(workspaceId),
   });
 }
 
@@ -75,7 +76,7 @@ export function usePendingInvites() {
   return useQuery({
     queryKey: ["pending-invites", workspaceId],
     queryFn: () => workspacesApi.invites(workspaceId!),
-    enabled: !!workspaceId,
+    enabled: !!workspaceId && !isLocalWorkspace(workspaceId),
   });
 }
 

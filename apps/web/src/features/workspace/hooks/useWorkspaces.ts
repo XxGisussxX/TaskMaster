@@ -8,10 +8,14 @@ import { useAuthStore } from "@/store/auth.store";
 
 export function useWorkspaces() {
   const user = useAuthStore((s) => s.user);
-  const accessToken = useAuthStore((s) => s.accessToken);
   return useQuery({
     queryKey: ["workspaces"],
-    enabled: !!user && !!accessToken,
+    // La habilitación se apoya en la sesión, no en el access token: este puede
+    // estar vacío porque venció y `http` lo renueva solo contra la cookie. Si
+    // esta query esperara al token, quedaría deshabilitada justo cuando más hace
+    // falta (tras un refresh) y nadie podría corregir un `currentWorkspaceId`
+    // que ya no existe en el servidor.
+    enabled: !!user,
     queryFn: async () => {
       try {
         return await workspacesApi.list();
