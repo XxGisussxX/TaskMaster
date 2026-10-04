@@ -32,6 +32,7 @@ import { TaskDependenciesModule } from "./modules/task-dependencies/task-depende
 import { TimeEntriesModule } from "./modules/time-entries/time-entries.module";
 import { CustomFieldsModule } from "./modules/custom-fields/custom-fields.module";
 import { AiModule } from "./modules/ai/ai.module";
+import { AgendaModule } from "./modules/agenda/agenda.module";
 import { WebSocketModule } from "./modules/websocket/websocket.module";
 import { TenantModule } from "./tenant/tenant.module";
 
@@ -109,6 +110,7 @@ import { TenantModule } from "./tenant/tenant.module";
     TimeEntriesModule,
     CustomFieldsModule,
     AiModule,
+    AgendaModule,
     WebSocketModule,
     TenantModule,
   ],

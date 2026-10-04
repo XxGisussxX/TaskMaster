@@ -86,11 +86,16 @@ export function useSocket() {
     const onTaskChange = () => {
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      // El diagnóstico de agenda se calcula sobre las tareas, así que si alguien
+      // las mueve hay que recalcularlo o quedaría mostrando choques que ya no
+      // existen.
+      void queryClient.invalidateQueries({ queryKey: ["agenda-review"] });
     };
 
     const onTaskStatusChange = () => {
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["agenda-review"] });
     };
 
     socket.on("task:created", onTaskChange);

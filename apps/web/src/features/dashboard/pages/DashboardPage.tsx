@@ -225,14 +225,7 @@ export function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="overflow-hidden">
-            <CardHeader>
-              <CardTitle className="text-base">Agenda</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <AgendaOptimizationCard />
-            </CardContent>
-          </Card>
+          <AgendaOptimizationCard />
 
           <Card className="overflow-hidden">
             <CardHeader>

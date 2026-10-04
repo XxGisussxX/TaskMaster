@@ -4,6 +4,7 @@ export * from "./schemas/workspace.schema";
 export * from "./schemas/admin.schema";
 export * from "./schemas/ai.schema";
 export * from "./schemas/task.schema";
+export * from "./schemas/agenda.schema";
 export * from "./schemas/task-dependency.schema";
 export * from "./schemas/task-template.schema";
 export * from "./schemas/time-entry.schema";
