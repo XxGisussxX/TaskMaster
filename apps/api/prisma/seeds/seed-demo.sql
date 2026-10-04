@@ -32,7 +32,8 @@ VALUES (
   (SELECT "id" FROM "Workspace" WHERE "slug" = 'espacio-demo'),
   (SELECT "id" FROM "User" WHERE "email" = 'demo@taskmaster.local'),
   'ADMIN'
-);
+)
+ON CONFLICT ("workspaceId","userId") DO UPDATE SET "role" = EXCLUDED."role";
 
 -- 2) Tareas (10 principales + 3 subtareas); fechas relativas a NOW(): +4h/+9h/+18h caen en la ventana DUE_SOON (24h).
 INSERT INTO "Task" ("id","workspaceId","creatorId","title","description","status","priority","dueDate","order","parentId","categoryId","completedAt","updatedAt") VALUES

@@ -1,4 +1,5 @@
 import {
+  CustomFieldType,
   NoteType,
   Priority,
   StickyColor,
@@ -7,6 +8,12 @@ import {
 } from "@taskmaster/contracts";
 import { randomBytes, scryptSync } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
+
+if (process.env.NODE_ENV && process.env.NODE_ENV === "production") {
+  throw new Error(
+    "🚫 ERROR CRÍTICO: Ejecutar seed en producción está estrictamente prohibido.",
+  );
+}
 
 const prisma = new PrismaClient();
 
@@ -24,27 +31,108 @@ function daysFromNow(days: number): Date {
 
 async function main(): Promise<void> {
   const email = "demo@taskmaster.app";
+  const localEmail = "demo@taskmaster.local";
+  const viewerEmail = "viewer@taskmaster.app";
   const workspaceSlug = "espacio-demo";
+  const seedEmails = [email, localEmail, viewerEmail];
 
   await prisma.workspace.deleteMany({ where: { slug: workspaceSlug } });
-  await prisma.user.deleteMany({ where: { email } });
 
-  const user = await prisma.user.create({
-    data: {
+  // Los usuarios semilla pueden tener datos de corridas anteriores (tareas y
+  // workspaces propios). Esos datos sí se borran, para que el seed sea
+  // idempotente; los usuarios no, porque arrastran las sesiones del navegador.
+  const previous = await prisma.user.findMany({
+    where: { email: { in: seedEmails } },
+    select: { id: true },
+  });
+  const previousIds = previous.map((u) => u.id);
+  if (previousIds.length > 0) {
+    await prisma.task.deleteMany({ where: { creatorId: { in: previousIds } } });
+    await prisma.note.deleteMany({ where: { authorId: { in: previousIds } } });
+    await prisma.workspace.deleteMany({
+      where: { ownerId: { in: previousIds } },
+    });
+  }
+
+  // Los usuarios semilla se actualizan en lugar de borrarse. `RefreshToken`
+  // cuelga de `User` con `onDelete: Cascade`, así que un `deleteMany` acá
+  // eliminaba de paso todas las filas de refresh de las cuentas demo: la cookie
+  // `tm_refresh` del navegador quedaba apuntando a un token inexistente, el
+  // store seguía con `user` en localStorage, y cada arranque terminaba en un
+  // refresh 401. Borrar los datos de abajo alcanza para que el seed sea
+  // idempotente sin tocar la sesión de nadie.
+  const user = await prisma.user.upsert({
+    where: { email },
+    create: {
+      id: "user_demo_app",
       email,
       name: "Usuario Demo",
       passwordHash: hashPassword("password123"),
       isEmailVerified: true,
       settings: { create: { theme: "system" } },
     },
+    update: {
+      name: "Usuario Demo",
+      passwordHash: hashPassword("password123"),
+      isEmailVerified: true,
+      settings: { upsert: { create: { theme: "system" }, update: {} } },
+    },
   });
+
+  // Usuarios extra que el seed SQL usa para asignaciones, comentarios y
+  // colaboradores de notas. Sin ellos las subconsultas por email darían NULL.
+  // Ids fijos: el seed es determinístico, así el workspace y los usuarios
+  // conservan su identidad entre corridas y la sesión del navegador no expira.
+  const [teamMember, viewer] = await Promise.all([
+    prisma.user.upsert({
+      where: { email: localEmail },
+      create: {
+        id: "user_demo_local",
+        email: localEmail,
+        name: "Demo Local",
+        passwordHash: hashPassword("password123"),
+        isEmailVerified: true,
+        settings: { create: { theme: "system" } },
+      },
+      update: {
+        name: "Demo Local",
+        passwordHash: hashPassword("password123"),
+        isEmailVerified: true,
+        settings: { upsert: { create: { theme: "system" }, update: {} } },
+      },
+    }),
+    prisma.user.upsert({
+      where: { email: viewerEmail },
+      create: {
+        id: "user_viewer",
+        email: viewerEmail,
+        name: "Viewer Demo",
+        passwordHash: hashPassword("password123"),
+        isEmailVerified: true,
+        settings: { create: { theme: "system" } },
+      },
+      update: {
+        name: "Viewer Demo",
+        passwordHash: hashPassword("password123"),
+        isEmailVerified: true,
+        settings: { upsert: { create: { theme: "system" }, update: {} } },
+      },
+    }),
+  ]);
 
   const workspace = await prisma.workspace.create({
     data: {
+      id: "workspace_demo",
       name: "Espacio Demo",
       slug: workspaceSlug,
       ownerId: user.id,
-      members: { create: { userId: user.id, role: WorkspaceRole.OWNER } },
+      members: {
+        create: [
+          { userId: user.id, role: WorkspaceRole.OWNER },
+          { userId: teamMember.id, role: WorkspaceRole.ADMIN },
+          { userId: viewer.id, role: WorkspaceRole.VIEWER },
+        ],
+      },
     },
   });
 
@@ -84,6 +172,31 @@ async function main(): Promise<void> {
     desarrollo: desarrollo.id,
     diseno: diseno.id,
     administracion: administracion.id,
+  });
+
+  // Definiciones de custom fields que el seed SQL rellena con valores.
+  await prisma.customFieldDefinition.createMany({
+    data: [
+      {
+        workspaceId,
+        name: "Prioridad venta",
+        type: CustomFieldType.SELECT,
+        options: ["Alta", "Media", "Baja"],
+        order: 0,
+      },
+      {
+        workspaceId,
+        name: "Es recurrente",
+        type: CustomFieldType.CHECKBOX,
+        order: 1,
+      },
+      {
+        workspaceId,
+        name: "Presupuesto",
+        type: CustomFieldType.NUMBER,
+        order: 2,
+      },
+    ],
   });
 
   const tasks: any[] = [];
@@ -298,10 +411,6 @@ async function main(): Promise<void> {
       },
     }),
   ]);
-
-  console.log(
-    `Seed completado. Login: demo@taskmaster.app / password123 (workspace: ${workspaceId})`,
-  );
 }
 
 main()
