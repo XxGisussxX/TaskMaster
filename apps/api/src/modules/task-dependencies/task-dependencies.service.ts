@@ -28,7 +28,7 @@ export class TaskDependenciesService {
     const { fromTaskId, toTaskId } = input;
 
     if (fromTaskId === toTaskId) {
-      throw new BadRequestException("Una tarea no puede depender de sÃ­ misma");
+      throw new BadRequestException("Una tarea no puede depender de sí misma");
     }
 
     const [fromTask, toTask] = await Promise.all([
@@ -58,7 +58,7 @@ export class TaskDependenciesService {
     const hasCycle = await this.detectCycle(workspaceId, fromTaskId, toTaskId);
     if (hasCycle) {
       throw new BadRequestException(
-        "Esta dependencia crearÃ­a un ciclo en el grafo de dependencias",
+        "Esta dependencia crearía un ciclo en el grafo de dependencias",
       );
     }
 

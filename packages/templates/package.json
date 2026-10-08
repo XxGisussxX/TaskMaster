@@ -13,7 +13,7 @@
     }
   },
   "scripts": {
-    "build": "node -e \"fs.rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
+    "build": "node -e \"fs.rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json && vitest run export-consistency.spec.ts",
     "check:dist": "vitest run export-consistency.spec.ts",
     "lint": "eslint \"src/**/*.ts\" \"src/**/*.tsx\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",

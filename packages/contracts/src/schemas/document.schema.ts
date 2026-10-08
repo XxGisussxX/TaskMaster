@@ -1,12 +1,6 @@
 import { z } from "zod";
 
-export const documentTemplateTypeSchema = z.enum([
-  "minimal",
-  "corporate",
-  "creative",
-  "editorial",
-  "dark",
-]);
+export const documentTemplateTypeSchema = z.enum(["minimal", "corporate"]);
 
 export const fontSizeSchema = z.enum(["sm", "md", "lg"]);
 export const marginSchema = z.enum(["narrow", "normal", "wide"]);

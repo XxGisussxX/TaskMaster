@@ -10,9 +10,6 @@ import type {
 const templateMap: Record<DocumentTemplateType, any> = {
   minimal: MinimalTemplate,
   corporate: CorporateTemplate,
-  creative: MinimalTemplate,
-  editorial: MinimalTemplate,
-  dark: MinimalTemplate,
 };
 
 @Injectable()

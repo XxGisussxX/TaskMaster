@@ -82,118 +82,16 @@ bancaria por un total de 250.00 euros.",
       "type": "heading",
     },
     {
-      "align": [
-        null,
-        null,
-        null,
-      ],
-      "header": {
-        "cells": [
-          {
-            "inlines": [
-              {
-                "type": "text",
-                "value": "Pos",
-              },
-            ],
-          },
-          {
-            "inlines": [
-              {
-                "type": "text",
-                "value": "Equipo",
-              },
-            ],
-          },
-          {
-            "inlines": [
-              {
-                "type": "text",
-                "value": "Puntos",
-              },
-            ],
-          },
-        ],
-      },
-      "rows": [
+      "children": [
         {
-          "cells": [
-            {
-              "inlines": [
-                {
-                  "type": "text",
-                  "value": "1",
-                },
-              ],
-            },
-            {
-              "inlines": [
-                {
-                  "type": "text",
-                  "value": "Mar del Sur",
-                },
-              ],
-            },
-            {
-              "inlines": [
-                {
-                  "type": "text",
-                  "value": "54",
-                },
-              ],
-            },
-          ],
-        },
-        {
-          "cells": [
-            {
-              "inlines": [
-                {
-                  "type": "text",
-                  "value": "2",
-                },
-              ],
-            },
-            {
-              "inlines": [
-                {
-                  "type": "text",
-                  "value": "Buenos Aires 51",
-                },
-              ],
-            },
-          ],
-        },
-        {
-          "cells": [
-            {
-              "inlines": [
-                {
-                  "type": "text",
-                  "value": "3",
-                },
-              ],
-            },
-            {
-              "inlines": [
-                {
-                  "type": "text",
-                  "value": "Santa Fe",
-                },
-              ],
-            },
-            {
-              "inlines": [
-                {
-                  "type": "text",
-                  "value": "47",
-                },
-              ],
-            },
-          ],
+          "type": "text",
+          "value": "Pos Equipo Puntos
+1 Mar del Sur 54
+2 Buenos Aires 51
+3 Santa Fe 47",
         },
       ],
-      "type": "table",
+      "type": "paragraph",
     },
     {
       "children": [

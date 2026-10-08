@@ -2,13 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { DocumentTemplateType } from "@taskmaster/contracts";
 import { DocumentsService } from "./documents.service";
 
-const templates: DocumentTemplateType[] = [
-  "minimal",
-  "corporate",
-  "creative",
-  "editorial",
-  "dark",
-];
+const templates: DocumentTemplateType[] = ["minimal", "corporate"];
 
 const service = new DocumentsService();
 

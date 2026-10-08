@@ -219,7 +219,7 @@ export class CommentsService {
         userId: recipientId,
         workspaceId,
         type: NotificationType.MENTION,
-        title: `${sender?.name ?? "Alguien"} te mencionÃ³ en un comentario`,
+        title: `${sender?.name ?? "Alguien"} te mencionó en un comentario`,
         body: body.length > 100 ? `${body.slice(0, 100)}...` : body,
         data: { taskId, commentTaskTitle: task?.title ?? "" },
       });

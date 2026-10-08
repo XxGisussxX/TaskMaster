@@ -20,7 +20,9 @@ import type {
  * - `\d+.` or `\d.)` → ordered list item (number kept).
  * - `- [ ]` / `- [x]` → task item.
  * - Lines with `|` pipes, tabs or 2+ spaces → table. An optional separator
- *   row (`---` / `:---:` / `---:`) sets column alignment.
+ *   row (`---` / `:---:` / `---:`) sets column alignment. A block of 3+
+ *   lines with an identical whitespace column count also becomes a table
+ *   (see `tryAlignedTable`).
  * - ``` fences → code block (language kept); `> ` → blockquote;
  *   `---` / `***` / `___` on their own line → thematic break.
  *
@@ -292,6 +294,17 @@ interface ParsedTable {
   consumed: number;
 }
 
+/** Lines that belong to another block type than a space-aligned table. */
+function isStructureLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (trimmed.length === 0) return false;
+  if (/^\s*[-*+•]\s+/.test(line)) return false;
+  if (ORDERED_RE.test(trimmed)) return false;
+  if (trimmed.startsWith(">")) return false;
+  if (FENCE_RE.test(trimmed) || THEMATIC_RE.test(trimmed)) return false;
+  return true;
+}
+
 function tryTable(lines: string[], start: number): ParsedTable | null {
   const chunk: string[] = [];
   let i = start;
@@ -302,7 +315,7 @@ function tryTable(lines: string[], start: number): ParsedTable | null {
     chunk.push(line);
     i += 1;
   }
-  if (chunk.length === 0) return null;
+  if (chunk.length === 0) return tryAlignedTable(lines, start);
 
   const parsed = chunk.map(splitCells);
   const maxColumns = Math.max(...parsed.map((cells) => cells.length), 1);
@@ -323,6 +336,33 @@ function tryTable(lines: string[], start: number): ParsedTable | null {
     header: parsed[0] ?? [],
     rows: parsed.slice(headerIndex + 1),
     consumed: chunk.length,
+  };
+}
+
+/**
+ * Plain-text tables pasted with single spaces between columns (no pipes,
+ * no tabs, no double-space alignment). Detection requires a blank-line
+ * delimited block of at least 3 consecutive non-structural lines that all
+ * split into the SAME number of whitespace-separated columns (>= 2).
+ * Assumption: real prose wrapped at ~70 chars almost never lands on 3+
+ * consecutive lines with an identical word count, so that is the signal.
+ */
+function tryAlignedTable(lines: string[], start: number): ParsedTable | null {
+  let end = start;
+  while (end < lines.length && isStructureLine(at(lines, end))) end += 1;
+  const block = lines.slice(start, end);
+  if (block.length < 3) return null;
+
+  const cells = block.map((line) => line.trim().split(/\s+/));
+  const columns = (cells[0] ?? []).length;
+  if (columns < 2) return null;
+  if (!cells.every((row) => row.length === columns)) return null;
+
+  return {
+    align: Array<TableAlignment | null>(columns).fill(null),
+    header: cells[0] ?? [],
+    rows: cells.slice(1),
+    consumed: block.length,
   };
 }
 
