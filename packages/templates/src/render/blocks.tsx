@@ -17,6 +17,8 @@ export interface BlockContext {
   layout: TemplateLayout;
   /** Nivel de anidamiento de listas (para el glifo de viñeta). */
   depth: number;
+  /** Dentro de una cita destacada (texto grande en cursiva). */
+  quoteLarge?: boolean;
 }
 
 /** Espacio mínimo bajo un titular para no dejarlo huérfano al final de página. */
@@ -64,8 +66,9 @@ function BlockNode({
 
   switch (block.type) {
     case "heading": {
-      const style =
-        block.level === 1
+      const style = ctx.layout.singleHeadingLevel
+        ? styles.singleHeading
+        : block.level === 1
           ? styles.h1
           : block.level === 2
             ? styles.h2
@@ -79,21 +82,39 @@ function BlockNode({
           minPresenceAhead={HEADING_MIN_PRESENCE[block.level]}
           hyphenationCallback={breakLongWords}
         >
+          {block.number ? (
+            <Text style={styles.headingNumber}>{block.number} </Text>
+          ) : null}
           <Inlines nodes={block.children} styles={styles} />
         </Text>
       );
     }
-    case "paragraph":
+    case "paragraph": {
+      const base =
+        ctx.quoteLarge === true ? styles.quoteLargeText : styles.paragraph;
+      const paragraphStyle = tail ? [base, TAIL_ZERO] : base;
+      const dropCap = block.dropCap === true && styles.dropCap !== undefined;
+      const split = dropCap
+        ? splitDropCap(block.children)
+        : { cap: "", rest: block.children };
       return (
         <Text
-          style={tail ? [styles.paragraph, TAIL_ZERO] : styles.paragraph}
+          style={paragraphStyle}
           orphans={2}
           widows={2}
           hyphenationCallback={breakLongWords}
         >
-          <Inlines nodes={block.children} styles={styles} />
+          {split.cap ? (
+            <>
+              <Text style={styles.dropCap}>{split.cap}</Text>
+              <Inlines nodes={split.rest} styles={styles} />
+            </>
+          ) : (
+            <Inlines nodes={block.children} styles={styles} />
+          )}
         </Text>
       );
+    }
     case "list":
       return <ListBlock block={block} ctx={ctx} tail={tail} />;
     case "table":
@@ -110,12 +131,16 @@ function BlockNode({
           </Text>
         </View>
       );
-    case "blockquote":
+    case "blockquote": {
+      const large = ctx.layout.quoteLarge;
+      const container = large ? styles.quoteLarge : styles.quote;
+      const childCtx = large ? { ...ctx, quoteLarge: true } : ctx;
       return (
-        <View style={tail ? [styles.quote, TAIL_ZERO] : styles.quote}>
-          <Blocks blocks={block.children} ctx={ctx} contained />
+        <View style={tail ? [container, TAIL_ZERO] : container}>
+          <Blocks blocks={block.children} ctx={childCtx} contained />
         </View>
       );
+    }
     case "thematicBreak":
       return (
         <View style={tail ? [styles.separator, TAIL_ZERO] : styles.separator} />
@@ -279,4 +304,28 @@ function inlineValue(node: Inline): string {
     default:
       return node.children.map(inlineValue).join("");
   }
+}
+
+/**
+ * Separa la primera letra (capitular) del primer nodo de texto. Si el primer
+ * carácter no tiene glifo soportado o no hay texto, no se aplica capitular.
+ */
+function splitDropCap(children: Inline[]): { cap: string; rest: Inline[] } {
+  const first = children[0];
+  if (first?.type !== "text" || first.value.length === 0) {
+    return { cap: "", rest: children };
+  }
+  const characters = [...first.value];
+  const cap = characters[0] ?? "";
+  if (stripUnsupportedText(cap).length === 0) {
+    return { cap: "", rest: children };
+  }
+  const remainder = characters.slice(1).join("");
+  const rest = [...children];
+  if (remainder.length > 0) {
+    rest[0] = { type: "text", value: remainder };
+  } else {
+    rest.shift();
+  }
+  return { cap, rest };
 }

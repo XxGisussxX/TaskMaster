@@ -75,24 +75,24 @@ describe("createTemplateStyles", () => {
     });
 
     it("respeta el acento por defecto de cada plantilla", () => {
-      expect(MINIMAL_TEMPLATE.defaultAccent).toBe("#111827");
-      expect(CORPORATE_TEMPLATE.defaultAccent).toBe(DEFAULT_ACCENT_COLOR);
+      expect(MINIMAL_TEMPLATE.theme.accent).toBe("#111827");
+      expect(CORPORATE_TEMPLATE.theme.accent).toBe(DEFAULT_ACCENT_COLOR);
       expect(
         createTemplateStyles(
-          createDocumentTheme({ accentColor: MINIMAL_TEMPLATE.defaultAccent }),
+          createDocumentTheme({ accentColor: MINIMAL_TEMPLATE.theme.accent }),
           MINIMAL_TEMPLATE.layout,
-        ).h2.color,
+        ).codeBlock.borderLeftColor,
       ).toBe("#111827");
     });
   });
 
   describe("diferencias de layout entre plantillas", () => {
     const minimal = createTemplateStyles(
-      createDocumentTheme({ accentColor: MINIMAL_TEMPLATE.defaultAccent }),
+      createDocumentTheme({ accentColor: MINIMAL_TEMPLATE.theme.accent }),
       MINIMAL_TEMPLATE.layout,
     );
     const corporate = createTemplateStyles(
-      createDocumentTheme({ accentColor: CORPORATE_TEMPLATE.defaultAccent }),
+      createDocumentTheme({ accentColor: CORPORATE_TEMPLATE.theme.accent }),
       CORPORATE_TEMPLATE.layout,
     );
 

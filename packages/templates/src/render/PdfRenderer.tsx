@@ -1,17 +1,23 @@
 import { Document, Page, Text, View } from "@react-pdf/renderer";
 import { registerDocumentFonts, resetDocumentFontGlyphCaches } from "../fonts";
-import type { DocumentModel } from "../markdown";
+import type { Block, DocumentMetadata } from "../markdown";
 import type { DocumentTheme } from "../theme/tokens";
 import { Blocks } from "./blocks";
-import type { TemplateDefinition } from "./config";
+import type { PdfTemplate } from "./config";
+import { DocumentCover } from "./cover";
+import { DocumentLetter } from "./letter";
+import type { TocEntry } from "./prepare";
 import type { TemplateStyles } from "./styles";
 import { createTemplateStyles } from "./styles";
+import { DocumentToc } from "./toc";
 
 export interface PdfRendererProps {
-  model: DocumentModel;
+  template: PdfTemplate;
   theme: DocumentTheme;
-  definition: TemplateDefinition;
+  blocks: Block[];
+  toc: TocEntry[];
   documentTitle: string;
+  metadata?: DocumentMetadata;
   /** true cuando el título viene de prop explícita (se muestra también en la página 1). */
   showTitleOnFirstPage: boolean;
   dateLabel: string;
@@ -28,26 +34,48 @@ function monogramOf(title: string): string {
  * ocurre síncronamente en el cuerpo.
  */
 export function PdfRenderer({
-  model,
+  template,
   theme,
-  definition,
+  blocks,
+  toc,
   documentTitle,
+  metadata,
   showTitleOnFirstPage,
   dateLabel,
 }: PdfRendererProps) {
   registerDocumentFonts();
   resetDocumentFontGlyphCaches();
-  const styles: TemplateStyles = createTemplateStyles(theme, definition.layout);
-  const headerVariant = definition.layout.header;
+  const { layout } = template;
+  const styles: TemplateStyles = createTemplateStyles(theme, layout);
+  const headerVariant = layout.header;
+  const hasCover = layout.cover;
 
   return (
     <Document title={documentTitle}>
+      {hasCover && (
+        <Page size="A4" style={styles.page}>
+          <DocumentCover
+            title={documentTitle}
+            subtitle={metadata?.subtitle}
+            author={metadata?.author}
+            dateLabel={dateLabel}
+            kicker={template.label}
+            styles={styles}
+          />
+        </Page>
+      )}
+      {layout.toc && toc.length > 0 && (
+        <Page size="A4" style={styles.page}>
+          <DocumentToc entries={toc} styles={styles} />
+        </Page>
+      )}
       <Page size="A4" style={styles.page}>
         {headerVariant !== null && (
           <View
             fixed
             render={({ pageNumber }) =>
-              pageNumber > 1 || showTitleOnFirstPage ? (
+              pageNumber >= layout.headerFromPage ||
+              (!hasCover && showTitleOnFirstPage && pageNumber === 1) ? (
                 <View style={styles.header}>
                   <View style={styles.logo}>
                     <Text style={styles.logoText}>
@@ -60,19 +88,29 @@ export function PdfRenderer({
             }
           />
         )}
-        <Blocks
-          blocks={model.blocks}
-          ctx={{ theme, styles, layout: definition.layout, depth: 0 }}
-        />
-        <View fixed style={styles.footer}>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `P\u00e1gina ${pageNumber} de ${totalPages}`
-            }
+        {layout.letterBlock && (
+          <DocumentLetter
+            metadata={metadata}
+            dateLabel={dateLabel}
+            styles={styles}
           />
-          <Text style={styles.footerText}>{dateLabel}</Text>
-        </View>
+        )}
+        <Blocks blocks={blocks} ctx={{ theme, styles, layout, depth: 0 }} />
+        {layout.footer !== null && (
+          <View fixed style={styles.footer}>
+            <Text
+              style={styles.footerText}
+              render={({ pageNumber, totalPages }) =>
+                layout.footer === "page"
+                  ? `P\u00e1gina ${pageNumber}`
+                  : `P\u00e1gina ${pageNumber} de ${totalPages}`
+              }
+            />
+            {layout.footer === "page-date" && (
+              <Text style={styles.footerText}>{dateLabel}</Text>
+            )}
+          </View>
+        )}
       </Page>
     </Document>
   );
