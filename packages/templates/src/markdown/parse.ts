@@ -20,6 +20,7 @@ import type {
   TableAlignment,
 } from "./model";
 import { detectMarkdown, parsePlainText } from "./normalize";
+import { hasMetadata, parseFrontMatter } from "./frontmatter";
 import { slugify } from "./model";
 
 /**
@@ -28,17 +29,23 @@ import { slugify } from "./model";
  * per-column alignment, fenced code blocks (with language), blockquotes and
  * thematic breaks. Soft line breaks inside a paragraph are kept as text
  * `"\n"` nodes so the renderer decides how to wrap them.
+ *
+ * An optional front-matter block at the top (see `./frontmatter`) is stripped
+ * before parsing and attached as `model.metadata`.
  */
 export function parseMarkdown(
   source: string,
   mode: MarkdownMode = "markdown",
 ): DocumentModel {
-  const resolved = resolveMode(source, mode);
+  const { data, body } = parseFrontMatter(source);
+  const metadata = hasMetadata(data) ? data : undefined;
+  const resolved = resolveMode(body, mode);
   if (resolved === "plain") {
-    return parsePlainText(source);
+    const model = parsePlainText(body);
+    return metadata ? { ...model, metadata } : model;
   }
 
-  const root = unified().use(remarkParse).use(remarkGfm).parse(source);
+  const root = unified().use(remarkParse).use(remarkGfm).parse(body);
 
   const definitions = collectDefinitions(root);
   const blocks = root.children
@@ -46,7 +53,11 @@ export function parseMarkdown(
     .map((child) => blockFromMdast(child as BlockContent, definitions))
     .filter((block): block is Block => block !== null);
 
-  return { title: titleFromBlocks(blocks), blocks };
+  return {
+    title: titleFromBlocks(blocks),
+    ...(metadata ? { metadata } : {}),
+    blocks,
+  };
 }
 
 function resolveMode(source: string, mode: MarkdownMode): "markdown" | "plain" {

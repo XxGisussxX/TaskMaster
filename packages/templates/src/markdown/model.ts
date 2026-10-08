@@ -30,8 +30,20 @@ export interface ListItem {
 }
 
 export type Block =
-  | { type: "heading"; level: 1 | 2 | 3 | 4; children: Inline[]; id?: string }
-  | { type: "paragraph"; children: Inline[] }
+  | {
+      type: "heading";
+      level: 1 | 2 | 3 | 4;
+      children: Inline[];
+      id?: string;
+      /** Numeración de sección precalculada por el renderer (p. ej. "1.2"). */
+      number?: string;
+    }
+  | {
+      type: "paragraph";
+      children: Inline[];
+      /** Marcado por el renderer para la capitular del primer párrafo. */
+      dropCap?: boolean;
+    }
   | {
       type: "list";
       ordered: boolean;
@@ -53,6 +65,8 @@ export type Block =
 export interface DocumentModel {
   /** Derived from the source text; used for anchors / TOC / file naming. */
   title?: string;
+  /** Front-matter opcional (Fase 4): solo se incluye cuando hay algún campo. */
+  metadata?: import("./frontmatter").DocumentMetadata;
   blocks: Block[];
 }
 
