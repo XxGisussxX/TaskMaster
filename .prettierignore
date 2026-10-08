@@ -3,3 +3,9 @@
 # lo que rompe los tests de heurísticas del parser de documentos.
 **/__fixtures__/**
 **/__snapshots__/**
+
+# Datos generados (fuentes base64 y cobertura cmap): solo scripts/generate-fonts.mjs.
+**/src/fonts/*.data.ts
+**/src/text/supported.data.ts
+# Licencias de fuentes: texto legal, sin reformatear.
+**/fonts/LICENSE*
