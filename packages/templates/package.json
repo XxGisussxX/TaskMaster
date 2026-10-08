@@ -21,10 +21,14 @@
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.0",
-    "react": "^19.0.0"
+    "react": "^19.0.0",
+    "remark-gfm": "^4.0.0",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.0"
   },
   "devDependencies": {
     "@taskmaster/config": "workspace:*",
+    "@types/mdast": "^4.0.4",
     "@types/react": "^19.0.6",
     "eslint": "^9.17.0",
     "typescript": "^5.7.2",

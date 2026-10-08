@@ -1,0 +1,607 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`parsePlainText heuristics > parses fixtures deterministically > carta 1`] = `
+{
+  "blocks": [
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Querida Maria,",
+        },
+      ],
+      "type": "paragraph",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Espero que este mensaje te encuentre bien.",
+        },
+      ],
+      "type": "paragraph",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Te escribo para confirmar que la cuota del club de lectura
+del mes de octubre ya fue abonada.",
+        },
+      ],
+      "type": "paragraph",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "El pago se realizo el dia 5 de octubre por transferencia
+bancaria por un total de 250.00 euros.",
+        },
+      ],
+      "type": "paragraph",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "El resumen de la temporada quedo asi:",
+        },
+      ],
+      "type": "paragraph",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "RESULTADOS DE LA TEMPORADA",
+        },
+      ],
+      "level": 1,
+      "type": "heading",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Inscripcion y requisitos
+- Cerrada el pasado viernes.
+- Cupo maximo de 20 participantes.",
+        },
+      ],
+      "type": "paragraph",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Clasificacion final",
+        },
+      ],
+      "level": 2,
+      "type": "heading",
+    },
+    {
+      "align": [
+        null,
+        null,
+        null,
+      ],
+      "header": {
+        "cells": [
+          {
+            "inlines": [
+              {
+                "type": "text",
+                "value": "Pos",
+              },
+            ],
+          },
+          {
+            "inlines": [
+              {
+                "type": "text",
+                "value": "Equipo",
+              },
+            ],
+          },
+          {
+            "inlines": [
+              {
+                "type": "text",
+                "value": "Puntos",
+              },
+            ],
+          },
+        ],
+      },
+      "rows": [
+        {
+          "cells": [
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "1",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "Mar del Sur",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "54",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          "cells": [
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "2",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "Buenos Aires 51",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          "cells": [
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "3",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "Santa Fe",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "47",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      "type": "table",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Atentamente,",
+        },
+      ],
+      "type": "paragraph",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Juan Perez",
+        },
+      ],
+      "type": "paragraph",
+    },
+  ],
+  "title": undefined,
+}
+`;
+
+exports[`parsePlainText heuristics > parses fixtures deterministically > edge-tildes-listas 1`] = `
+{
+  "blocks": [
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Coordinación General",
+        },
+      ],
+      "type": "paragraph",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Informe con tildes y caracteres especiales: ñ, á, é, í, ó, ú, «comillas», ¿preguntas? ¡exclamaciones! y
+guiones, punto y coma; junto a apóstrofos correctos.",
+        },
+      ],
+      "type": "paragraph",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "LISTA DE CHEQUEO",
+        },
+      ],
+      "level": 1,
+      "type": "heading",
+    },
+    {
+      "items": [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Nivel 1",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Nivel 2",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Nivel 3",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+      ],
+      "ordered": false,
+      "start": 1,
+      "tight": true,
+      "type": "list",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Párrafo final con número 1234,50 € y sin cierre extra.",
+        },
+      ],
+      "type": "paragraph",
+    },
+  ],
+  "title": undefined,
+}
+`;
+
+exports[`parsePlainText heuristics > parses fixtures deterministically > edge-vacio 1`] = `
+{
+  "blocks": [],
+  "title": undefined,
+}
+`;
+
+exports[`parsePlainText heuristics > parses fixtures deterministically > resultados-temporada 1`] = `
+{
+  "blocks": [
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "RESULTADOS DE LA TEMPORADA",
+        },
+      ],
+      "level": 1,
+      "type": "heading",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "La siguiente tabla resume el desempeno de los equipos durante la temporada 2026:",
+        },
+      ],
+      "type": "paragraph",
+    },
+    {
+      "align": [
+        null,
+        null,
+        null,
+      ],
+      "header": {
+        "cells": [
+          {
+            "inlines": [
+              {
+                "type": "text",
+                "value": "Equipo",
+              },
+            ],
+          },
+          {
+            "inlines": [
+              {
+                "type": "text",
+                "value": "Puntos",
+              },
+            ],
+          },
+          {
+            "inlines": [
+              {
+                "type": "text",
+                "value": "Goles",
+              },
+            ],
+          },
+        ],
+      },
+      "rows": [
+        {
+          "cells": [
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "Atletico",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "42",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "55",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          "cells": [
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "Racing",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "38",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "48",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          "cells": [
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "Juventud",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "35",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "40",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      "type": "table",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Detalle de la fase final",
+        },
+      ],
+      "level": 2,
+      "type": "heading",
+    },
+    {
+      "items": [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "El torneo se definio en la ultima fecha.",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Racing gano el desempate por diferencia de gol.",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+      ],
+      "ordered": false,
+      "start": 1,
+      "tight": true,
+      "type": "list",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Marcadores de la fecha 20",
+        },
+      ],
+      "level": 2,
+      "type": "heading",
+    },
+    {
+      "items": [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Atletico 2-1 Racing",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Juventud 3-0 Dep. Norte",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Deportivo 1-1 Sarmiento",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+      ],
+      "ordered": true,
+      "start": 1,
+      "tight": true,
+      "type": "list",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Observaciones generales",
+        },
+      ],
+      "level": 2,
+      "type": "heading",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Se agradece la participacion de todos los clubes.",
+        },
+      ],
+      "type": "paragraph",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "RESUMEN DE PRENSA",
+        },
+      ],
+      "level": 1,
+      "type": "heading",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "El diario deportivo destaco la definicion en la ultima fecha.",
+        },
+      ],
+      "type": "paragraph",
+    },
+  ],
+  "title": "RESULTADOS DE LA TEMPORADA",
+}
+`;

@@ -1,0 +1,1534 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`parseMarkdown (mode: markdown) > parses edge-emoji deterministically 1`] = `
+{
+  "blocks": [
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "🏆 Informe anual 🏆",
+        },
+      ],
+      "id": "informe-anual",
+      "level": 1,
+      "type": "heading",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "🚀 Resultados",
+        },
+      ],
+      "id": "resultados",
+      "level": 2,
+      "type": "heading",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Un ✨ resplandor de logros marcó el cierre, con un balance de 1.000.000 🎉.",
+        },
+      ],
+      "type": "paragraph",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Listado",
+        },
+      ],
+      "id": "listado",
+      "level": 2,
+      "type": "heading",
+    },
+    {
+      "items": [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "📦 Paquete enviado",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+        {
+          "checked": true,
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "✅ Verificado",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+        {
+          "checked": false,
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "⏳ Pendiente de revisión",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+      ],
+      "ordered": false,
+      "start": 1,
+      "tight": true,
+      "type": "list",
+    },
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "🗣️ La audiencia respondió muy bien.",
+            },
+          ],
+          "type": "paragraph",
+        },
+      ],
+      "type": "blockquote",
+    },
+    {
+      "type": "thematicBreak",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Fin 🏁.",
+        },
+      ],
+      "type": "paragraph",
+    },
+  ],
+  "title": "🏆 Informe anual 🏆",
+}
+`;
+
+exports[`parseMarkdown (mode: markdown) > parses edge-nested-table deterministically 1`] = `
+{
+  "blocks": [
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Matriz de riesgos",
+        },
+      ],
+      "id": "matriz-de-riesgos",
+      "level": 1,
+      "type": "heading",
+    },
+    {
+      "align": [
+        null,
+        "center",
+        "center",
+        "center",
+        "center",
+      ],
+      "header": {
+        "cells": [
+          {
+            "inlines": [
+              {
+                "type": "text",
+                "value": "Sector",
+              },
+            ],
+          },
+          {
+            "inlines": [
+              {
+                "type": "text",
+                "value": "Ene",
+              },
+            ],
+          },
+          {
+            "inlines": [
+              {
+                "type": "text",
+                "value": "Feb",
+              },
+            ],
+          },
+          {
+            "inlines": [
+              {
+                "type": "text",
+                "value": "Mar",
+              },
+            ],
+          },
+          {
+            "inlines": [
+              {
+                "type": "text",
+                "value": "Abr",
+              },
+            ],
+          },
+        ],
+      },
+      "rows": [
+        {
+          "cells": [
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "Energía",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "3",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "5",
+                },
+              ],
+            },
+            {
+              "inlines": [],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "2",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          "cells": [
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "Logística",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "1",
+                },
+              ],
+            },
+            {
+              "inlines": [],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "4",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "3",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          "cells": [
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "Finanzas",
+                },
+              ],
+            },
+            {
+              "inlines": [],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "2",
+                },
+              ],
+            },
+            {
+              "inlines": [],
+            },
+            {
+              "inlines": [],
+            },
+          ],
+        },
+      ],
+      "type": "table",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Texto suelto tras la tabla con celdas vacías.",
+        },
+      ],
+      "type": "paragraph",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Sublista profunda:",
+        },
+      ],
+      "type": "paragraph",
+    },
+    {
+      "items": [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Raíz",
+                },
+              ],
+              "type": "paragraph",
+            },
+            {
+              "items": [
+                {
+                  "children": [
+                    {
+                      "children": [
+                        {
+                          "type": "text",
+                          "value": "Rama 1",
+                        },
+                      ],
+                      "type": "paragraph",
+                    },
+                    {
+                      "items": [
+                        {
+                          "children": [
+                            {
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "value": "Hoja 1",
+                                },
+                              ],
+                              "type": "paragraph",
+                            },
+                          ],
+                        },
+                        {
+                          "children": [
+                            {
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "value": "Hoja 2",
+                                },
+                              ],
+                              "type": "paragraph",
+                            },
+                          ],
+                        },
+                      ],
+                      "ordered": false,
+                      "start": 1,
+                      "tight": true,
+                      "type": "list",
+                    },
+                  ],
+                },
+                {
+                  "children": [
+                    {
+                      "children": [
+                        {
+                          "type": "text",
+                          "value": "Rama 2",
+                        },
+                      ],
+                      "type": "paragraph",
+                    },
+                    {
+                      "items": [
+                        {
+                          "children": [
+                            {
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "value": "Hoja 3",
+                                },
+                              ],
+                              "type": "paragraph",
+                            },
+                          ],
+                        },
+                      ],
+                      "ordered": false,
+                      "start": 1,
+                      "tight": true,
+                      "type": "list",
+                    },
+                  ],
+                },
+              ],
+              "ordered": false,
+              "start": 1,
+              "tight": false,
+              "type": "list",
+            },
+          ],
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Raíz 2",
+                },
+              ],
+              "type": "paragraph",
+            },
+            {
+              "items": [
+                {
+                  "children": [
+                    {
+                      "children": [
+                        {
+                          "type": "text",
+                          "value": "Rama 3",
+                        },
+                      ],
+                      "type": "paragraph",
+                    },
+                    {
+                      "items": [
+                        {
+                          "children": [
+                            {
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "value": "Hoja 4",
+                                },
+                              ],
+                              "type": "paragraph",
+                            },
+                            {
+                              "items": [
+                                {
+                                  "children": [
+                                    {
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "value": "Hoja 4.1",
+                                        },
+                                      ],
+                                      "type": "paragraph",
+                                    },
+                                  ],
+                                },
+                              ],
+                              "ordered": false,
+                              "start": 1,
+                              "tight": true,
+                              "type": "list",
+                            },
+                          ],
+                        },
+                        {
+                          "children": [
+                            {
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "value": "Hoja 5",
+                                },
+                              ],
+                              "type": "paragraph",
+                            },
+                          ],
+                        },
+                      ],
+                      "ordered": false,
+                      "start": 1,
+                      "tight": false,
+                      "type": "list",
+                    },
+                  ],
+                },
+              ],
+              "ordered": false,
+              "start": 1,
+              "tight": false,
+              "type": "list",
+            },
+          ],
+        },
+      ],
+      "ordered": false,
+      "start": 1,
+      "tight": false,
+      "type": "list",
+    },
+  ],
+  "title": "Matriz de riesgos",
+}
+`;
+
+exports[`parseMarkdown (mode: markdown) > parses informe-ventas deterministically 1`] = `
+{
+  "blocks": [
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Informe de ventas",
+        },
+      ],
+      "id": "informe-de-ventas",
+      "level": 1,
+      "type": "heading",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Resumen ejecutivo",
+        },
+      ],
+      "id": "resumen-ejecutivo",
+      "level": 2,
+      "type": "heading",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Las ventas del trimestre crecieron un ",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "12%",
+            },
+          ],
+          "type": "bold",
+        },
+        {
+          "type": "text",
+          "value": " frente al periodo anterior, con
+picos en ",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "agosto",
+            },
+          ],
+          "type": "italic",
+        },
+        {
+          "type": "text",
+          "value": " gracias a la campaña ",
+        },
+        {
+          "type": "code",
+          "value": "rebaja-verano",
+        },
+        {
+          "type": "text",
+          "value": ". La hipótesis publicada
+en el ",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "informe técnico",
+            },
+          ],
+          "title": undefined,
+          "type": "link",
+          "url": "https://example.com/informes/tecnico-2026",
+        },
+        {
+          "type": "text",
+          "value": " se mantiene:
+el canal online concentra el 64% del total.",
+        },
+      ],
+      "type": "paragraph",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Desglose por canal",
+        },
+      ],
+      "id": "desglose-por-canal",
+      "level": 2,
+      "type": "heading",
+    },
+    {
+      "align": [
+        "left",
+        "center",
+        "right",
+      ],
+      "header": {
+        "cells": [
+          {
+            "inlines": [
+              {
+                "type": "text",
+                "value": "Canal",
+              },
+            ],
+          },
+          {
+            "inlines": [
+              {
+                "type": "text",
+                "value": "Trimestre",
+              },
+            ],
+          },
+          {
+            "inlines": [
+              {
+                "type": "text",
+                "value": "Var.",
+              },
+            ],
+          },
+        ],
+      },
+      "rows": [
+        {
+          "cells": [
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "Online",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "412.400",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "+12%",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          "cells": [
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "Tiendas",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "186.900",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "-3%",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          "cells": [
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "Partners",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "89.200",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "+5%",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      "type": "table",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Acciones propuestas",
+        },
+      ],
+      "id": "acciones-propuestas",
+      "level": 2,
+      "type": "heading",
+    },
+    {
+      "items": [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Subir la inversión en el canal online.",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Renegociar tarifas con los partners regionales.",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Lanzar el plan de fidelidad en ",
+                },
+                {
+                  "children": [
+                    {
+                      "type": "text",
+                      "value": "febrero",
+                    },
+                  ],
+                  "type": "bold",
+                },
+                {
+                  "type": "text",
+                  "value": ".",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+      ],
+      "ordered": true,
+      "start": 1,
+      "tight": true,
+      "type": "list",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Campaña rebaja-verano",
+        },
+      ],
+      "id": "campana-rebaja-verano",
+      "level": 2,
+      "type": "heading",
+    },
+    {
+      "items": [
+        {
+          "checked": true,
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Creatividades aprobadas",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+        {
+          "checked": true,
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Landing publicada",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+        {
+          "checked": false,
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Segmento de clientes inactivos",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+        {
+          "checked": false,
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Informe de resultados",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+      ],
+      "ordered": false,
+      "start": 1,
+      "tight": true,
+      "type": "list",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Notas metodológicas",
+        },
+      ],
+      "id": "notas-metodologicas",
+      "level": 2,
+      "type": "heading",
+    },
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "Los datos provienen del almacén de ventas consolidado al cierre de cada mes.",
+            },
+          ],
+          "type": "paragraph",
+        },
+        {
+          "items": [
+            {
+              "children": [
+                {
+                  "children": [
+                    {
+                      "type": "text",
+                      "value": "El tipo de cambio se congeló al primer día del trimestre.",
+                    },
+                  ],
+                  "type": "paragraph",
+                },
+              ],
+            },
+          ],
+          "ordered": false,
+          "start": 1,
+          "tight": true,
+          "type": "list",
+        },
+      ],
+      "type": "blockquote",
+    },
+    {
+      "type": "thematicBreak",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Para reproducir la extracción:",
+        },
+      ],
+      "type": "paragraph",
+    },
+    {
+      "lang": "ts",
+      "type": "code",
+      "value": "const rows = await store.ventas(query("2026-Q3"));
+console.log(rows.length);",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Para más detalle ver el ",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "anexo",
+            },
+          ],
+          "title": undefined,
+          "type": "link",
+          "url": "#anexo",
+        },
+        {
+          "type": "text",
+          "value": " o el material adjunto.",
+        },
+      ],
+      "type": "paragraph",
+    },
+  ],
+  "title": "Informe de ventas",
+}
+`;
+
+exports[`parseMarkdown (mode: markdown) > parses proyecto deterministically 1`] = `
+{
+  "blocks": [
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Proyecto Alma",
+        },
+      ],
+      "id": "proyecto-alma",
+      "level": 1,
+      "type": "heading",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Estado actual",
+        },
+      ],
+      "id": "estado-actual",
+      "level": 2,
+      "type": "heading",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "El proyecto continúa en la fase de ",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "construcción",
+            },
+          ],
+          "type": "italic",
+        },
+        {
+          "type": "text",
+          "value": ". El backend soporta
+autenticación con ",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "JWT",
+            },
+          ],
+          "type": "bold",
+        },
+        {
+          "type": "text",
+          "value": " y el frontend ",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "React 19",
+            },
+          ],
+          "type": "bold",
+        },
+        {
+          "type": "text",
+          "value": ".",
+        },
+      ],
+      "type": "paragraph",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Módulos",
+        },
+      ],
+      "id": "modulos",
+      "level": 3,
+      "type": "heading",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Autenticación",
+        },
+      ],
+      "id": "autenticacion",
+      "level": 4,
+      "type": "heading",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Listo desde r0.1.2. La sesión expira a los 30 minutos.",
+        },
+      ],
+      "type": "paragraph",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Reporting",
+        },
+      ],
+      "id": "reporting",
+      "level": 4,
+      "type": "heading",
+    },
+    {
+      "items": [
+        {
+          "checked": true,
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Exporte histórica",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+        {
+          "checked": true,
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Plantillas base",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+        {
+          "checked": false,
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Dashboard en vivo",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+      ],
+      "ordered": false,
+      "start": 1,
+      "tight": true,
+      "type": "list",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Arquitectura",
+        },
+      ],
+      "id": "arquitectura",
+      "level": 3,
+      "type": "heading",
+    },
+    {
+      "lang": undefined,
+      "type": "code",
+      "value": "apps/
+  api/       API REST (NestJS)
+  web/       SPA (React + Vite)
+packages/
+  contracts/ tipos compartidos",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Decisiones",
+        },
+      ],
+      "id": "decisiones",
+      "level": 3,
+      "type": "heading",
+    },
+    {
+      "children": [
+        {
+          "items": [
+            {
+              "children": [
+                {
+                  "children": [
+                    {
+                      "type": "text",
+                      "value": "Se descartó Postgres en favor de MySQL para el módulo de facturación.",
+                    },
+                  ],
+                  "type": "paragraph",
+                },
+              ],
+            },
+            {
+              "children": [
+                {
+                  "children": [
+                    {
+                      "type": "text",
+                      "value": "El equipo aceptó el costo de migrar después del Q4.",
+                    },
+                  ],
+                  "type": "paragraph",
+                },
+              ],
+            },
+          ],
+          "ordered": true,
+          "start": 1,
+          "tight": true,
+          "type": "list",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "Fuente: acta del 12/09/2026.",
+            },
+          ],
+          "type": "paragraph",
+        },
+      ],
+      "type": "blockquote",
+    },
+    {
+      "type": "thematicBreak",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Plan Q4",
+        },
+      ],
+      "id": "plan-q4",
+      "level": 2,
+      "type": "heading",
+    },
+    {
+      "align": [
+        null,
+        null,
+        "center",
+      ],
+      "header": {
+        "cells": [
+          {
+            "inlines": [
+              {
+                "type": "text",
+                "value": "Tarea",
+              },
+            ],
+          },
+          {
+            "inlines": [
+              {
+                "type": "text",
+                "value": "Dueño",
+              },
+            ],
+          },
+          {
+            "inlines": [
+              {
+                "type": "text",
+                "value": "Prioridad",
+              },
+            ],
+          },
+        ],
+      },
+      "rows": [
+        {
+          "cells": [
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "Code freeze",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "Devops",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "Alta",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          "cells": [
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "Pruebas de carga",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "QA",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "Media",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          "cells": [
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "Migración facturas",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "Backend",
+                },
+              ],
+            },
+            {
+              "inlines": [
+                {
+                  "type": "text",
+                  "value": "Alta",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      "type": "table",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Enlaces útiles",
+        },
+      ],
+      "id": "enlaces-utiles",
+      "level": 2,
+      "type": "heading",
+    },
+    {
+      "items": [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "children": [
+                    {
+                      "type": "text",
+                      "value": "Repo",
+                    },
+                  ],
+                  "title": undefined,
+                  "type": "link",
+                  "url": "https://github.com/example/alma",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "children": [
+                    {
+                      "type": "text",
+                      "value": "Design system",
+                    },
+                  ],
+                  "title": undefined,
+                  "type": "link",
+                  "url": "/design-system",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "children": [
+                    {
+                      "type": "text",
+                      "value": "Imagen de arquitectura",
+                    },
+                  ],
+                  "title": undefined,
+                  "type": "link",
+                  "url": "/static/arch.png",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+        },
+      ],
+      "ordered": false,
+      "start": 1,
+      "tight": true,
+      "type": "list",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Definiciones",
+        },
+      ],
+      "id": "definiciones",
+      "level": 2,
+      "type": "heading",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "El término ",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "lancha",
+            },
+          ],
+          "type": "italic",
+        },
+        {
+          "type": "text",
+          "value": " se define según la referencia ",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "ref",
+            },
+          ],
+          "title": undefined,
+          "type": "link",
+          "url": "https://example.com/diccionario",
+        },
+        {
+          "type": "text",
+          "value": ".",
+        },
+      ],
+      "type": "paragraph",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Notas sueltas",
+        },
+      ],
+      "id": "notas-sueltas",
+      "level": 2,
+      "type": "heading",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Este párrafo contiene un salto de línea forzado al final",
+        },
+        {
+          "type": "text",
+          "value": "
+",
+        },
+        {
+          "type": "text",
+          "value": "y continúa en la siguiente línea.",
+        },
+      ],
+      "type": "paragraph",
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Fin del documento.",
+        },
+      ],
+      "type": "paragraph",
+    },
+  ],
+  "title": "Proyecto Alma",
+}
+`;
