@@ -2,9 +2,11 @@ import { useMemo, useState } from "react";
 import { Download, Loader2 } from "lucide-react";
 import { PDFDownloadLink, PDFViewer } from "@react-pdf/renderer";
 import {
-  CorporateTemplate,
-  MinimalTemplate,
+  DOCUMENT_TEMPLATES,
+  TEMPLATE_BY_ID,
+  TEMPLATE_COMPONENTS,
   type DocumentTemplateProps,
+  type TemplateId,
 } from "@taskmaster/templates";
 import { buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -14,19 +16,6 @@ import { AdvancedOptions } from "../components/AdvancedOptions";
 import type { DocumentOptions } from "../components/AdvancedOptions";
 import { MarkdownEditor } from "../components/MarkdownEditor";
 
-const COMPONENTS: Record<
-  string,
-  (props: DocumentTemplateProps) => React.ReactElement
-> = {
-  minimal: MinimalTemplate,
-  corporate: CorporateTemplate,
-};
-
-const TEMPLATE_CHOICES = [
-  { value: "minimal", label: "Minimal" },
-  { value: "corporate", label: "Corporate" },
-];
-
 const DEFAULT_OPTIONS: DocumentOptions = {
   fontSize: "md",
   margin: "normal",
@@ -35,10 +24,11 @@ const DEFAULT_OPTIONS: DocumentOptions = {
 
 export function GeneratorPage() {
   const [content, setContent] = useState("");
-  const [template, setTemplate] = useState("minimal");
+  const [template, setTemplate] = useState<TemplateId>("minimal");
   const [options, setOptions] = useState<DocumentOptions>(DEFAULT_OPTIONS);
 
-  const DocumentComponent = COMPONENTS[template] ?? MinimalTemplate;
+  const DocumentComponent = TEMPLATE_COMPONENTS[template];
+  const usesAccent = TEMPLATE_BY_ID[template].theme.usesAccent;
 
   const documentProps = useMemo<DocumentTemplateProps>(
     () => ({
@@ -91,12 +81,12 @@ export function GeneratorPage() {
           <Select
             id="doc-template"
             value={template}
-            onChange={(event) => setTemplate(event.target.value)}
+            onChange={(event) => setTemplate(event.target.value as TemplateId)}
             className="h-8 w-44"
           >
-            {TEMPLATE_CHOICES.map((choice) => (
-              <option key={choice.value} value={choice.value}>
-                {choice.label}
+            {DOCUMENT_TEMPLATES.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {entry.label}
               </option>
             ))}
           </Select>
@@ -106,7 +96,7 @@ export function GeneratorPage() {
       <AdvancedOptions
         value={options}
         onChange={setOptions}
-        showAccentColor={true}
+        showAccentColor={usesAccent}
       />
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
