@@ -1,190 +1,222 @@
 import { describe, it, expect } from "vitest";
+import { Fragment } from "react";
 import type { ReactNode } from "react";
 import { isValidElement } from "react";
-import { DocumentBody, groupSections } from "./DocumentBody";
-import { parseMarkdown } from "./parser";
-import { resolveStyles as minimalStyles } from "./templates/MinimalTemplate";
-import type { PdfStyle } from "./pdf-style";
+import { parseMarkdown } from "./markdown";
+import { createDocumentTheme } from "./theme/tokens";
+import { createTemplateStyles } from "./render/styles";
+import type { TemplateStyles } from "./render/styles";
+import { Blocks } from "./render/blocks";
+import { MINIMAL_TEMPLATE } from "./render/config";
 
 const CONTENT = [
-  "REPORTE DE VENTAS",
+  "# REPORTE DE VENTAS",
   "",
-  "Resumen Ejecutivo",
+  "## Resumen Ejecutivo",
   "",
   "Parrafo de apertura.",
   "",
   "- Metricas usadas",
   "",
-  "OTRA SECCION",
+  "## OTRA SECCION",
   "",
   "1. Introduccion",
+  "",
+  "---",
+  "",
+  "Cierre del documento.",
 ].join("\n");
+
+const theme = createDocumentTheme({
+  accentColor: MINIMAL_TEMPLATE.theme.accent,
+  bodyFont: MINIMAL_TEMPLATE.theme.bodyFont,
+  headingFont: MINIMAL_TEMPLATE.theme.headingFont,
+  density: MINIMAL_TEMPLATE.theme.density,
+  headingScale: MINIMAL_TEMPLATE.theme.headingScale,
+});
+const styles: TemplateStyles = createTemplateStyles(
+  theme,
+  MINIMAL_TEMPLATE.layout,
+);
 
 interface TextBlock {
   text: string;
-  style: PdfStyle;
+  style: unknown;
 }
 
-function flattenText(node: ReactNode): string {
-  if (typeof node === "string" || typeof node === "number") {
-    return String(node);
-  }
-
-  if (Array.isArray(node)) {
-    return node.map(flattenText).join("");
-  }
-
-  return "";
-}
-
-function asArray(node: ReactNode): ReactNode[] {
-  return Array.isArray(node) ? node : [node];
-}
-
-function hasElementChild(children: ReactNode[]): boolean {
-  return children.some((child) =>
-    Array.isArray(child) ? hasElementChild(child) : isValidElement(child),
+function isFragment(type: unknown): boolean {
+  return (
+    type === Fragment ||
+    (typeof type === "symbol" && String(type) === "Symbol(react.fragment)")
   );
 }
 
+/**
+ * Resuelve la función de los componentes a elementos host (Text/View) o
+ * cadenas: Blocks/BlockNode/Inlines son componentes puros sin hooks, por lo
+ * que invocarlos directamente con sus props reproduce el subárbol final.
+ */
+function resolve(node: ReactNode): ReactNode[] {
+  if (Array.isArray(node)) {
+    return node.flatMap(resolve);
+  }
+  if (typeof node === "string" || typeof node === "number") {
+    return [String(node)];
+  }
+  if (!isValidElement(node)) {
+    return [];
+  }
+  const { type, props } = node as {
+    type: unknown;
+    props: { children?: ReactNode };
+  };
+  if (typeof type === "function") {
+    return resolve((type as (props: unknown) => ReactNode)(props));
+  }
+  if (isFragment(type)) {
+    return resolve(props.children);
+  }
+  return [node];
+}
+
 function textBlocks(node: ReactNode, blocks: TextBlock[] = []): TextBlock[] {
-  for (const child of asArray(node)) {
-    if (Array.isArray(child)) {
-      textBlocks(child, blocks);
+  for (const child of resolve(node)) {
+    if (typeof child === "string") {
       continue;
     }
-
     if (!isValidElement(child)) {
       continue;
     }
 
-    const props = child.props as { children?: ReactNode; style?: PdfStyle };
-    const children = asArray(props.children);
+    const props = child.props as { children?: ReactNode; style?: unknown };
+    const children = resolve(props.children);
+    const hasElementChild = children.some((entry) => isValidElement(entry));
+    const directText = children
+      .filter((entry): entry is string => typeof entry === "string")
+      .join("");
 
-    if (!hasElementChild(children)) {
-      if (props.style !== undefined) {
-        blocks.push({ text: flattenText(props.children), style: props.style });
-      }
-      continue;
+    if (directText.length > 0 || !hasElementChild) {
+      blocks.push({ text: directText, style: props.style });
     }
 
-    for (const grandChild of children) {
-      if (Array.isArray(grandChild) || isValidElement(grandChild)) {
-        textBlocks(grandChild, blocks);
-        continue;
+    children.forEach((entry) => {
+      if (isValidElement(entry)) {
+        textBlocks(entry, blocks);
       }
-
-      if (typeof grandChild === "string" || typeof grandChild === "number") {
-        blocks.push({ text: String(grandChild), style: props.style ?? {} });
-      }
-    }
+    });
   }
-
   return blocks;
 }
 
-const styles = minimalStyles();
+function stylesMatch(actual: unknown, expected: unknown): boolean {
+  return JSON.stringify(actual ?? null) === JSON.stringify(expected ?? null);
+}
 
-function blocks() {
-  return textBlocks(
-    DocumentBody({
-      sections: parseMarkdown(CONTENT, { subheadings: true }),
-      styles,
-    }),
+function includesStyle(style: unknown, target: unknown): boolean {
+  return (
+    Array.isArray(style) && style.some((entry) => stylesMatch(entry, target))
   );
 }
 
-describe("groupSections", () => {
-  it("inicia un bloque nuevo en cada titulo", () => {
-    const grouped = groupSections(
-      parseMarkdown(CONTENT, { subheadings: true }),
-    );
+function rendered() {
+  const model = parseMarkdown(CONTENT);
+  return {
+    model,
+    blocks: textBlocks(
+      Blocks({
+        blocks: model.blocks,
+        ctx: { theme, styles, layout: MINIMAL_TEMPLATE.layout, depth: 0 },
+      }),
+    ),
+  };
+}
 
-    expect(grouped).toHaveLength(3);
-    expect(grouped[0]?.sections[0]).toMatchObject({ type: "heading" });
-    expect(grouped[1]?.sections[0]).toMatchObject({ type: "heading-2" });
-    expect(grouped[2]?.sections[0]).toMatchObject({ type: "heading" });
+describe("markdown -> bloques semánticos", () => {
+  it("convierte la jerarquia del documento en bloques ordenados", () => {
+    const { model } = rendered();
+    const types = model.blocks.map((block) => block.type);
+    expect(types).toEqual([
+      "heading",
+      "heading",
+      "paragraph",
+      "list",
+      "heading",
+      "list",
+      "thematicBreak",
+      "paragraph",
+    ]);
   });
 
-  it("agrupa el contenido que sigue a un titulo", () => {
-    const grouped = groupSections(
-      parseMarkdown(CONTENT, { subheadings: true }),
-    );
-
-    expect(grouped[1]?.sections.map((section) => section.type)).toEqual([
-      "heading-2",
-      "paragraph",
-      "list-item",
-    ]);
+  it("el primer titular es el titulo del documento", () => {
+    expect(rendered().model.title).toBe("REPORTE DE VENTAS");
   });
 
   it("devuelve bloques vacios para contenido vacio", () => {
-    expect(groupSections([])).toEqual([]);
+    const model = parseMarkdown("");
+    expect(model.blocks).toEqual([]);
+    expect(
+      textBlocks(
+        Blocks({
+          blocks: [],
+          ctx: { theme, styles, layout: MINIMAL_TEMPLATE.layout, depth: 0 },
+        }),
+      ),
+    ).toEqual([]);
   });
 });
 
-describe("DocumentBody", () => {
-  it("renderiza un elemento por seccion en orden", () => {
-    expect(blocks().map((block) => block.text)).toEqual([
+describe("render de bloques (Blocks)", () => {
+  it("renderiza un elemento de texto por bloque en orden", () => {
+    const texts = rendered().blocks.map((block) => block.text);
+    expect(texts).toEqual([
       "REPORTE DE VENTAS",
-      "",
       "Resumen Ejecutivo",
       "Parrafo de apertura.",
-      "\u2022 ",
+      "\u2022",
       "Metricas usadas",
-      "",
       "OTRA SECCION",
-      "1.  ",
+      "1.",
       "Introduccion",
+      "",
+      "Cierre del documento.",
     ]);
   });
 
-  it("aplica el estilo de h1 a los titulos en mayusculas", () => {
-    expect(
-      blocks().find((block) => block.text === "REPORTE DE VENTAS")?.style,
-    ).toBe(styles.h1);
-  });
-
-  it("aplica el estilo de h2 a los subtitulos", () => {
-    expect(
-      blocks().find((block) => block.text === "Resumen Ejecutivo")?.style,
-    ).toBe(styles.h2);
-  });
-
-  it("aplica el estilo de vineta y de item por separado", () => {
-    const rendered = blocks();
-
-    expect(rendered.find((block) => block.text === "\u2022 ")?.style).toBe(
-      styles.marker,
+  it("aplica el estilo de h1 al primer nivel", () => {
+    const block = rendered().blocks.find(
+      (entry) => entry.text === "REPORTE DE VENTAS",
     );
-    expect(
-      rendered.find((block) => block.text === "Metricas usadas")?.style,
-    ).toBe(styles.list);
+    expect(stylesMatch(block?.style, styles.h1)).toBe(true);
   });
 
-  it("aplica el estilo de parrafo", () => {
-    expect(
-      blocks().find((block) => block.text === "Parrafo de apertura.")?.style,
-    ).toBe(styles.paragraph);
-  });
-
-  it("separa el numero del texto en las listas numeradas", () => {
-    const rendered = blocks();
-    const number = rendered.find((block) => block.text.startsWith("1."));
-
-    expect(number?.text).toBe("1.  ");
-    expect(number?.style).toBe(styles.number);
-  });
-
-  it("renderiza un separador entre bloques grandes", () => {
-    const separators = blocks().filter(
-      (block) => block.style === styles.separator,
+  it("aplica el estilo de h2 a los nivel 2", () => {
+    const block = rendered().blocks.find(
+      (entry) => entry.text === "Resumen Ejecutivo",
     );
-
-    expect(separators).toHaveLength(2);
+    expect(stylesMatch(block?.style, styles.h2)).toBe(true);
   });
 
-  it("no renderiza nada cuando no hay secciones", () => {
-    expect(textBlocks(DocumentBody({ sections: [], styles }))).toEqual([]);
+  it("aplica el estilo de parrafo al texto suelto", () => {
+    const paragraph = rendered().blocks.find(
+      (entry) => entry.text === "Parrafo de apertura.",
+    );
+    expect(stylesMatch(paragraph?.style, styles.paragraph)).toBe(true);
+  });
+
+  it("aplica vineta con acento y numero de lista por separado", () => {
+    const blocks = rendered().blocks;
+    const bullet = blocks.find((entry) => entry.text === "\u2022");
+    expect(includesStyle(bullet?.style, styles.marker)).toBe(true);
+    expect(includesStyle(bullet?.style, styles.markerAccent)).toBe(true);
+
+    const number = blocks.find((entry) => entry.text === "1.");
+    expect(includesStyle(number?.style, styles.markerNumber)).toBe(true);
+  });
+
+  it("renderiza un separador por cada salto tematico", () => {
+    const separators = rendered().blocks.filter((entry) =>
+      stylesMatch(entry.style, styles.separator),
+    );
+    expect(separators).toHaveLength(1);
   });
 });

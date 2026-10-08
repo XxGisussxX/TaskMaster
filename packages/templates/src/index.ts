@@ -16,23 +16,15 @@ export {
 } from "./render/config";
 export { prepareBlocks } from "./render/prepare";
 export type { TocEntry } from "./render/prepare";
-export { DocumentBody, groupSections } from "./DocumentBody";
-export { DocumentFooter, DocumentHeader } from "./DocumentChrome";
-export { parseMarkdown, classifyLine } from "./parser";
-export { parseDocument, hasMetadata, parseFrontMatter } from "./markdown";
-export type { DocumentMetadata } from "./markdown";
 export {
-  DEFAULT_ACCENT_COLOR,
-  FONT_SIZE_SCALES,
-  MARGIN_PADDINGS,
-} from "./theme";
-export type { DocumentBodyStyles } from "./DocumentBody";
-export type { DocumentChromeStyles } from "./DocumentChrome";
-export type {
-  DocumentSection,
-  DocumentSectionType,
-  ParseOptions,
-} from "./parser";
+  parseMarkdown,
+  parseDocument,
+  hasMetadata,
+  parseFrontMatter,
+} from "./markdown";
+export type { DocumentMetadata } from "./markdown";
+export type { DocumentSectionType } from "./parser";
+export { DEFAULT_ACCENT_COLOR, FONT_SIZE_SCALES } from "./theme";
 export type {
   Block,
   DocumentModel,
