@@ -1,18 +1,11 @@
-import { Document, Page, StyleSheet } from "@react-pdf/renderer";
-import { DocumentBody } from "../DocumentBody";
+import { StyleSheet } from "@react-pdf/renderer";
 import type { DocumentBodyStyles } from "../DocumentBody";
-import { DocumentFooter, DocumentHeader } from "../DocumentChrome";
 import type { DocumentChromeStyles } from "../DocumentChrome";
 import type { PdfStyle } from "../pdf-style";
-import { parseMarkdown } from "../parser";
-import {
-  DEFAULT_ACCENT_COLOR,
-  formatDocumentDate,
-  resolveTheme,
-} from "../theme";
+import { DEFAULT_ACCENT_COLOR, resolveTheme } from "../theme";
 import type { DocumentTemplateProps } from "../types";
-
-const DEFAULT_TITLE = "Corporate Document";
+import { CORPORATE_TEMPLATE } from "../render/config";
+import { renderTemplate } from "../render/renderTemplate";
 
 const cache = new Map<string, CorporateStyles>();
 
@@ -21,6 +14,11 @@ export interface CorporateStyles
   page: PdfStyle;
 }
 
+/**
+ * @deprecated Estilos del motor legado (DocumentBody/DocumentChrome). Se
+ * conserva mientras esas piezas no migren; el render real deriva de
+ * createTemplateStyles (Fase 3).
+ */
 export function resolveStyles({
   fontSize,
   margin,
@@ -155,33 +153,8 @@ export function resolveStyles({
   return styles;
 }
 
-export function CorporateTemplate({
-  content,
-  fontSize,
-  margin,
-  accentColor,
-  title,
-  generatedAt,
-}: DocumentTemplateProps) {
-  const styles = resolveStyles({ fontSize, margin, accentColor });
-  const sections = parseMarkdown(content, { subheadings: true });
-  const firstHeading = sections.find(
-    (section) => section.type === "heading" || section.type === "heading-2",
-  );
-  const documentTitle = title?.trim() || firstHeading?.content || DEFAULT_TITLE;
-
-  return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        <DocumentHeader title={documentTitle} styles={styles} />
-        <DocumentBody sections={sections} styles={styles} />
-        <DocumentFooter
-          dateLabel={formatDocumentDate(generatedAt ?? new Date())}
-          styles={styles}
-        />
-      </Page>
-    </Document>
-  );
+export function CorporateTemplate(props: DocumentTemplateProps) {
+  return renderTemplate(props, CORPORATE_TEMPLATE);
 }
 
 export default CorporateTemplate;

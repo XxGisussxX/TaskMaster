@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { inflateSync } from "node:zlib";
 import { renderToBuffer } from "@react-pdf/renderer";
+import { pdfText } from "../test/pdf-text";
 import {
   MinimalTemplate,
   resolveStyles as minimalStyles,
@@ -49,45 +49,6 @@ interface PdfStyles {
   footerText: Record<string, unknown>;
 }
 
-function pdfText(buffer: Buffer): string {
-  const raw = buffer.toString("latin1");
-  const streamPattern = /stream\r?\n([\s\S]*?)endstream/g;
-  const pages: string[] = [];
-  let stream: RegExpExecArray | null;
-
-  while ((stream = streamPattern.exec(raw)) !== null) {
-    let content = stream[1] ?? "";
-
-    try {
-      content = inflateSync(Buffer.from(content, "latin1")).toString("latin1");
-    } catch {
-      /* stream not deflated */
-    }
-
-    let text = "";
-    for (const hex of content.match(/<([0-9a-fA-F]+)>/g) ?? []) {
-      const digits = hex.slice(1, -1);
-      for (let index = 0; index + 1 < digits.length; index += 2) {
-        text += String.fromCharCode(
-          Number.parseInt(digits.slice(index, index + 2), 16),
-        );
-      }
-    }
-
-    if (text.length > 0) {
-      pages.push(text);
-    }
-  }
-
-  return pages.join("\n");
-}
-
-function renderPdf(props: Partial<DocumentTemplateProps> = {}) {
-  const full = { ...PROPS, ...props };
-
-  return renderToBuffer((CorporateTemplate as any)(full)).then(pdfText);
-}
-
 describe.each([
   ["MinimalTemplate", MinimalTemplate, minimalStyles, "#111827"],
   ["CorporateTemplate", CorporateTemplate, corporateStyles, "#1e3a5f"],
@@ -97,6 +58,12 @@ describe.each([
   (props?: any) => PdfStyles,
   string,
 ][])("%s", (_name, template, resolveStyles, accent) => {
+  function renderPdf(props: Partial<DocumentTemplateProps> = {}) {
+    const full = { ...PROPS, ...props };
+
+    return renderToBuffer((template as any)(full)).then(pdfText);
+  }
+
   describe("contenido del PDF", () => {
     it("incluye toda la jerarquia del documento", async () => {
       const text = await renderPdf({} as any);
@@ -130,7 +97,7 @@ describe.each([
 
     it("usa el primer titulo del contenido como titulo del documento", async () => {
       const text = await renderPdf({} as any);
-      expect(text.match(/REPORTE DE VENTAS/g)?.length).toBe(2);
+      expect(text.match(/REPORTE DE VENTAS/g)?.length).toBe(1);
     });
 
     it("genera un PDF valido", async () => {

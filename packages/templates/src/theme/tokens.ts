@@ -38,6 +38,8 @@ export const BASE_SPACING = {
 export const THEME_LINE_HEIGHTS = {
   body: 1.55,
   heading: 1.2,
+  table: 1.4,
+  code: 1.45,
 } as const;
 
 export const THEME_COLORS = {
@@ -45,6 +47,9 @@ export const THEME_COLORS = {
   muted: "#6b7280",
   border: "#e5e7eb",
   surface: "#ffffff",
+  codeBg: "#f3f4f6",
+  quoteBg: "#f9fafb",
+  zebra: "#f9fafb",
 } as const;
 
 export interface DocumentTheme {
@@ -54,6 +59,9 @@ export interface DocumentTheme {
     border: string;
     accent: string;
     surface: string;
+    codeBg: string;
+    quoteBg: string;
+    zebra: string;
   };
   fonts: {
     body: string[];
@@ -72,6 +80,8 @@ export interface DocumentTheme {
   lineHeights: {
     body: number;
     heading: number;
+    table: number;
+    code: number;
   };
   spacing: {
     xs: number;

@@ -13,7 +13,12 @@ describe("createDocumentTheme", () => {
     expect(theme.margin).toBe(104);
     expect(theme.colors.accent).toBe(DEFAULT_ACCENT_COLOR);
     expect(theme.colors.text).toBe("#1a1a1a");
-    expect(theme.lineHeights).toEqual({ body: 1.55, heading: 1.2 });
+    expect(theme.lineHeights).toEqual({
+      body: 1.55,
+      heading: 1.2,
+      table: 1.4,
+      code: 1.45,
+    });
     expect(theme.sizes).toEqual({ ...BASE_TYPE_SIZES });
     expect(theme.spacing).toEqual({ ...BASE_SPACING });
   });

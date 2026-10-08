@@ -1,15 +1,13 @@
-import { Document, Page, StyleSheet } from "@react-pdf/renderer";
-import { DocumentBody } from "../DocumentBody";
+import { StyleSheet } from "@react-pdf/renderer";
 import type { DocumentBodyStyles } from "../DocumentBody";
-import { DocumentFooter, DocumentHeader } from "../DocumentChrome";
 import type { DocumentChromeStyles } from "../DocumentChrome";
 import type { PdfStyle } from "../pdf-style";
-import { parseMarkdown } from "../parser";
-import { formatDocumentDate, resolveTheme } from "../theme";
+import { resolveTheme } from "../theme";
 import type { DocumentTemplateProps } from "../types";
+import { MINIMAL_TEMPLATE } from "../render/config";
+import { renderTemplate } from "../render/renderTemplate";
 
 const DEFAULT_ACCENT = "#111827";
-const DEFAULT_TITLE = "Documento";
 
 const cache = new Map<string, MinimalStyles>();
 
@@ -18,6 +16,11 @@ export interface MinimalStyles
   page: PdfStyle;
 }
 
+/**
+ * @deprecated Estilos del motor legado (DocumentBody/DocumentChrome). Se
+ * conserva mientras esas piezas no migren; el render real deriva de
+ * createTemplateStyles (Fase 3).
+ */
 export function resolveStyles({
   fontSize,
   margin,
@@ -146,33 +149,8 @@ export function resolveStyles({
   return styles;
 }
 
-export function MinimalTemplate({
-  content,
-  fontSize,
-  margin,
-  accentColor,
-  title,
-  generatedAt,
-}: DocumentTemplateProps) {
-  const styles = resolveStyles({ fontSize, margin, accentColor });
-  const sections = parseMarkdown(content, { subheadings: true });
-  const firstHeading = sections.find(
-    (section) => section.type === "heading" || section.type === "heading-2",
-  );
-  const documentTitle = title?.trim() || firstHeading?.content || DEFAULT_TITLE;
-
-  return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        <DocumentHeader title={documentTitle} styles={styles} />
-        <DocumentBody sections={sections} styles={styles} />
-        <DocumentFooter
-          dateLabel={formatDocumentDate(generatedAt ?? new Date())}
-          styles={styles}
-        />
-      </Page>
-    </Document>
-  );
+export function MinimalTemplate(props: DocumentTemplateProps) {
+  return renderTemplate(props, MINIMAL_TEMPLATE);
 }
 
 export default MinimalTemplate;
