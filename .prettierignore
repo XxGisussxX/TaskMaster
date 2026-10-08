@@ -1,0 +1,5 @@
+# Test fixtures and snapshots: exact bytes matter for parser assertions.
+# Prettier normaliza (p. ej. inserta línea en blanco entre párrafo y lista),
+# lo que rompe los tests de heurísticas del parser de documentos.
+**/__fixtures__/**
+**/__snapshots__/**

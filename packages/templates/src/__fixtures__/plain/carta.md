@@ -13,7 +13,6 @@ El resumen de la temporada quedo asi:
 RESULTADOS DE LA TEMPORADA
 
 Inscripcion y requisitos
-
 - Cerrada el pasado viernes.
 - Cupo maximo de 20 participantes.
 
