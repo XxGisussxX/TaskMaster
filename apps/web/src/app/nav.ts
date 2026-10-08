@@ -8,12 +8,13 @@ import {
   Settings,
   ShieldCheck,
   Users,
+  FileText,
+  Target,
 } from "lucide-react";
 
 export type NavGroup = "workspace" | "management";
 
 export interface NavItem {
-  /** Clave única. Por defecto se usa `to`; necesaria cuando dos ítems comparten ruta. */
   id?: string;
   to: string;
   label: string;
@@ -21,13 +22,10 @@ export interface NavItem {
   icon: LucideIcon;
   end?: boolean;
   group: NavGroup;
-  /** Restringir la ruta a roles de plataforma. Sin esta propiedad, es visible para todos. */
   systemRoles?: SystemRole[];
 }
 
-/** Rutas principales: fuente única de verdad para Sidebar y Command Palette. */
 export const NAV_ITEMS: NavItem[] = [
-  // ===== WORKSPACE =====
   {
     to: "/",
     label: "Dashboard",
@@ -57,8 +55,20 @@ export const NAV_ITEMS: NavItem[] = [
     icon: StickyNote,
     group: "workspace",
   },
-
-  // ===== SETTINGS & MANAGEMENT =====
+  {
+    to: "/dream-board",
+    label: "Dream Board",
+    hint: "D",
+    icon: Target,
+    group: "workspace",
+  },
+  {
+    to: "/generator",
+    label: "Generador",
+    hint: "G",
+    icon: FileText,
+    group: "workspace",
+  },
   {
     id: "settings.team",
     to: "/workspace",

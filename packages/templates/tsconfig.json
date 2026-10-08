@@ -1,0 +1,7 @@
+{
+  "extends": "@taskmaster/config/tsconfig.web",
+  "compilerOptions": {
+    "baseUrl": "./src"
+  },
+  "include": ["src/**/*"]
+}

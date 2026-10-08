@@ -1,0 +1,33 @@
+{
+  "name": "@taskmaster/templates",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "node -e \"fs.rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
+    "check:dist": "vitest run export-consistency.spec.ts",
+    "lint": "eslint \"src/**/*.ts\" \"src/**/*.tsx\"",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@react-pdf/renderer": "^4.3.0",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@taskmaster/config": "workspace:*",
+    "@types/react": "^19.0.6",
+    "eslint": "^9.17.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
