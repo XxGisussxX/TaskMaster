@@ -19,6 +19,7 @@ describe("SCOPED_MODELS", () => {
         "Attachment",
         "Channel",
         "CustomFieldDefinition",
+        "CustomFieldValue",
         "DreamBoard",
         "DreamPin",
         "Invite",
@@ -29,6 +30,7 @@ describe("SCOPED_MODELS", () => {
         "Task",
         "TaskDependency",
         "TaskTemplate",
+        "Team",
         "TimeEntry",
         "WorkspaceMember",
       ].sort(),
@@ -37,10 +39,10 @@ describe("SCOPED_MODELS", () => {
 
   it.each([
     "Comment",
-    "CustomFieldValue",
     "Notification",
     "TaskAssignee",
     "TaskTag",
+    "TeamMember",
     "User",
     "Workspace",
   ])("excluye %s (sin columna workspaceId o user-scoped)", (model) => {

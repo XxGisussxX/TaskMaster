@@ -4,8 +4,9 @@ import { tenantContext } from "../tenant/tenant-context";
 /**
  * Modelos que poseen una columna `workspaceId` y que, por lo tanto, se
  * auto-filtran contra el workspace del contexto. Quedan fuera:
- * - Modelos sin columna `workspaceId` (Comment, CustomFieldValue, join tables).
- * - Modelos user-scoped (User, UserSettings) o globales (Workspace, Notification).
+ * - Modelos sin columna `workspaceId` (Comment, TaskTag, TaskAssignee,
+ *   TeamMember y otras tablas de relación).
+ * - Modelos user-scoped (User, UserSettings) o globales (Workspace, RefreshToken).
  *
  * `Notification` tiene `workspaceId` nullable pero se consulta por `userId`, por
  * lo que no debe restringirse al workspace activo.
@@ -16,6 +17,7 @@ export const SCOPED_MODELS: ReadonlySet<string> = new Set([
   "Attachment",
   "Channel",
   "CustomFieldDefinition",
+  "CustomFieldValue",
   "DreamBoard",
   "DreamPin",
   "Invite",
@@ -26,6 +28,7 @@ export const SCOPED_MODELS: ReadonlySet<string> = new Set([
   "Task",
   "TaskDependency",
   "TaskTemplate",
+  "Team",
   "TimeEntry",
   "WorkspaceMember",
 ]);
