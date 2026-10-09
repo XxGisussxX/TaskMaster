@@ -2,6 +2,13 @@ import { z } from "zod";
 
 export const documentTemplateTypeSchema = z.enum(["minimal", "corporate"]);
 
+/**
+ * Tope del contenido markdown que se renderiza a PDF. 50k caracteres alcanzan
+ * un documento largo (la plantilla de perf usa ~12k caracteres en 10 páginas),
+ * y acota el costo del render react-pdf (CPU) y del body JSON del endpoint.
+ */
+export const MAX_DOCUMENT_CONTENT_CHARS = 50_000;
+
 export const fontSizeSchema = z.enum(["sm", "md", "lg"]);
 export const marginSchema = z.enum(["narrow", "normal", "wide"]);
 export const accentColorSchema = z
@@ -16,7 +23,13 @@ export const documentOptionsSchema = z.object({
 });
 
 export const generateDocumentSchema = z.object({
-  content: z.string().min(1, "El contenido es requerido"),
+  content: z
+    .string()
+    .min(1, "El contenido es requerido")
+    .max(
+      MAX_DOCUMENT_CONTENT_CHARS,
+      `El contenido excede el máximo de ${MAX_DOCUMENT_CONTENT_CHARS.toLocaleString("es")} caracteres`,
+    ),
   template: documentTemplateTypeSchema,
   ...documentOptionsSchema.shape,
 });

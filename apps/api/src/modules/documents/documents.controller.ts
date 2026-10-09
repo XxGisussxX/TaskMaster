@@ -1,4 +1,5 @@
 import { Body, Controller, Post, Res } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { Response } from "express";
 import {
   generateDocumentSchema,
@@ -11,6 +12,9 @@ import { DocumentsService } from "./documents.service";
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 
+  // El render de PDF es costoso en CPU: 10/min por IP en vez del default
+  // global de 120/min.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post("generate")
   async generate(
     @Body(new ZodPipe(generateDocumentSchema)) dto: GenerateDocumentInput,

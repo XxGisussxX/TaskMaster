@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
 import type { DocumentTemplateType } from "@taskmaster/contracts";
+import {
+  generateDocumentSchema,
+  MAX_DOCUMENT_CONTENT_CHARS,
+} from "@taskmaster/contracts";
 import { DocumentsService } from "./documents.service";
 
 const templates: DocumentTemplateType[] = ["minimal", "corporate"];
@@ -70,5 +74,34 @@ describe("DocumentsService.generatePdf", () => {
 
     expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
     expect(pdf.length).toBeGreaterThan(1000);
+  });
+});
+
+describe("generateDocumentSchema (cap de content)", () => {
+  it("acepta el maximo exacto de caracteres", () => {
+    const result = generateDocumentSchema.safeParse({
+      content: "a".repeat(MAX_DOCUMENT_CONTENT_CHARS),
+      template: "minimal",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rechaza contenido que excede el cap", () => {
+    const result = generateDocumentSchema.safeParse({
+      content: "a".repeat(MAX_DOCUMENT_CONTENT_CHARS + 1),
+      template: "minimal",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("sigue rechazando contenido vacio", () => {
+    const result = generateDocumentSchema.safeParse({
+      content: "",
+      template: "minimal",
+    });
+
+    expect(result.success).toBe(false);
   });
 });

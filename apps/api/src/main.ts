@@ -62,6 +62,10 @@ async function bootstrap(): Promise<void> {
   // Necesario para que `req.cookies` exista: el refresh token viaja en una
   // cookie HttpOnly en lugar de volver en el cuerpo de la respuesta.
   app.use(cookieParser());
+  // Límite explícito del body JSON: 512kb es suficiente para el contenido de
+  // documentos (cap de 50k caracteres aun con UTF-8 y escaping JSON) y acota
+  // el transporte para el resto de endpoints.
+  app.useBodyParser("json", { limit: "512kb" });
   app.setGlobalPrefix("api");
   app.enableShutdownHooks();
 
