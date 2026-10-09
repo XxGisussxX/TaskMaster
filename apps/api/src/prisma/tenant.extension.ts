@@ -16,6 +16,8 @@ export const SCOPED_MODELS: ReadonlySet<string> = new Set([
   "Attachment",
   "Channel",
   "CustomFieldDefinition",
+  "DreamBoard",
+  "DreamPin",
   "Invite",
   "Note",
   "Reminder",

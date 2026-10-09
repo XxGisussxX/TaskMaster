@@ -19,6 +19,8 @@ describe("SCOPED_MODELS", () => {
         "Attachment",
         "Channel",
         "CustomFieldDefinition",
+        "DreamBoard",
+        "DreamPin",
         "Invite",
         "Note",
         "Reminder",
