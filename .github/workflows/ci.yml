@@ -4,6 +4,8 @@ on:
   push:
     branches: [master, main]
   pull_request:
+  # Permite correr el smoke E2E opcional a mano (job smoke-e2e).
+  workflow_dispatch:
 
 # Cancela la corrida anterior del mismo ref: si empujás commits seguidos, no
 # gastas minutos corriendo el gate de una versión que ya quedó atrás.
@@ -53,9 +55,11 @@ jobs:
 
       - uses: pnpm/action-setup@v4
 
+      # Node se lee de .nvmrc (que vive en el repo; su valor 22 cumple con
+      # engines.node: >=20). pnpm/action-setup usa el packageManager del repo.
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
 
       - name: Instalar dependencias
@@ -65,6 +69,17 @@ jobs:
         # Sin esto, `tsc` no encuentra los tipos de Prisma y el typecheck falla
         # con errores que no existen en tu máquina (donde ya lo generaste).
         run: pnpm --filter @taskmaster/api prisma:generate
+
+      - name: Chequear que ningún .json empieza con BOM
+        # Un BOM rompe el parseo de package.json (a PostCSS le cayó "Unexpected
+        # token '﻿'"). Correr antes de lint/build para patear el error de vuelta
+        # al autor en segundos.
+        run: pnpm check:no-bom
+
+      - name: Auditar dependencias de producción
+        # Falla en CRITICAL/HIGH salvo las documentadas en .ci/audit-allowlist.json
+        # (hoy: deepmerge-ts, que entra solo vía el CLI de prisma, no al runtime).
+        run: node scripts/audit-prod.mjs
 
       # Los pasos repeten los scripts del package.json en vez de inventar
       # comandos: si el gate local cambia, el de CI cambia con él.
@@ -117,9 +132,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+      # Node se lee de .nvmrc (que vive en el repo; su valor 22 cumple con
+      # engines.node: >=20). pnpm/action-setup usa el packageManager del repo.
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -218,3 +235,109 @@ jobs:
           docker logs api-smoke --tail 80
           docker rm -f api-smoke
           exit 1
+
+  # ---------------------------------------------------------------------
+  # Smoke E2E OPCIONAL: no bloquea nada. Se dispara a mano (workflow_dispatch)
+  # o con el label "e2e" en un PR. Mientras no exista una suite E2E de verdad,
+  # valida que las imágenes recién construidas levantan JUNTAS: API healthy y
+  # web sirviendo el SPA (a diferencia del job docker, que solo fuma la API).
+  # ---------------------------------------------------------------------
+  smoke-e2e:
+    name: Smoke E2E (manual / label 'e2e')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || contains(github.event.pull_request.labels.*.name, 'e2e')
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: taskmaster
+          POSTGRES_PASSWORD: taskmaster
+          POSTGRES_DB: taskmaster
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taskmaster"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Construir API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/api.Dockerfile
+          push: false
+          load: true
+          tags: taskmaster-api:e2e
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Construir web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/web.Dockerfile
+          push: false
+          load: true
+          tags: taskmaster-web:e2e
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # El entrypoint de la API corre las migraciones al arrancar contra el
+      # postgres del job (host.docker.internal:5432), igual que en producción.
+      - name: Arrancar redis y las imágenes
+        run: |
+          docker compose -f docker-compose.prod.yml up -d --no-deps redis
+          docker run -d --name api-e2e --network taskmaster_taskmaster \
+            -e DATABASE_URL="postgresql://taskmaster:taskmaster@host.docker.internal:5432/taskmaster?schema=public" \
+            -e API_ORIGINS="https://app.taskmaster.app" \
+            -e WEB_URL="https://app.taskmaster.app" \
+            -e JWT_ACCESS_SECRET="ciSmokeTest9xQw2mZ" \
+            taskmaster-api:e2e
+          docker run -d --name web-e2e --network taskmaster_taskmaster -p 3080:80 taskmaster-web:e2e
+
+      - name: Esperar API healthy
+        run: |
+          for i in $(seq 1 40); do
+            if docker exec api-e2e node -e "
+              require('http').get('http://127.0.0.1:4000/api/health', r => process.exit(r.statusCode === 200 ? 0 : 1))
+                .on('error', () => process.exit(1));
+            " 2>/dev/null; then
+              echo "API healthy"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::La API no respondió healthy"
+          docker logs api-e2e --tail 80
+          docker rm -f api-e2e web-e2e
+          exit 1
+
+      - name: Verificar que la web sirve el SPA
+        run: |
+          for i in $(seq 1 20); do
+            if curl --fail -s http://127.0.0.1:3080/ | grep -q '<div id="root">'; then
+              echo "Web sirviendo el SPA"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::La web no devolvió el index.html del SPA"
+          docker logs web-e2e --tail 40 || true
+          docker rm -f web-e2e
+          exit 1
+
+      - name: Limpieza
+        if: always()
+        run: |
+          docker rm -f api-e2e web-e2e || true
+          docker compose -f docker-compose.prod.yml down || true
