@@ -3,12 +3,27 @@
 
   - Added the required column `updatedAt` to the `Channel` table without a default value. This is not possible if the table is not empty.
 
+  Desviación intencional respecto al SQL generado por Prisma:
+  la columna `updatedAt` se agrega con un default de relleno, se backfillea desde
+  `createdAt` para las filas existentes y luego se le quita el default. Sin esto,
+  `prisma migrate deploy` falla con error 23502 en cualquier base con canales
+  creados (los `Category` que pasaron a `Channel` tienenn filas reales). El
+  resultado final es idéntico al schema (NOT NULL, sin default), así que el
+  chequeo de drift del CI no ve ninguna diferencia.
 */
 -- AlterTable
 ALTER TABLE "Channel" ADD COLUMN     "description" TEXT NOT NULL DEFAULT '',
 ADD COLUMN     "isPrivate" BOOLEAN NOT NULL DEFAULT false,
 ADD COLUMN     "teamId" TEXT,
-ADD COLUMN     "updatedAt" TIMESTAMP(3) NOT NULL;
+ADD COLUMN     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+-- Backfill para filas existentes: el default de relleno ya las cubre, este UPDATE
+-- es la garantía explícita de que ninguna fila queda con NULL.
+UPDATE "Channel" SET "updatedAt" = "createdAt" WHERE "updatedAt" IS NULL;
+
+-- Se quita el default para que el esquema resultante coincida con schema.prisma
+-- (updatedAt es @updatedAt: la única forma de escribirlo es desde la app).
+ALTER TABLE "Channel" ALTER COLUMN "updatedAt" DROP DEFAULT;
 
 -- AlterTable
 ALTER TABLE "DreamPin" ADD COLUMN     "imageUrl" TEXT,
