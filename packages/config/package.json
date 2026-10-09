@@ -10,7 +10,7 @@
     "./eslint": "./eslint/index.mjs",
     "./prettier": "./prettier.json"
   },
-  "dependencies": {
+  "devDependencies": {
     "@eslint/js": "^9.17.0",
     "eslint-config-prettier": "^9.1.0",
     "globals": "^15.14.0",
