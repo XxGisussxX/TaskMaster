@@ -1,0 +1,46 @@
+diff --git a/lib/index.js b/lib/index.js
+index 18c2618f4630b3c1296c8c3cac317b8d7666bbe8..5a86b518d3b238bfc8350ccb55b02c8ce36c0a08 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -1017,14 +1017,15 @@ const computeStyle = (container, node) => {
+  * @returns Resolve node styles
+  */
+ const resolveNodeStyles = (container) => (node) => {
+-    const style = computeStyle(container, node);
++    const authoredStyle = node.__authoredStyle ?? node.style;
++    const style = computeStyle(container, Object.assign({}, node, { style: authoredStyle }));
+     // Split fragments re-enter through page relayout; keep their mark.
+     const wasSplit = node.wasSplit ?? false;
+     if (!node.children) {
+-        return Object.assign({}, node, { style, wasSplit });
++        return Object.assign({}, node, { style, wasSplit, __authoredStyle: authoredStyle });
+     }
+     const children = node.children.map(resolveNodeStyles(container));
+-    return Object.assign({}, node, { style, wasSplit, children });
++    return Object.assign({}, node, { style, wasSplit, __authoredStyle: authoredStyle, children });
+ };
+ /**
+  * Resolves page styles
+@@ -3118,6 +3119,12 @@ const isDynamic$1 = (node) => node.props && 'render' in node.props;
+ const warnUnavailableSpace = (node) => {
+     console.warn(`Node of type ${node.type} can't wrap between pages and it's bigger than available page height`);
+ };
++// OLD PAGINATOR FIX: when a `fixed` node is measured, the pre-pagination page
++// can be arbitrarily tall (it holds ALL content at once), so the node carries a
++// stale absolute box (huge top/height). That box is then reused for every
++// subpage, growing geometrically until pdfkit throws "unsupported number".
++// Re-derive the box per page: zero box.top/height so the per-page relayout
++// re-measures the auto height and re-anchors `bottom` against the real page.
+ const splitNodes = (height, contentArea, nodes) => {
+     const currentChildren = [];
+     const nextChildren = [];
+@@ -3928,7 +3935,8 @@ const splitPage = (page, props, { fontStore, yoga }) => {
+         const fake = { ...page, box, children: nodes };
+         const laid = relayoutPage(fake, fontStore, yoga);
+         const probe = findProbe(laid);
+-        return absoluteBox(laid, probe);
++        const region = absoluteBox(laid, probe);
++        return region;
+     };
+     const wrap = page.props?.wrap !== false;
+     const pages = [];

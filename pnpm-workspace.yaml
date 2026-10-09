@@ -13,4 +13,7 @@ allowBuilds:
   "@parcel/watcher": true
   "@prisma/engines": true
 
+patchedDependencies:
+  "@react-pdf/layout@5.2.0": patches/@react-pdf__layout@5.2.0.patch
+
 strictDepBuilds: false

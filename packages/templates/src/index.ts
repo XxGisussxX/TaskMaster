@@ -23,6 +23,7 @@ export {
   parseFrontMatter,
 } from "./markdown";
 export type { DocumentMetadata } from "./markdown";
+export { classifyLine } from "./parser";
 export type { DocumentSectionType } from "./parser";
 export { DEFAULT_ACCENT_COLOR, FONT_SIZE_SCALES } from "./theme";
 export type {

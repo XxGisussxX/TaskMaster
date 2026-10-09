@@ -164,4 +164,17 @@ describe("render del motor", () => {
       totalPages,
     );
   });
+
+  it("no desborda PDFKit con muchas secciones y pie fijo en bottom", async () => {
+    const sections = Array.from({ length: 40 }, (_, index) =>
+      [
+        `Titulo ${index + 1}`,
+        "Parrafo de relleno de la seccion con varias palabras para forzar el paginado entre secciones.",
+      ].join("\n\n\n"),
+    );
+    const text = await renderPdf({ content: sections.join("\n\n") });
+    const totalPages = Number(/P\u00e1gina 1 de (\d+)/.exec(text)?.[1] ?? "0");
+    expect(totalPages).toBeGreaterThan(1);
+    expect(text).toContain("P\u00e1gina 2 de");
+  });
 });
