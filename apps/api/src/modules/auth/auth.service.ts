@@ -87,7 +87,7 @@ export class AuthService {
       await this.sendVerificationEmail(user);
     } catch (error) {
       this.logger.error(
-        `Registro OK pero falló el envío de verificación a ${user.email}: ${String(error)}`,
+        `Registro OK pero falló el envío de verificación a ${this.maskEmail(user.email)}: ${String(error)}`,
       );
     }
 
@@ -315,7 +315,7 @@ export class AuthService {
       return await this.sendVerificationEmail(user);
     } catch (error) {
       this.logger.error(
-        `No se pudo reenviar la verificación a ${email}: ${String(error)}`,
+        `No se pudo reenviar la verificación a ${this.maskEmail(email)}: ${String(error)}`,
       );
       return { sent: false };
     }
@@ -338,7 +338,7 @@ export class AuthService {
       return await this.sendResetUrl(user.email, token);
     } catch (error) {
       this.logger.error(
-        `No se pudo enviar el reset a ${email}: ${String(error)}`,
+        `No se pudo enviar el reset a ${this.maskEmail(email)}: ${String(error)}`,
       );
       return { sent: false };
     }
@@ -380,7 +380,7 @@ export class AuthService {
       return await this.sendVerifyUrl(user.email, token);
     } catch (error) {
       this.logger.error(
-        `No se pudo enviar la verificación a ${user.email}: ${String(error)}`,
+        `No se pudo enviar la verificación a ${this.maskEmail(user.email)}: ${String(error)}`,
       );
       return { sent: false };
     }

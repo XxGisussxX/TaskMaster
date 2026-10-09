@@ -1,7 +1,11 @@
 import "reflect-metadata";
 import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BadRequestException, UnauthorizedException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Logger,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { LoginLockoutService } from "./login-lockout.service";
 
@@ -45,6 +49,7 @@ type FakeDb = {
   user: {
     findUnique: ReturnType<typeof vi.fn>;
     findUniqueOrThrow: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
   };
   authToken: {
@@ -53,7 +58,12 @@ type FakeDb = {
     update: ReturnType<typeof vi.fn>;
   };
   refreshToken: {
+    create: ReturnType<typeof vi.fn>;
     updateMany: ReturnType<typeof vi.fn>;
+  };
+  workspace: {
+    findUnique: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
   };
 };
 
@@ -73,6 +83,7 @@ function setup(options: {
     user: {
       findUnique: vi.fn(),
       findUniqueOrThrow: vi.fn(),
+      create: vi.fn(),
       update: vi.fn(),
     },
     authToken: {
@@ -81,7 +92,12 @@ function setup(options: {
       update: vi.fn(),
     },
     refreshToken: {
+      create: vi.fn(),
       updateMany: vi.fn(),
+    },
+    workspace: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
     },
   };
 
@@ -90,9 +106,12 @@ function setup(options: {
     user!.isEmailVerified = true;
   }
   db.user.findUniqueOrThrow.mockResolvedValue(user);
+  db.user.create.mockResolvedValue(user ?? USER);
   db.authToken.findUnique.mockResolvedValue(options.token ?? authTokenRow());
   db.authToken.create.mockResolvedValue(authTokenRow());
   db.authToken.update.mockResolvedValue(options.token ?? authTokenRow());
+  db.refreshToken.create.mockResolvedValue({});
+  db.workspace.create.mockResolvedValue({});
 
   const mail = {
     sendVerification: vi.fn().mockResolvedValue({ sent: true }),
@@ -107,7 +126,9 @@ function setup(options: {
       return undefined;
     }),
   };
-  const jwt = {};
+  const jwt = {
+    sign: vi.fn(() => "access-token"),
+  };
   const redis = {
     withFallback: vi.fn(async (_op: any, fallback: any) => await fallback()),
     keyPrefix: "taskmaster",
@@ -254,6 +275,63 @@ describe("AuthService · verificación y reset de contraseña", () => {
       expect(result).toEqual({ sent: false });
       expect(db.authToken.create).not.toHaveBeenCalled();
       expect(mail.sendPasswordReset).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("los errores de envío no loguean el email completo", () => {
+    const fullEmail = "ana@example.com";
+    const maskedEmail = "a***@example.com";
+
+    it("register enmascara el email cuando falla el envío de verificación", async () => {
+      const errorSpy = vi
+        .spyOn(Logger.prototype, "error")
+        .mockImplementation(() => undefined);
+      const { db, mail, service } = setup({ user: null });
+      db.user.findUnique.mockResolvedValue(null);
+      db.user.findUniqueOrThrow.mockResolvedValue(USER);
+      db.workspace.findUnique.mockResolvedValue(null);
+      mail.sendVerification.mockRejectedValue(new Error("smtp down"));
+
+      await service.register(
+        { name: "Ana", email: fullEmail, password: "claveSegura123" },
+        { ip: "1.1.1.1", device: "test" },
+      );
+
+      const messages = errorSpy.mock.calls.map((args) => args.join(" "));
+      expect(messages.some((m) => m.includes(fullEmail))).toBe(false);
+      expect(messages.some((m) => m.includes(maskedEmail))).toBe(true);
+    });
+
+    it("resendVerification enmascara el email cuando falla el envío", async () => {
+      const errorSpy = vi
+        .spyOn(Logger.prototype, "error")
+        .mockImplementation(() => undefined);
+      const { db, mail, service } = setup({ user: null });
+      db.user.findUnique.mockResolvedValue(USER);
+      mail.sendVerification.mockRejectedValue(new Error("smtp down"));
+
+      const result = await service.resendVerification(fullEmail);
+
+      expect(result).toEqual({ sent: false });
+      const messages = errorSpy.mock.calls.map((args) => args.join(" "));
+      expect(messages.some((m) => m.includes(fullEmail))).toBe(false);
+      expect(messages.some((m) => m.includes(maskedEmail))).toBe(true);
+    });
+
+    it("forgotPassword enmascara el email cuando falla el envío", async () => {
+      const errorSpy = vi
+        .spyOn(Logger.prototype, "error")
+        .mockImplementation(() => undefined);
+      const { db, mail, service } = setup({ user: null });
+      db.user.findUnique.mockResolvedValue(USER);
+      mail.sendPasswordReset.mockRejectedValue(new Error("smtp down"));
+
+      const result = await service.forgotPassword(fullEmail);
+
+      expect(result).toEqual({ sent: false });
+      const messages = errorSpy.mock.calls.map((args) => args.join(" "));
+      expect(messages.some((m) => m.includes(fullEmail))).toBe(false);
+      expect(messages.some((m) => m.includes(maskedEmail))).toBe(true);
     });
   });
 
