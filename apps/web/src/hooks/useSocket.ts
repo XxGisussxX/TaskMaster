@@ -37,7 +37,8 @@ export function useSocket() {
   // socket; ese teardown a mitad del handshake producía el warning
   // "WebSocket is closed before the connection is established".
   useEffect(() => {
-    if (!user) {
+    const token = useAuthStore.getState().getAccessToken();
+    if (!user || !token) {
       setSocket(null);
       joinedWorkspace.current = null;
       setJoinedWorkspaceId(null);

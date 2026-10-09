@@ -83,6 +83,27 @@ enum CustomFieldType {
   CHECKBOX
 }
 
+// ── Dream Board ───────────────────────────────────────────────────────
+
+enum DreamPinType {
+  GOAL
+  PROJECT
+  LEARNING
+  TRAVEL
+  FINANCIAL
+  HEALTH
+}
+
+// Paleta fija del tablero: seis colores, los mismos del selector en la UI.
+enum DreamPinColor {
+  AMBER
+  ROSE
+  SKY
+  EMERALD
+  VIOLET
+  SLATE
+}
+
 enum AuthTokenType {
   EMAIL_VERIFY
   PASSWORD_RESET
@@ -96,11 +117,11 @@ enum AuthTokenType {
 // ── Users & Auth ──────────────────────────────────────────────────────
 
 model User {
-  id      String  @id @default(cuid())
-  email   String  @unique
-  name    String
-  avatarUrl String?
-  role    SystemRole @default(USER)
+  id              String     @id @default(cuid())
+  email           String     @unique
+  name            String
+  avatarUrl       String?
+  role            SystemRole @default(USER)
   // Nullable a propósito: una cuenta creada con Google no tiene contraseña. El
   // login con password la trata como "no verificable" en vez de romper, y
   // `change-password` deja que ese usuario se ponga una contraseña por primera vez.
@@ -109,7 +130,7 @@ model User {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
-  accounts       Account[]
+  accounts        Account[]
   settings        UserSettings?
   ownedWorkspaces Workspace[]        @relation("OwnedWorkspaces")
   workspaces      WorkspaceMember[]
@@ -129,6 +150,7 @@ model User {
   timeEntries     TimeEntry[]
   invitedMembers  Invite[]           @relation("InvitedBy")
   aiGenerations   AiGeneration[]
+  dreamPins       DreamPin[]         @relation("DreamPinAuthor")
 }
 
 /// Identidad federada: una misma persona puede entrar por Google y por
@@ -219,6 +241,7 @@ model Workspace {
 
   owner             User                    @relation("OwnedWorkspaces", fields: [ownerId], references: [id], onDelete: Cascade)
   members           WorkspaceMember[]
+  teams             Team[]
   tasks             Task[]
   notes             Note[]
   tags              Tag[]
@@ -235,6 +258,8 @@ model Workspace {
   customFieldDefs   CustomFieldDefinition[]
   customFieldValues CustomFieldValue[]
   aiGenerations     AiGeneration[]
+  dreamBoard        DreamBoard?
+  dreamPins         DreamPin[]
 
   @@index([ownerId])
 }
@@ -246,8 +271,9 @@ model WorkspaceMember {
   role        WorkspaceRole @default(MEMBER)
   createdAt   DateTime      @default(now())
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamMembers TeamMember[]
 
   @@unique([workspaceId, userId])
   @@index([userId])
@@ -308,6 +334,7 @@ model Task {
   blocking    TaskDependency[] @relation("BlockingTasks")
   blockedBy   TaskDependency[] @relation("BlockedByTasks")
   timeEntries TimeEntry[]
+  dreamPins   DreamPin[]
 
   @@index([workspaceId, status])
   @@index([workspaceId, priority])
@@ -341,14 +368,20 @@ model TaskTag {
 model Channel {
   id          String   @id @default(cuid())
   workspaceId String
+  teamId      String?
   name        String
+  description String   @default("")
+  isPrivate   Boolean  @default(false)
   color       String?
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  team      Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
   tasks     Task[]
 
   @@unique([workspaceId, name])
+  @@index([workspaceId, teamId])
 }
 
 model TaskAssignee {
@@ -629,6 +662,50 @@ model CustomFieldValue {
   @@index([workspaceId, definitionId])
 }
 
+// ── Dream Board ──────────────────────────────────────────────────────
+
+// Un tablero por workspace. Los pins guardan su posición absoluta en el
+// corcho (px) para que el drag & drop sobreviva a recargas.
+model DreamBoard {
+  id          String   @id @default(cuid())
+  workspaceId String   @unique
+  title       String   @default("Mi Tablero de Sueños")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  pins      DreamPin[]
+}
+
+model DreamPin {
+  id           String        @id @default(cuid())
+  workspaceId  String
+  boardId      String
+  title        String
+  description  String        @default("")
+  type         DreamPinType  @default(GOAL)
+  color        DreamPinColor @default(AMBER)
+  x            Float         @default(0)
+  y            Float         @default(0)
+  imageUrl     String?
+  sticker      String?
+  linkedTaskId String?
+  // Autor del pin: solo él (o un admin del workspace) puede editarlo o borrarlo.
+  createdById  String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  workspace  Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  board      DreamBoard @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  createdBy  User?      @relation("DreamPinAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  linkedTask Task?      @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@index([boardId])
+  @@index([createdById])
+  @@index([linkedTaskId])
+}
+
 // ── AI usage log ────────────────────────────────────────────────────
 
 model AiGeneration {
@@ -650,4 +727,35 @@ model AiGeneration {
 
   @@index([workspaceId, createdAt])
   @@index([userId, createdAt])
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  description String   @default("")
+  color       String   @default("#3b82f6")
+  avatar      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  teamMembers TeamMember[]
+  channels    Channel[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+model TeamMember {
+  id                String   @id @default(cuid())
+  teamId            String
+  workspaceMemberId String
+  createdAt         DateTime @default(now())
+
+  team            Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  workspaceMember WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, workspaceMemberId])
+  @@index([workspaceMemberId])
 }

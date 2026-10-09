@@ -33,7 +33,10 @@ import { TimeEntriesModule } from "./modules/time-entries/time-entries.module";
 import { CustomFieldsModule } from "./modules/custom-fields/custom-fields.module";
 import { AiModule } from "./modules/ai/ai.module";
 import { AgendaModule } from "./modules/agenda/agenda.module";
+import { DocumentsModule } from "./modules/documents/documents.module";
+import { DreamBoardModule } from "./modules/dream-board/dream-board.module";
 import { WebSocketModule } from "./modules/websocket/websocket.module";
+import { TeamsModule } from "./modules/teams/teams.module";
 import { TenantModule } from "./tenant/tenant.module";
 
 @Module({
@@ -111,7 +114,10 @@ import { TenantModule } from "./tenant/tenant.module";
     CustomFieldsModule,
     AiModule,
     AgendaModule,
+    DocumentsModule,
+    DreamBoardModule,
     WebSocketModule,
+    TeamsModule,
     TenantModule,
   ],
   providers: [

@@ -9,6 +9,14 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { WorkspaceAccessService } from "../workspaces/workspace-access.service";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+/** Límite propio del endpoint de imágenes sueltas (pins, documentos). */
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5 MB
+const IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+]);
 const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -38,7 +46,10 @@ const ALLOWED_MIME_TYPES = new Set([
  */
 const MAGIC_BYTES: ReadonlyArray<{ mime: string; bytes: number[] }> = [
   { mime: "image/jpeg", bytes: [0xff, 0xd8, 0xff] },
-  { mime: "image/png", bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] },
+  {
+    mime: "image/png",
+    bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
+  },
   { mime: "image/gif", bytes: [0x47, 0x49, 0x46, 0x38] },
   { mime: "application/pdf", bytes: [0x25, 0x50, 0x44, 0x46] },
   { mime: "application/zip", bytes: [0x50, 0x4b, 0x03, 0x04] },
@@ -48,7 +59,11 @@ const MAGIC_BYTES: ReadonlyArray<{ mime: string; bytes: number[] }> = [
 const WEBP_RIFF = [0x57, 0x45, 0x42, 0x50];
 
 /** Formatos declarados como texto: no tienen firma, se validan por contenido. */
-const TEXTUAL_MIME_TYPES = new Set(["text/plain", "text/csv", "application/json"]);
+const TEXTUAL_MIME_TYPES = new Set([
+  "text/plain",
+  "text/csv",
+  "application/json",
+]);
 
 /**-family de Office que son ZIP. */
 const ZIP_BASED_MIME_TYPES = new Set([
@@ -165,6 +180,60 @@ export class UploadsService {
         `El contenido del archivo es ${match.mime}, no ${file.mimetype}`,
       );
     }
+  }
+
+  async uploadImage(
+    file: Express.Multer.File | undefined,
+  ): Promise<{ url: string }> {
+    if (!file) throw new BadRequestException("Archivo requerido");
+    if (file.size > MAX_IMAGE_SIZE) {
+      throw new BadRequestException(
+        `La imagen excede el tamaño máximo de ${MAX_IMAGE_SIZE / 1024 / 1024} MB`,
+      );
+    }
+    if (!IMAGE_MIME_TYPES.has(file.mimetype)) {
+      throw new BadRequestException(
+        `Solo se permiten imágenes (JPG, PNG, WebP, GIF): ${file.mimetype}`,
+      );
+    }
+
+    // Validación decidida por magic bytes (no por la extensión ni por el
+    // Content-Type, que elige el cliente).
+    this.validateFile(file);
+
+    // El nombre original no se usa como ruta de almacenamiento: el archivo
+    // llega a Cloudinary por stream desde memoria (public_id autogenerado), así
+    // que un nombre con traversal (`../../etc`) o caracteres raros nunca toca el
+    // filesystem ni forma parte de la URL pública.
+    let url: string;
+    if (this.cloudinary) {
+      try {
+        const cld = this.cloudinary as typeof import("cloudinary").v2;
+        const result = await new Promise<
+          import("cloudinary").UploadApiResponse
+        >((resolve, reject) => {
+          const stream = cld.uploader.upload_stream(
+            {
+              folder: "taskmaster/images",
+              resource_type: "image",
+            },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result!);
+            },
+          );
+          stream.end(file.buffer);
+        });
+        url = result.secure_url;
+      } catch (err) {
+        this.logger.error("Error subiendo imagen a Cloudinary", err);
+        throw new BadRequestException("Error al subir la imagen");
+      }
+    } else {
+      url = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+    }
+
+    return { url };
   }
 
   async upload(

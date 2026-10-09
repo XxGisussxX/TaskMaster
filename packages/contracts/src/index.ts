@@ -1,4 +1,4 @@
-export * from "./enums";
+﻿export * from "./enums";
 export * from "./schemas/auth.schema";
 export * from "./schemas/workspace.schema";
 export * from "./schemas/admin.schema";
@@ -17,6 +17,9 @@ export * from "./schemas/common.schema";
 export * from "./schemas/notification.schema";
 export * from "./schemas/tag.schema";
 export * from "./schemas/channel.schema";
-export * from "./schemas/document.schema";
-export * from "./schemas/saved-view.schema";
+export * from "./schemas/team.schema";
 export * from "./types";
+
+export * from "./schemas/document.schema";
+export * from "./schemas/dream-board.schema";
+export * from "./schemas/saved-view.schema";

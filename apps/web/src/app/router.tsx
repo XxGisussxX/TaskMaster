@@ -11,13 +11,16 @@ import { ResetPasswordPage } from "@/features/auth/pages/ResetPasswordPage";
 import { DashboardPage } from "@/features/dashboard/pages/DashboardPage";
 import { TasksPage } from "@/features/tasks/pages/TasksPage";
 import { NotesPage } from "@/features/notes/pages/NotesPage";
+import { GeneratorPage } from "@/features/documents/pages/GeneratorPage";
 import { CalendarPage } from "@/features/calendar/pages/CalendarPage";
+import { DreamBoardPage } from "@/features/dream-board/pages/DreamBoardPage";
 import { SettingsPage } from "@/features/settings/pages/SettingsPage";
 import { WorkspacePage } from "@/features/workspace/pages/WorkspacePage";
 import { AdminPage } from "@/features/admin/pages/AdminPage";
 import { AcceptInvitePage } from "@/features/invite/pages/AcceptInvitePage";
 import { NotFoundPage } from "@/features/misc/NotFoundPage";
 import { SystemRole } from "@taskmaster/contracts";
+
 export const router = createBrowserRouter([
   { path: "/invite/:token", element: <AcceptInvitePage /> },
   { path: "/verify-email", element: <VerifyEmailPage /> },
@@ -30,9 +33,6 @@ export const router = createBrowserRouter([
           { path: "/login", element: <LoginPage /> },
           { path: "/register", element: <RegisterPage /> },
           {
-            // Público a propósito: es donde aterriza el usuario que venía de Google,
-            // y en ese momento todavía no tiene sesión. Canjea el token y recién ahí
-            // queda autenticado.
             path: "/auth/callback",
             element: <OAuthCallbackPage />,
           },
@@ -52,6 +52,8 @@ export const router = createBrowserRouter([
           { path: "/", element: <DashboardPage /> },
           { path: "/tasks", element: <TasksPage /> },
           { path: "/notes", element: <NotesPage /> },
+          { path: "/dream-board", element: <DreamBoardPage /> },
+          { path: "/generator", element: <GeneratorPage /> },
           { path: "/calendar", element: <CalendarPage /> },
           { path: "/settings", element: <SettingsPage /> },
           { path: "/workspace", element: <WorkspacePage /> },

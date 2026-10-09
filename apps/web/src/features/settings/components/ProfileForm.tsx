@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar } from "@/components/ui/avatar";
 import { useAuthStore } from "@/store/auth.store";
 import { useUpdateProfile } from "@/features/users/hooks/useProfile";
+import { ImageUploader } from "@/components/ImageUploader";
 
 type FormValues = {
   name: string;
@@ -23,6 +24,7 @@ export function ProfileForm() {
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors, isDirty },
   } = useForm<FormValues>({
     resolver: zodResolver(updateProfileSchema),
@@ -68,11 +70,15 @@ export function ProfileForm() {
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="profile-avatar">URL del avatar (opcional)</Label>
-        <Input
-          id="profile-avatar"
-          placeholder="https://ejemplo.com/avatar.jpg"
-          {...register("avatarUrl")}
+        <Label htmlFor="profile-avatar">Avatar</Label>
+        <ImageUploader
+          value={avatarUrl || null}
+          onChange={(url) =>
+            setValue("avatarUrl", url, {
+              shouldDirty: true,
+              shouldValidate: true,
+            })
+          }
         />
         {errors.avatarUrl && (
           <p className="text-sm text-destructive">{errors.avatarUrl.message}</p>

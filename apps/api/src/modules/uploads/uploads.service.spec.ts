@@ -197,7 +197,7 @@ describe("UploadsService.validateFile · contenido real", () => {
 
   it("rechaza un script sin cabecera PDF válida", () => {
     const buffer = Buffer.from(
-      '<html><script>alert(document.cookie)</script></html>',
+      "<html><script>alert(document.cookie)</script></html>",
       "utf8",
     );
     expect(() =>
@@ -303,4 +303,78 @@ describe("UploadsService.validateFile · contenido real", () => {
       ),
     ).toThrow(/no permitido/);
   });
+});
+
+describe("UploadsService.uploadImage", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const { service } = setup({});
+
+  it("rechaza la falta del archivo", async () => {
+    await expect(service.uploadImage(undefined)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it("rechaza una imagen que excede los 5 MB", async () => {
+    const file = makeFile({
+      mimetype: "image/png",
+      size: 6 * 1024 * 1024,
+      buffer: Buffer.alloc(6 * 1024 * 1024, 0),
+    });
+    await expect(service.uploadImage(file)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it("rechaza un tipo que no es imagen aunque tenga firma válida", async () => {
+    const file = makeFile({
+      mimetype: "application/pdf",
+      buffer: Buffer.from("%PDF-1.7\n", "utf8"),
+    });
+    await expect(service.uploadImage(file)).rejects.toThrow(
+      /Solo se permiten imágenes/,
+    );
+  });
+
+  it("rechaza contenido HTML disfrazado como image/png", async () => {
+    const file = makeFile({
+      mimetype: "image/png",
+      buffer: Buffer.from("<html><script>alert(1)</script></html>", "utf8"),
+    });
+    await expect(service.uploadImage(file)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it.each(["image/png", "image/jpeg", "image/gif", "image/webp"])(
+    "devuelve una URL para una %s válida (sin Cloudinary)",
+    async (mime) => {
+      let buffer: Buffer;
+      if (mime === "image/webp") {
+        buffer = Buffer.alloc(16);
+        buffer.write("RIFF", 0, "ascii");
+        buffer.writeUInt32LE(8, 4);
+        buffer.write("WEBP", 8, "ascii");
+      } else if (mime === "image/gif") {
+        buffer = Buffer.from("GIF89a....", "ascii");
+      } else if (mime === "image/jpeg") {
+        buffer = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+      } else {
+        buffer = Buffer.from([
+          0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00,
+        ]);
+      }
+
+      const file = makeFile({
+        mimetype: mime,
+        buffer,
+        size: buffer.length,
+      });
+      const result = await service.uploadImage(file);
+      expect(result.url.startsWith(`data:${mime};base64,`)).toBe(true);
+    },
+  );
 });
