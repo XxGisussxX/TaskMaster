@@ -1,0 +1,20 @@
+# Reglas mínimas de editor para que los archivos se guarden igual en cualquier
+# IDE/OS: UTF-8 sin BOM, EOL LF, indentación de 2 espacios. El chequeo real lo
+# hace scripts/check-no-bom.mjs en el CI (fails si un .json empieza con BOM).
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# Los markdown suelen tener líneas con espacios para alinear tablas/lista.
+[*.md]
+trim_trailing_whitespace = false
+
+[Makefile]
+indent_style = tab

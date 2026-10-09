@@ -19,6 +19,7 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
+    "check:no-bom": "node scripts/check-no-bom.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,css,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,css,md}\"",
     "prepare": "husky",

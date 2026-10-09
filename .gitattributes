@@ -1,0 +1,22 @@
+# Convenciones de texto y binarios para Git.
+#
+# El repo se normaliza a LF: los blobs se guardan con LF y el working tree se
+# materializa con LF en cualquier OS (no importa core.autocrlf/local). Con esto
+# un .json empieza siempre con UTF-8 sin BOM y sin saltos mixtos.
+# Par no determinista: scripts/check-no-bom.mjs falla en el CI si un .json lleva
+# BOM, aunque el autor lo haya guardado así.
+
+* text=auto eol=lf
+
+# Binarios: no pasan por normalización ni diff textual.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.eot binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
