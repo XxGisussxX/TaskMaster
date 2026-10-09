@@ -65,6 +65,7 @@ export class DreamBoardService {
   ): Promise<DreamPinDto> {
     await this.access.assertWriteRole(workspaceId, userId);
     const board = await this.ensureBoard(workspaceId);
+    await this.assertLinkedTaskInWorkspace(workspaceId, dto.linkedTaskId);
 
     const pin = await this.prisma.dreamPin.create({
       data: {
@@ -98,6 +99,7 @@ export class DreamBoardService {
     const member = await this.access.assertWriteRole(workspaceId, userId);
     const existing = await this.requirePin(workspaceId, pinId);
     this.assertCanMutate(existing, member.userId, member.role);
+    await this.assertLinkedTaskInWorkspace(workspaceId, dto.linkedTaskId);
 
     const pin = await this.prisma.dreamPin.update({
       where: { id: pinId },
@@ -162,6 +164,23 @@ export class DreamBoardService {
     if (!isAuthor && !ELEVATED_ROLES.includes(role)) {
       throw new ForbiddenException("Solo podés modificar tus propios pins");
     }
+  }
+
+  /**
+   * El pin puede enlazar a una tarea de su propio workspace únicamente. Sin esta
+   * validación, un miembro del workspace A podría enlazar (y leer el título y el
+   * estado de) una tarea del workspace B (IDOR).
+   */
+  private async assertLinkedTaskInWorkspace(
+    workspaceId: string,
+    taskId?: string | null,
+  ): Promise<void> {
+    if (!taskId) return;
+    const task = await this.prisma.task.findFirst({
+      where: { id: taskId, workspaceId },
+      select: { id: true },
+    });
+    if (!task) throw new NotFoundException("Tarea no encontrada");
   }
 
   private async ensureBoard(workspaceId: string) {

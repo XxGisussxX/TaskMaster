@@ -366,6 +366,64 @@ describe("dream board CRUD (integración Postgres)", () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it("no permite enlazar el pin a una tarea de otro workspace (IDOR)", async () => {
+    if (!dbUp) return;
+
+    const service = makeService();
+    const taskA = await admin!.task.create({
+      data: {
+        title: "Tarea A",
+        workspaceId: workspaceAId,
+        creatorId: ownerId,
+      },
+    });
+    const taskB = await admin!.task.create({
+      data: {
+        title: "Tarea B",
+        workspaceId: workspaceBId,
+        creatorId: ownerId,
+      },
+    });
+
+    const pin = await asWorkspace(workspaceAId, ownerId, "OWNER", () =>
+      service.createPin(workspaceAId, ownerId, {
+        title: "Con tarea del workspace",
+        description: "",
+        type: "GOAL",
+        color: "AMBER",
+        positionX: 0,
+        positionY: 0,
+        linkedTaskId: taskA.id,
+      }),
+    );
+    expect(pin.linkedTask?.id).toBe(taskA.id);
+
+    await expect(
+      asWorkspace(workspaceAId, ownerId, "OWNER", () =>
+        service.createPin(workspaceAId, ownerId, {
+          title: "Intento IDOR",
+          description: "",
+          type: "GOAL",
+          color: "AMBER",
+          positionX: 0,
+          positionY: 0,
+          linkedTaskId: taskB.id,
+        }),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    await expect(
+      asWorkspace(workspaceAId, ownerId, "OWNER", () =>
+        service.updatePin(workspaceAId, pin.id, ownerId, {
+          linkedTaskId: taskB.id,
+        }),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    const saved = await admin!.dreamPin.findUnique({ where: { id: pin.id } });
+    expect(saved?.linkedTaskId).toBe(taskA.id);
+  });
+
   it("borra los pins en cascada cuando se elimina el workspace", async () => {
     if (!dbUp) return;
 

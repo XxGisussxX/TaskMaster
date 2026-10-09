@@ -31,6 +31,7 @@ function setup(options?: {
   role?: WorkspaceRole;
   memberUserId?: string;
   boardExists?: boolean;
+  taskInWorkspace?: boolean;
 }) {
   const pin = options?.pin === undefined ? PIN : options.pin;
   const member = {
@@ -65,6 +66,11 @@ function setup(options?: {
       findFirst: vi.fn().mockResolvedValue(pin),
       update: vi.fn().mockResolvedValue({ ...PIN, title: "Nuevo" }),
       delete: vi.fn().mockResolvedValue(PIN),
+    },
+    task: {
+      findFirst: vi
+        .fn()
+        .mockResolvedValue(options?.taskInWorkspace === false ? null : {}),
     },
   };
 
@@ -188,6 +194,48 @@ describe("DreamBoardService.createPin", () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.dreamPin.create).not.toHaveBeenCalled();
   });
+
+  it("enlaza a una tarea del mismo workspace", async () => {
+    const { service, prisma } = setup();
+
+    const pin = await service.createPin("ws1", "u1", {
+      title: "Correr 10k",
+      description: "",
+      type: "GOAL",
+      color: "AMBER",
+      positionX: 0,
+      positionY: 0,
+      linkedTaskId: "task1",
+    });
+
+    expect(prisma.task.findFirst).toHaveBeenCalledWith({
+      where: { id: "task1", workspaceId: "ws1" },
+      select: { id: true },
+    });
+    expect(prisma.dreamPin.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ linkedTaskId: "task1" }),
+      }),
+    );
+    expect(pin.id).toBe("pin1");
+  });
+
+  it("rechaza enlazar a una tarea de otro workspace (IDOR)", async () => {
+    const { service, prisma } = setup({ taskInWorkspace: false });
+
+    await expect(
+      service.createPin("ws1", "u1", {
+        title: "Correr 10k",
+        description: "",
+        type: "GOAL",
+        color: "AMBER",
+        positionX: 0,
+        positionY: 0,
+        linkedTaskId: "task-ajena",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.dreamPin.create).not.toHaveBeenCalled();
+  });
 });
 
 describe("DreamBoardService.updatePin", () => {
@@ -273,6 +321,17 @@ describe("DreamBoardService.updatePin", () => {
     await expect(
       service.updatePin("ws1", "pin1", "u1", { title: "Nuevo" }),
     ).resolves.toMatchObject({ id: "pin1" });
+  });
+
+  it("rechaza re-enlazar a una tarea de otro workspace (IDOR)", async () => {
+    const { service, prisma } = setup({ taskInWorkspace: false });
+
+    await expect(
+      service.updatePin("ws1", "pin1", "u1", {
+        linkedTaskId: "task-ajena",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.dreamPin.update).not.toHaveBeenCalled();
   });
 });
 
