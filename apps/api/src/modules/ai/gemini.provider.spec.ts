@@ -90,6 +90,31 @@ describe("GeminiProvider", () => {
     expect(fetch).toHaveBeenCalledOnce();
   });
 
+  it("envía la api key por cabecera x-goog-api-key y nunca en la URL", async () => {
+    const provider = new GeminiProvider({
+      apiKey: "secret-key-value",
+      model: "gemini-3.6-flash",
+      embeddingModel: "text-embedding-004",
+    });
+    mockFetchOnce({
+      candidates: [{ content: { parts: [{ text: '{"title":"Hola"}' }] } }],
+    });
+
+    await provider.completeJson("Descripción", spec);
+
+    const [url, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      URL | string,
+      RequestInit,
+    ];
+    expect(String(url)).toContain(":generateContent");
+    expect(String(url)).not.toContain("secret-key-value");
+    expect(String(url)).not.toContain("key=");
+    expect(init.headers).toMatchObject({
+      "x-goog-api-key": "secret-key-value",
+      "Content-Type": "application/json",
+    });
+  });
+
   it("soporta respuestas envueltas en fences de markdown", async () => {
     const provider = new GeminiProvider({
       apiKey: "k",

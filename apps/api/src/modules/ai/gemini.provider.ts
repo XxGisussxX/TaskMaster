@@ -65,9 +65,12 @@ export class GeminiProvider extends AiProvider {
     this.ensureConfigured();
 
     const started = Date.now();
+    // La clave va por cabecera (x-goog-api-key), como recomienda la doc oficial
+    // de la Gemini API: nunca viaja en la URL, así no aparece en proxies, logs
+    // ni en el error si la request falla.
     const url = `${API_BASE}/models/${encodeURIComponent(
       this.config.model,
-    )}:generateContent?key=${encodeURIComponent(this.config.apiKey ?? "")}`;
+    )}:generateContent`;
     const body = JSON.stringify({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
@@ -84,7 +87,10 @@ export class GeminiProvider extends AiProvider {
       try {
         const response = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": this.config.apiKey ?? "",
+          },
           body,
           signal: controller.signal,
         });
@@ -140,11 +146,14 @@ export class GeminiProvider extends AiProvider {
 
     const url = `${API_BASE}/models/${encodeURIComponent(
       this.config.embeddingModel,
-    )}:embedContent?key=${encodeURIComponent(this.config.apiKey ?? "")}`;
+    )}:embedContent`;
 
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": this.config.apiKey ?? "",
+      },
       body: JSON.stringify({
         model: `models/${this.config.embeddingModel}`,
         content: { parts: [{ text }] },
