@@ -4,6 +4,7 @@ import {
   dreamPinColorSchema,
   dreamPinTypeSchema,
   pinIdParamsSchema,
+  updateDreamPinSchema,
   updatePinSchema,
 } from "@taskmaster/contracts";
 
@@ -113,6 +114,67 @@ describe("updatePinSchema", () => {
   it("valida los enums también en la actualización", () => {
     expect(updatePinSchema.safeParse({ type: "NOPE" }).success).toBe(false);
     expect(updatePinSchema.safeParse({ color: "NOPE" }).success).toBe(false);
+  });
+});
+
+describe("updateDreamPinSchema", () => {
+  it("acepta actualizar solo la posición (drag & drop)", () => {
+    expect(
+      updateDreamPinSchema.parse({ positionX: 120, positionY: 48 }),
+    ).toEqual({ positionX: 120, positionY: 48 });
+  });
+
+  it("acepta un subconjunto de campos", () => {
+    expect(
+      updateDreamPinSchema.parse({ title: "Nuevo", color: "SKY" }),
+    ).toEqual({ title: "Nuevo", color: "SKY" });
+  });
+
+  it("rechaza un body vacío (PATCH {} → 400)", () => {
+    const result = updateDreamPinSchema.safeParse({});
+    expect(result.success).toBe(false);
+  });
+
+  it("acepta `null` para borrar campos opcionales a propósito", () => {
+    expect(
+      updateDreamPinSchema.parse({
+        imageUrl: null,
+        sticker: null,
+        linkedTaskId: null,
+      }),
+    ).toEqual({ imageUrl: null, sticker: null, linkedTaskId: null });
+  });
+
+  it("acepta cadena vacía para limpiar imagen y sticker (compat UI)", () => {
+    expect(updateDreamPinSchema.parse({ imageUrl: "", sticker: "" })).toEqual({
+      imageUrl: "",
+      sticker: "",
+    });
+  });
+
+  it("no deja vaciar el título", () => {
+    expect(updateDreamPinSchema.safeParse({ title: "" }).success).toBe(false);
+  });
+
+  it("rechaza una URL inválida en imageUrl", () => {
+    expect(
+      updateDreamPinSchema.safeParse({ imageUrl: "no-es-url" }).success,
+    ).toBe(false);
+  });
+
+  it("rechaza un sticker demasiado largo", () => {
+    expect(
+      updateDreamPinSchema.safeParse({ sticker: "🚀".repeat(6) }).success,
+    ).toBe(false);
+  });
+
+  it("valida los enums también en la actualización", () => {
+    expect(updateDreamPinSchema.safeParse({ type: "NOPE" }).success).toBe(
+      false,
+    );
+    expect(updateDreamPinSchema.safeParse({ color: "NOPE" }).success).toBe(
+      false,
+    );
   });
 });
 

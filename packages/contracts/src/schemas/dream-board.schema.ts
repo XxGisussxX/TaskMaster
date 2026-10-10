@@ -91,17 +91,32 @@ export const updatePinSchema = z
     message: "No hay cambios para guardar",
   });
 
-export const updateDreamPinSchema = z.object({
-  title: z.string().trim().min(1).optional(),
-  type: dreamPinTypeSchema.optional(),
-  color: dreamPinColorSchema.optional(),
-  description: z.string().trim().max(1000).optional(),
-  positionX: positionSchema.optional(),
-  positionY: positionSchema.optional(),
-  imageUrl: z.string().url().optional().or(z.literal("")),
-  sticker: z.string().max(10).optional().or(z.literal("")),
-  linkedTaskId: z.string().cuid().optional().or(z.literal(null)),
-});
+/**
+ * Actualización parcial de un pin.
+ *
+ * Semántica de los campos opcionales: un campo **ausente** (`undefined`) no se
+ * toca; un campo enviado como `null` (o cadena vacía, que el servicio normaliza
+ * a `null`) borra el valor a propósito. Antes, la ausencia de `imageUrl`,
+ * `sticker` o `linkedTaskId` se interpretaba como borrado, así que arrastrar un
+ * pin con `{ positionX, positionY }` destruía esos tres campos.
+ *
+ * El `.refine` exige al menos un campo: un `PATCH {}` es un 400, no un no-op.
+ */
+export const updateDreamPinSchema = z
+  .object({
+    title: z.string().trim().min(1).optional(),
+    type: dreamPinTypeSchema.optional(),
+    color: dreamPinColorSchema.optional(),
+    description: z.string().trim().max(1000).optional(),
+    positionX: positionSchema.optional(),
+    positionY: positionSchema.optional(),
+    imageUrl: z.union([z.string().url(), z.literal(""), z.null()]).optional(),
+    sticker: z.union([z.string().max(10), z.literal(""), z.null()]).optional(),
+    linkedTaskId: z.string().cuid().nullable().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "No hay cambios para guardar",
+  });
 
 export type UpdateDreamPinInput = z.infer<typeof updateDreamPinSchema>;
 

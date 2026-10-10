@@ -227,6 +227,85 @@ describe("dream board CRUD (integración Postgres)", () => {
     expect(afterDelete.pins).toHaveLength(0);
   });
 
+  it("mover un pin conserva imagen, sticker y tarea vinculada; borrar con null sí los quita", async () => {
+    if (!dbUp) return;
+
+    const service = makeService();
+    const task = await admin!.task.create({
+      data: {
+        title: "Tarea del pin",
+        workspaceId: workspaceAId,
+        creatorId: ownerId,
+      },
+    });
+
+    const pin = await asWorkspace(workspaceAId, ownerId, "OWNER", () =>
+      service.createPin(workspaceAId, ownerId, {
+        title: "Con imagen",
+        description: "",
+        type: "GOAL",
+        color: "AMBER",
+        positionX: 10,
+        positionY: 10,
+        imageUrl: "https://example.com/pin.png",
+        sticker: "🎯",
+        linkedTaskId: task.id,
+      }),
+    );
+    expect(pin).toMatchObject({
+      imageUrl: "https://example.com/pin.png",
+      sticker: "🎯",
+      linkedTaskId: task.id,
+    });
+
+    const boardBefore = await asWorkspace(workspaceAId, ownerId, "OWNER", () =>
+      service.getBoard(workspaceAId, ownerId),
+    );
+    const updatedAtBefore = new Date(boardBefore.updatedAt).getTime();
+
+    // Drag & drop: sólo posición. Los tres campos deben sobrevivir intactos.
+    const moved = await asWorkspace(workspaceAId, ownerId, "OWNER", () =>
+      service.updatePin(workspaceAId, pin.id, ownerId, {
+        positionX: 320,
+        positionY: 90,
+      }),
+    );
+    expect(moved).toMatchObject({
+      x: 320,
+      y: 90,
+      imageUrl: "https://example.com/pin.png",
+      sticker: "🎯",
+      linkedTaskId: task.id,
+    });
+
+    // El tablero queda marcado como modificado.
+    const boardAfter = await asWorkspace(workspaceAId, ownerId, "OWNER", () =>
+      service.getBoard(workspaceAId, ownerId),
+    );
+    expect(new Date(boardAfter.updatedAt).getTime()).toBeGreaterThan(
+      updatedAtBefore,
+    );
+
+    // Borrar un campo con `null` SÍ lo borra.
+    const cleared = await asWorkspace(workspaceAId, ownerId, "OWNER", () =>
+      service.updatePin(workspaceAId, pin.id, ownerId, {
+        imageUrl: null,
+        sticker: null,
+        linkedTaskId: null,
+      }),
+    );
+    expect(cleared).toMatchObject({
+      imageUrl: null,
+      sticker: null,
+      linkedTaskId: null,
+    });
+
+    const stored = await admin!.dreamPin.findUnique({ where: { id: pin.id } });
+    expect(stored?.imageUrl).toBeNull();
+    expect(stored?.sticker).toBeNull();
+    expect(stored?.linkedTaskId).toBeNull();
+  });
+
   it("un usuario de otro workspace no puede leer el tablero", async () => {
     if (!dbUp) return;
 

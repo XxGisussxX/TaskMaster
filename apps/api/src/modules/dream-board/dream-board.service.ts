@@ -9,7 +9,7 @@ import type {
   DreamPinDto,
   UpdateDreamPinInput,
 } from "@taskmaster/contracts";
-import type { DreamPin, WorkspaceRole } from "@prisma/client";
+import type { DreamPin, Prisma, WorkspaceRole } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { WorkspaceAccessService } from "../workspaces/workspace-access.service";
 
@@ -87,6 +87,8 @@ export class DreamBoardService {
       },
     });
 
+    await this.touchBoard(workspaceId);
+
     return this.toPinDto(pin);
   }
 
@@ -101,30 +103,36 @@ export class DreamBoardService {
     this.assertCanMutate(existing, member.userId, member.role);
     await this.assertLinkedTaskInWorkspace(workspaceId, dto.linkedTaskId);
 
+    // Un campo ausente (`undefined`) no se toca; `null` (o "") borra a
+    // propósito. Armar el `data` sólo con las claves presentes evita que un
+    // drag & drop con `{ positionX, positionY }` anule imagen, sticker o tarea.
+    // Se usa la variante "unchecked" porque la FKs (linkedTaskId) son escalares.
+    const data: Prisma.DreamPinUncheckedUpdateInput = {};
+    if (dto.title !== undefined) data.title = dto.title;
+    if (dto.description !== undefined) data.description = dto.description;
+    if (dto.type !== undefined) data.type = dto.type;
+    if (dto.color !== undefined) data.color = dto.color;
+    if (dto.positionX !== undefined) data.x = dto.positionX;
+    if (dto.positionY !== undefined) data.y = dto.positionY;
+    if (dto.imageUrl !== undefined) {
+      data.imageUrl = dto.imageUrl === "" ? null : dto.imageUrl;
+    }
+    if (dto.sticker !== undefined) {
+      data.sticker = dto.sticker === "" ? null : dto.sticker;
+    }
+    if (dto.linkedTaskId !== undefined) {
+      data.linkedTaskId = dto.linkedTaskId === "" ? null : dto.linkedTaskId;
+    }
+
     const pin = await this.prisma.dreamPin.update({
       where: { id: pinId },
-      data: {
-        title: dto.title,
-        description: dto.description,
-        type: dto.type,
-        color: dto.color,
-        x: dto.positionX,
-        y: dto.positionY,
-        imageUrl:
-          dto.imageUrl === "" || dto.imageUrl === undefined
-            ? null
-            : dto.imageUrl,
-        sticker:
-          dto.sticker === "" || dto.sticker === undefined ? null : dto.sticker,
-        linkedTaskId:
-          dto.linkedTaskId === null || dto.linkedTaskId === undefined
-            ? null
-            : dto.linkedTaskId,
-      },
+      data,
       include: {
         linkedTask: { select: { id: true, title: true, status: true } },
       },
     });
+
+    await this.touchBoard(workspaceId);
 
     return this.toPinDto(pin);
   }
@@ -139,7 +147,20 @@ export class DreamBoardService {
     this.assertCanMutate(existing, member.userId, member.role);
 
     await this.prisma.dreamPin.delete({ where: { id: pinId } });
+    await this.touchBoard(workspaceId);
     return { id: pinId };
+  }
+
+  /**
+   * Marca el tablero como modificado. `DreamPin` es una tabla aparte, así que el
+   * `@updatedAt` del `DreamBoard` no se mueve al tocar un pin; lo actualizamos
+   * explícitamente para que `DreamBoardDto.updatedAt` refleje el último cambio.
+   */
+  private async touchBoard(workspaceId: string): Promise<void> {
+    await this.prisma.dreamBoard.update({
+      where: { workspaceId },
+      data: { updatedAt: new Date() },
+    });
   }
 
   /** Devuelve el pin validando que pertenezca al workspace indicado. */

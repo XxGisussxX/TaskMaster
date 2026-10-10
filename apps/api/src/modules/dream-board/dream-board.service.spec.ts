@@ -60,6 +60,7 @@ function setup(options?: {
         .fn()
         .mockResolvedValue(options?.boardExists === false ? null : BOARD),
       create: vi.fn().mockResolvedValue(BOARD),
+      update: vi.fn().mockResolvedValue(BOARD),
     },
     dreamPin: {
       create: vi.fn().mockResolvedValue(PIN),
@@ -239,7 +240,7 @@ describe("DreamBoardService.createPin", () => {
 });
 
 describe("DreamBoardService.updatePin", () => {
-  it("actualiza los campos enviados", async () => {
+  it("sólo toca los campos enviados: mover un pin no anula imagen, sticker ni tarea", async () => {
     const { service, prisma } = setup();
 
     const pin = await service.updatePin("ws1", "pin1", "u1", {
@@ -247,24 +248,67 @@ describe("DreamBoardService.updatePin", () => {
       positionY: 6,
     });
 
+    // El `data` NO debe incluir las claves ausentes: si se incluyera
+    // `imageUrl`/`sticker`/`linkedTaskId` como `null`, un drag las borraría.
     expect(prisma.dreamPin.update).toHaveBeenCalledWith({
       where: { id: "pin1" },
-      data: {
-        title: undefined,
-        description: undefined,
-        type: undefined,
-        color: undefined,
-        x: 5,
-        y: 6,
-        imageUrl: null,
-        sticker: null,
-        linkedTaskId: null,
-      },
+      data: { x: 5, y: 6 },
       include: expect.objectContaining({
         linkedTask: expect.any(Object),
       }),
     });
     expect(pin.title).toBe("Nuevo");
+  });
+
+  it("distingue `undefined` (no tocar) de `null` (borrar a propósito)", async () => {
+    const { service, prisma } = setup();
+
+    await service.updatePin("ws1", "pin1", "u1", {
+      title: "Nuevo",
+      imageUrl: null,
+      sticker: null,
+      linkedTaskId: null,
+    });
+
+    expect(prisma.dreamPin.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          title: "Nuevo",
+          imageUrl: null,
+          sticker: null,
+          linkedTaskId: null,
+        },
+      }),
+    );
+  });
+
+  it("normaliza la cadena vacía a `null` (borrar con el input de la UI)", async () => {
+    const { service, prisma } = setup();
+
+    await service.updatePin("ws1", "pin1", "u1", {
+      imageUrl: "",
+      sticker: "",
+    });
+
+    expect(prisma.dreamPin.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { imageUrl: null, sticker: null },
+      }),
+    );
+  });
+
+  it("actualiza el `updatedAt` del tablero al modificar un pin", async () => {
+    const { service, prisma } = setup();
+
+    await service.updatePin("ws1", "pin1", "u1", {
+      positionX: 1,
+      positionY: 1,
+    });
+
+    expect(prisma.dreamBoard.update).toHaveBeenCalledWith({
+      where: { workspaceId: "ws1" },
+      data: { updatedAt: expect.any(Date) },
+    });
   });
 
   it("busca el pin acotado al workspace", async () => {
