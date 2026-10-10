@@ -37,3 +37,9 @@ Thumbs.db
 # Playwright
 test-results/
 playwright-report/
+
+# Scratch / artefactos temporales locales: schema raiz de prueba, esquemas
+# Prisma de test y parches aplicados a dependencias
+/schema.prisma
+*.prisma.test
+*_patch.txt

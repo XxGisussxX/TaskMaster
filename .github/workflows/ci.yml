@@ -93,6 +93,11 @@ jobs:
       # saltean solas si no los encuentran, y sin ellas el script Lua del rate
       # limit y el aislamiento por tenant quedan sin probar de verdad.
       - name: Test
+        # La suite corre integraciones reales contra Postgres y Redis, pero
+        # ninguna toca servicios externos ni necesita secretos: Gemini se salta
+        # sin GEMINI_API_KEY (y exige RUN_AI_INTEGRATION=1, nunca pasada aquí),
+        # Google OAuth simula el fetch de Google y Mail/Cloudinary quedan
+        # inertes sin sus keys. No se inyecta ningún secreto en este paso.
         run: pnpm test
         env:
           DATABASE_URL: postgresql://taskmaster:taskmaster@localhost:5432/taskmaster_test?schema=public
