@@ -17,6 +17,7 @@
     "prisma:status": "prisma migrate status",
     "prisma:migrate:check": "node scripts/migrate-check.mjs",
     "prisma:seed": "ts-node prisma/seed.dev.ts",
+    "prisma:seed:bench": "ts-node prisma/seed.bench.ts",
     "prisma:seed:sql": "prisma db execute --file prisma/seeds/seed-demo.sql --schema prisma/schema.prisma"
   },
   "prisma": {
