@@ -4,9 +4,11 @@ import {
   Gauge,
   ListTodo,
   Plus,
+  RefreshCw,
   Target,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageLoader } from "@/components/ui/spinner";
@@ -22,11 +24,16 @@ import { UpcomingDeadlines } from "../components/UpcomingDeadlines";
 import { TeamLoadCard } from "../components/TeamLoadCard";
 import { AgendaOptimizationCard } from "../components/AgendaOptimizationCard";
 import { ActivityTimeline } from "../components/ActivityTimeline";
+import { DashboardRangeSelector } from "../components/DashboardRangeSelector";
+import { ThroughputCard } from "../components/ThroughputCard";
+import { OverdueByAgeCard } from "../components/OverdueByAgeCard";
+import { PersonLoadCard } from "../components/PersonLoadCard";
 import { useAuthStore } from "@/store/auth.store";
 import { useUiStore } from "@/store/ui.store";
 import { useCurrentMembership } from "@/features/workspace/hooks/useMembers";
 import { useTasks } from "@/features/tasks/hooks/useTasks";
 import {
+  defaultRange,
   formatLongToday,
   isCritical,
   isOpen,
@@ -35,7 +42,6 @@ import {
 } from "../lib/dashboardStats";
 import { isOverdue } from "@taskmaster/domain";
 import { Priority } from "@taskmaster/contracts";
-import { useMemo } from "react";
 
 type DashboardStatsLike = NonNullable<
   ReturnType<typeof useDashboardStats>["data"]
@@ -43,7 +49,9 @@ type DashboardStatsLike = NonNullable<
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  const { data, isLoading, isError } = useDashboardStats();
+  const [range, setRange] = useState(() => defaultRange());
+  const { data, isLoading, isError, isFetching, refetch } =
+    useDashboardStats(range);
   const user = useAuthStore((s) => s.user);
   const requestTaskModal = useUiStore((s) => s.requestTaskModal);
   const { canWrite } = useCurrentMembership();
@@ -90,6 +98,12 @@ export function DashboardPage() {
         <EmptyState
           title="Sin datos de analíticas"
           description="Aún no hay estadísticas para este workspace o la API no está disponible."
+          action={
+            <Button variant="outline" onClick={() => void refetch()}>
+              <RefreshCw className="h-4 w-4" />
+              Reintentar
+            </Button>
+          }
         />
         <TaskBasedBlocks />
       </div>
@@ -113,6 +127,13 @@ export function DashboardPage() {
           )
         }
       />
+
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-background/60 px-3 py-2">
+        <DashboardRangeSelector value={range} onChange={setRange} />
+        {isFetching && (
+          <p className="text-xs text-muted-foreground">Actualizando…</p>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
@@ -170,6 +191,10 @@ export function DashboardPage() {
             </CardContent>
           </Card>
 
+          {data.weeklyThroughput && data.weeklyThroughput.length > 0 && (
+            <ThroughputCard data={data.weeklyThroughput} />
+          )}
+
           <Card className="overflow-hidden">
             <CardHeader>
               <CardTitle className="text-base">
@@ -192,12 +217,23 @@ export function DashboardPage() {
             </CardContent>
           </Card>
 
+          {data.workloadByPerson && data.hoursByPerson && (
+            <PersonLoadCard
+              workload={data.workloadByPerson}
+              hours={data.hoursByPerson}
+              currentUserId={user?.id}
+            />
+          )}
+
           <Card className="overflow-hidden">
             <CardHeader>
               <CardTitle className="text-base">Actividad anual</CardTitle>
             </CardHeader>
             <CardContent>
-              <Heatmap data={yearData(data)} year={new Date().getFullYear()} />
+              <Heatmap
+                data={data.heatmap ?? yearData(data)}
+                year={new Date().getFullYear()}
+              />
             </CardContent>
           </Card>
         </div>
@@ -224,6 +260,10 @@ export function DashboardPage() {
               />
             </CardContent>
           </Card>
+
+          {data.overdueByAge && data.overdueByAge.length > 0 && (
+            <OverdueByAgeCard data={data.overdueByAge} />
+          )}
 
           <AgendaOptimizationCard />
 

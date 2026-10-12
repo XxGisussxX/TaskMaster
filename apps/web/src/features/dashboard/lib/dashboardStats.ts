@@ -12,6 +12,23 @@ export interface WeekSums {
   changePct: number;
 }
 
+export interface DateRange {
+  from: string;
+  to: string;
+}
+
+/** Ventana por defecto del dashboard: hoy y los 29 días previos. */
+export function defaultRange(now = new Date()): DateRange {
+  return rangeFromPreset(30, now);
+}
+
+/** Rango (fechas locales YYYY-MM-DD) que termina hoy para una ventana de `days`. */
+export function rangeFromPreset(days: number, now = new Date()): DateRange {
+  const to = toLocalDateKey(toDate(now));
+  const from = toLocalDateKey(toDate(addDays(now, -(days - 1))));
+  return { from, to };
+}
+
 /** Lunes 00:00 de la semana que contiene la fecha dada (ISO 8601). */
 export function startOfWeek(date: Date): Date {
   const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());

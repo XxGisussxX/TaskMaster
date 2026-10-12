@@ -3,9 +3,11 @@ import { Priority, TaskStatus, type Task } from "@taskmaster/contracts";
 import {
   addDays,
   computeTeamLoad,
+  defaultRange,
   formatLongToday,
   isOpen,
   partOfDayGreeting,
+  rangeFromPreset,
   startOfWeek,
   upcomingDeadlines,
   weekCompleted,
@@ -50,6 +52,31 @@ describe("dashboardStats → startOfWeek / addDays", () => {
     const result = addDays(new Date(2026, 9, 30), 4);
     expect(result.getMonth()).toBe(10);
     expect(result.getDate()).toBe(3);
+  });
+});
+
+describe("dashboardStats → defaultRange / rangeFromPreset", () => {
+  it("defaultRange cubre 30 días terminando hoy", () => {
+    const range = defaultRange(new Date(2026, 9, 22));
+    expect(range.to).toBe("2026-10-22");
+    expect(range.from).toBe("2026-09-23");
+  });
+
+  it("rangeFromPreset de 7 días termina hoy", () => {
+    const range = rangeFromPreset(7, new Date(2026, 9, 22));
+    expect(range.to).toBe("2026-10-22");
+    expect(range.from).toBe("2026-10-16");
+  });
+
+  it("el rango es de fechas locales YYYY-MM-DD", () => {
+    const range = rangeFromPreset(30, new Date(2026, 0, 1));
+    expect(range.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(range.to).toBe("2026-01-01");
+  });
+
+  it("un solo día produce from === to", () => {
+    const range = rangeFromPreset(1, new Date(2026, 2, 5));
+    expect(range).toEqual({ from: "2026-03-05", to: "2026-03-05" });
   });
 });
 
