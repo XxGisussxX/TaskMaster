@@ -339,6 +339,8 @@ model Task {
   @@index([workspaceId, status])
   @@index([workspaceId, priority])
   @@index([workspaceId, dueDate])
+  @@index([workspaceId, completedAt])
+  @@index([workspaceId, createdAt])
   @@index([dueDate, dueSoNotifiedAt])
   @@index([parentId])
 }
@@ -624,6 +626,7 @@ model TimeEntry {
 
   @@index([workspaceId, taskId])
   @@index([workspaceId, userId])
+  @@index([workspaceId, startedAt])
 }
 
 // ── Custom Fields ────────────────────────────────────────────────────

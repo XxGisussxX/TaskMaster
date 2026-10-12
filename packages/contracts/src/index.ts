@@ -5,6 +5,7 @@ export * from "./schemas/admin.schema";
 export * from "./schemas/ai.schema";
 export * from "./schemas/task.schema";
 export * from "./schemas/agenda.schema";
+export * from "./schemas/dashboard.schema";
 export * from "./schemas/presence.schema";
 export * from "./schemas/task-dependency.schema";
 export * from "./schemas/task-template.schema";

@@ -212,6 +212,27 @@ export interface DashboardStats {
   priorityDistribution: Record<Priority, number>;
   statusDistribution: Record<TaskStatus, number>;
   activity: ActivityEntry[];
+  /** Rango de fechas usado por las series (YYYY-MM-DD, inclusive). */
+  range?: { from: string; to: string };
+  /** Actividad diaria del año pedido (usa `completedAt ?? createdAt`). */
+  heatmap?: { date: string; count: number }[];
+  /** Throughput por semana (semanas que empiezan en lunes). */
+  weeklyThroughput?: {
+    weekStart: string;
+    created: number;
+    completed: number;
+  }[];
+  /** Tareas vencidas agrupadas por antigüedad del vencimiento. */
+  overdueByAge?: { bucket: string; count: number }[];
+  /** Carga por persona. Solo se incluye para ADMIN/OWNER. */
+  workloadByPerson?: {
+    userId: string;
+    name: string;
+    activeTasks: number;
+    overdueTasks: number;
+  }[];
+  /** Horas registradas por persona. Solo se incluye para ADMIN/OWNER. */
+  hoursByPerson?: { userId: string; name: string; seconds: number }[];
 }
 
 export interface BulkActionResult {

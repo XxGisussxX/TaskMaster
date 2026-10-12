@@ -183,11 +183,11 @@ async function main() {
   await prisma.$disconnect();
 
   const md = renderMarkdown({ startedAt, results, mem, scales: SCALES });
-  writeFileSync(
-    new URL("../../../docs/bench-baseline.md", import.meta.url),
-    md,
-  );
-  console.log("\nEscrito docs/bench-baseline.md");
+  const out =
+    process.env.BENCH_OUT ??
+    new URL("../../../docs/bench-baseline.md", import.meta.url);
+  writeFileSync(out, md);
+  console.log(`\nEscrito ${process.env.BENCH_OUT ?? "docs/bench-baseline.md"}`);
 }
 
 function fmtMs(v) {
