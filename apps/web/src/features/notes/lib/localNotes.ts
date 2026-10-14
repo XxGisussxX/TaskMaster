@@ -64,10 +64,14 @@ function matchesQuery(
   const search = String(query.search ?? "")
     .trim()
     .toLowerCase();
+  const tag = String(query.tag ?? "")
+    .trim()
+    .toLowerCase();
   const pinned = query.pinned as boolean | undefined;
 
   if (type && note.type !== type) return false;
   if (typeof pinned === "boolean" && note.pinned !== pinned) return false;
+  if (tag && !note.tags.some((t) => t.name.toLowerCase() === tag)) return false;
 
   if (search) {
     const haystack = `${note.title ?? ""} ${note.content ?? ""}`.toLowerCase();

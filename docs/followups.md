@@ -15,17 +15,19 @@ está implementado; es una lista de deuda técnica para priorizar.
 >   por proceso, vía `RedisService.withFallback`), el límite de la IA se aplica
 >   por `usuario:workspace` y no por IP, y las lecturas del asistente están
 >   acotadas (`take` por vencimiento en tareas, tope de tags/canales).
+> - Notas (N1/N6): el filtro de notas ahora funciona y es por **nombre** de tag
+>   (las tags de notas son filas `NoteTag` por nota, un `id` solo podía matchear
+>   una nota), y `update` aplica diffs sobre tags/items/collaborators en vez de
+>   borrarlos y recrearlos (menos escrituras, sin pisar cambios concurrentes).
 
 ## Notas
 
 | #   | Hallazgo                                                                                                                       | Severidad | Ubicación                                                                                                               | Esfuerzo |
 | --- | ------------------------------------------------------------------------------------------------------------------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------- | -------- |
-| N1  | Filtro `tagId` aceptado por el schema pero ignorado por el servicio                                                            | Media     | `packages/contracts/src/schemas/note.schema.ts:40` · `apps/api/src/modules/notes/notes.service.ts:56-64`                | S        |
 | N2  | La UI no pagina: el front solo lee la primera página (`pageSize` 24); notas >24 inalcanzables                                  | Media     | `apps/web/src/features/notes/pages/NotesPage.tsx:44,150-167`                                                            | S        |
 | N3  | Búsqueda sin debounce: una request por tecla (`query key` reconstruida en cada keystroke)                                      | Baja      | `apps/web/src/features/notes/pages/NotesPage.tsx:105-109` · `hooks/useNotes.ts:11`                                      | S        |
 | N4  | Endpoints de pin/unpin y checklist sin uso: la UI hace pin vía `update` y no tiene editor de items                             | Media     | `apps/api/src/modules/notes/notes.controller.ts:85-148` · `apps/web/.../NoteForm.tsx` (sin editor) · `NotesPage.tsx:54` | M        |
 | N5  | Límite de contenido divergente: el form permite 20 000 chars, el servidor rechaza >10 000                                      | Baja      | `apps/web/.../NoteForm.tsx:18` · `note.schema.ts:15`                                                                    | S        |
-| N6  | `update` = delete+recreate de tags/items/collaborators: amplificación de escritura y pérdida en concurrencia                   | Media     | `apps/api/src/modules/notes/notes.service.ts:158-183`                                                                   | M        |
 | N7  | Sin tiempo real en notas: no hay eventos socket de notas; `NoteCollaborator` no otorga permisos y `NOTE_SHARED` nunca se emite | Media     | `apps/api/src/modules/websocket/websocket.gateway.ts:197-258` · `packages/contracts/src/enums.ts:76`                    | L        |
 | N8  | Modo local (workspace demo) guarda HTML sin sanitizar y no respeta orden por pinned                                            | Media     | `apps/web/.../localNotes.ts:128-129,92-95`                                                                              | S        |
 | N9  | Asimetría de sanitización cliente vs servidor (href relativos `libre/`/`#` y tags `label/div/span`)                            | Baja      | `apps/web/src/components/ui/rich-text.tsx:61-71` · `apps/api/src/common/sanitize/html.ts:66`                            | S        |

@@ -37,7 +37,7 @@ export const toggleChecklistItemSchema = z.object({
 export const noteFiltersSchema = z.object({
   type: z.nativeEnum(NoteType).optional(),
   search: z.string().max(200).optional(),
-  tagId: idSchema.optional(),
+  tag: z.string().trim().min(1).max(40).optional(),
   pinned: z.coerce.boolean().optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(24),

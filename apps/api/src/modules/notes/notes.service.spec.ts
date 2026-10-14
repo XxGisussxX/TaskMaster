@@ -19,11 +19,32 @@ function setup() {
       update: vi.fn().mockResolvedValue(makeNote()),
       findFirst: vi.fn().mockResolvedValue({ id: "n1" }),
       findUniqueOrThrow: vi.fn().mockResolvedValue({ id: "n1" }),
+      findMany: vi.fn().mockResolvedValue([]),
+      count: vi.fn().mockResolvedValue(0),
       delete: vi.fn().mockResolvedValue(undefined),
     },
-    noteTag: { deleteMany: vi.fn(), createMany: vi.fn() },
-    checklistItem: { deleteMany: vi.fn(), createMany: vi.fn() },
-    noteCollaborator: { deleteMany: vi.fn(), createMany: vi.fn() },
+    noteTag: {
+      findMany: vi.fn().mockResolvedValue([]),
+      deleteMany: vi.fn(),
+      createMany: vi.fn(),
+    },
+    checklistItem: {
+      findMany: vi.fn().mockResolvedValue([]),
+      deleteMany: vi.fn(),
+      createMany: vi.fn(),
+      update: vi.fn(),
+      create: vi.fn(),
+    },
+    noteCollaborator: {
+      findMany: vi.fn().mockResolvedValue([]),
+      deleteMany: vi.fn(),
+      createMany: vi.fn(),
+    },
+    workspaceMember: {
+      count: vi.fn((args: { where?: { userId?: { in?: string[] } } }) =>
+        Promise.resolve(args?.where?.userId?.in?.length ?? 0),
+      ),
+    },
     // `update` envuelve todo en un `$transaction` con callback que recibe un tx.
     $transaction: vi.fn((cb: (tx: unknown) => Promise<unknown>) => cb(prisma)),
   };
@@ -136,5 +157,116 @@ describe("NotesService — sanitizado de HTML en la escritura", () => {
 
     const data = prisma.note.create.mock.calls[0]![0].data;
     expect(data.content).toBe(html);
+  });
+});
+
+describe("NotesService — filtro por tag (N1)", () => {
+  it("filtra por nombre de tag, no por id", async () => {
+    const { service, prisma } = setup();
+
+    await service.list(WORKSPACE_ID, USER_ID, {
+      page: 1,
+      pageSize: 24,
+      tag: "Urgente",
+    });
+
+    const where = prisma.note.findMany.mock.calls[0]![0].where;
+    expect(where.tags).toEqual({
+      some: { name: { equals: "Urgente", mode: "insensitive" } },
+    });
+  });
+
+  it("no filtra cuando no se manda tag", async () => {
+    const { service, prisma } = setup();
+
+    await service.list(WORKSPACE_ID, USER_ID, { page: 1, pageSize: 24 });
+
+    const where = prisma.note.findMany.mock.calls[0]![0].where;
+    expect(where.tags).toBeUndefined();
+  });
+});
+
+describe("NotesService — update sin delete+recreate (N6)", () => {
+  it("actualiza items existentes en lugar de recrearlos", async () => {
+    const { service, prisma } = setup();
+    prisma.checklistItem.findMany.mockResolvedValue([{ id: "i1" }]);
+
+    await service.update(WORKSPACE_ID, "n1", USER_ID, {
+      items: [{ id: "i1", text: "editado", done: true, order: 0 }],
+    } as never);
+
+    expect(prisma.checklistItem.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.checklistItem.create).not.toHaveBeenCalled();
+    expect(prisma.checklistItem.update).toHaveBeenCalledWith({
+      where: { id: "i1" },
+      data: { text: "editado", done: true, order: 0 },
+    });
+  });
+
+  it("borra solo los items ausentes y agrega los nuevos", async () => {
+    const { service, prisma } = setup();
+    prisma.checklistItem.findMany.mockResolvedValue([
+      { id: "i1" },
+      { id: "i2" },
+    ]);
+
+    await service.update(WORKSPACE_ID, "n1", USER_ID, {
+      items: [
+        { id: "i1", text: "queda", done: false, order: 0 },
+        { text: "nuevo", done: false, order: 1 },
+      ],
+    } as never);
+
+    expect(prisma.checklistItem.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ["i2"] } },
+    });
+    expect(prisma.checklistItem.update).toHaveBeenCalledTimes(1);
+    expect(prisma.checklistItem.create).toHaveBeenCalledWith({
+      data: { noteId: "n1", text: "nuevo", done: false, order: 1 },
+    });
+  });
+
+  it("no toca tags ni colaboradores ausentes del payload", async () => {
+    const { service, prisma } = setup();
+
+    await service.update(WORKSPACE_ID, "n1", USER_ID, {
+      title: "solo titulo",
+    } as never);
+
+    expect(prisma.noteTag.findMany).not.toHaveBeenCalled();
+    expect(prisma.checklistItem.findMany).not.toHaveBeenCalled();
+    expect(prisma.noteCollaborator.findMany).not.toHaveBeenCalled();
+  });
+
+  it("hace diff de tags por nombre", async () => {
+    const { service, prisma } = setup();
+    prisma.noteTag.findMany.mockResolvedValue([{ name: "a" }, { name: "b" }]);
+
+    await service.update(WORKSPACE_ID, "n1", USER_ID, {
+      tags: ["b", "c"],
+    } as never);
+
+    expect(prisma.noteTag.deleteMany).toHaveBeenCalledWith({
+      where: { noteId: "n1", name: { in: ["a"] } },
+    });
+    expect(prisma.noteTag.createMany).toHaveBeenCalledWith({
+      data: [{ noteId: "n1", name: "c" }],
+      skipDuplicates: true,
+    });
+  });
+
+  it("hace diff de colaboradores por userId", async () => {
+    const { service, prisma } = setup();
+    prisma.noteCollaborator.findMany.mockResolvedValue([{ userId: "u2" }]);
+
+    await service.update(WORKSPACE_ID, "n1", USER_ID, {
+      collaborators: ["u2", "u3"],
+    } as never);
+
+    expect(prisma.noteCollaborator.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.noteCollaborator.createMany).toHaveBeenCalledWith({
+      data: [{ noteId: "n1", userId: "u3" }],
+      skipDuplicates: true,
+    });
   });
 });

@@ -56,6 +56,13 @@ export class NotesService {
     const where: Prisma.NoteWhereInput = { workspaceId };
     if (filters.type) where.type = filters.type;
     if (filters.pinned !== undefined) where.pinned = filters.pinned;
+    // Las tags de notas son filas `NoteTag` por nota, así que se filtran por
+    // nombre (lo compartido entre notas), no por id.
+    if (filters.tag) {
+      where.tags = {
+        some: { name: { equals: filters.tag, mode: "insensitive" } },
+      };
+    }
     if (filters.search) {
       where.OR = [
         { title: { contains: filters.search, mode: "insensitive" } },
@@ -157,29 +164,85 @@ export class NotesService {
 
     const note = await this.prisma.$transaction(async (tx) => {
       if (dto.tags !== undefined) {
-        await tx.noteTag.deleteMany({ where: { noteId: id } });
-        await tx.noteTag.createMany({
-          data: dto.tags.map((name) => ({ noteId: id, name })),
+        const existingTags = await tx.noteTag.findMany({
+          where: { noteId: id },
+          select: { name: true },
         });
+        const existingNames = new Set(existingTags.map((t) => t.name));
+        const incomingNames = new Set(dto.tags);
+        const toRemove = [...existingNames].filter(
+          (name) => !incomingNames.has(name),
+        );
+        const toAdd = dto.tags.filter((name) => !existingNames.has(name));
+        if (toRemove.length > 0) {
+          await tx.noteTag.deleteMany({
+            where: { noteId: id, name: { in: toRemove } },
+          });
+        }
+        if (toAdd.length > 0) {
+          await tx.noteTag.createMany({
+            data: toAdd.map((name) => ({ noteId: id, name })),
+            skipDuplicates: true,
+          });
+        }
       }
 
       if (dto.items !== undefined) {
-        await tx.checklistItem.deleteMany({ where: { noteId: id } });
-        await tx.checklistItem.createMany({
-          data: dto.items.map((item, index) => ({
-            noteId: id,
-            text: item.text,
-            done: item.done,
-            order: item.order ?? index,
-          })),
+        const existingItems = await tx.checklistItem.findMany({
+          where: { noteId: id },
+          select: { id: true },
         });
+        const existingIds = new Set(existingItems.map((i) => i.id));
+        const incomingIds = new Set(
+          dto.items
+            .map((item) => item.id)
+            .filter((itemId): itemId is string => Boolean(itemId)),
+        );
+        const toRemove = [...existingIds].filter(
+          (itemId) => !incomingIds.has(itemId),
+        );
+        if (toRemove.length > 0) {
+          await tx.checklistItem.deleteMany({
+            where: { id: { in: toRemove } },
+          });
+        }
+        for (const [index, item] of dto.items.entries()) {
+          const order = item.order ?? index;
+          if (item.id && existingIds.has(item.id)) {
+            await tx.checklistItem.update({
+              where: { id: item.id },
+              data: { text: item.text, done: item.done, order },
+            });
+          } else {
+            await tx.checklistItem.create({
+              data: { noteId: id, text: item.text, done: item.done, order },
+            });
+          }
+        }
       }
 
       if (dto.collaborators !== undefined) {
-        await tx.noteCollaborator.deleteMany({ where: { noteId: id } });
-        await tx.noteCollaborator.createMany({
-          data: dto.collaborators.map((cId) => ({ noteId: id, userId: cId })),
+        const existingCollaborators = await tx.noteCollaborator.findMany({
+          where: { noteId: id },
+          select: { userId: true },
         });
+        const existingIds = new Set(existingCollaborators.map((c) => c.userId));
+        const incomingIds = new Set(dto.collaborators);
+        const toRemove = [...existingIds].filter(
+          (cId) => !incomingIds.has(cId),
+        );
+        const toAdd = dto.collaborators.filter((cId) => !existingIds.has(cId));
+        if (toRemove.length > 0) {
+          await tx.noteCollaborator.deleteMany({
+            where: { noteId: id, userId: { in: toRemove } },
+          });
+        }
+        if (toAdd.length > 0) {
+          await tx.noteCollaborator.createMany({
+            data: toAdd.map((userId) => ({ noteId: id, userId })),
+            skipDuplicates: true,
+          });
+        }
       }
 
       return tx.note.update({
