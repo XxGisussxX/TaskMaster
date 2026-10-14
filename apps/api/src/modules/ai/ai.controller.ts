@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import {
   assistantRequestSchema,
@@ -8,6 +8,7 @@ import {
   type NlTaskInput,
 } from "@taskmaster/contracts";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
+import { AiThrottleGuard } from "../../common/guards/ai-throttle.guard";
 import { ParseIdPipe } from "../../common/pipes/parse-id.pipe";
 import { ZodPipe } from "../../common/pipes/zod.pipe";
 import type { AuthUser } from "../auth/types";
@@ -16,6 +17,7 @@ import { AiService } from "./ai.service";
 const workspaceIdPipe = new ParseIdPipe(workspaceIdParamsSchema);
 
 @Controller("workspaces/:workspaceId/ai")
+@UseGuards(AiThrottleGuard)
 @Throttle({ default: { limit: 5, ttl: 60_000 } })
 export class AiController {
   constructor(private readonly aiService: AiService) {}

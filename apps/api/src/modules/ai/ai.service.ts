@@ -25,6 +25,8 @@ import {
 } from "@taskmaster/domain";
 import { z } from "zod";
 import { PrismaService } from "../../prisma/prisma.service";
+import { RedisService } from "../../redis/redis.service";
+import { aiQuotaKey } from "../../redis/redis-keys";
 import { WorkspaceAccessService } from "../workspaces/workspace-access.service";
 import { ConfigService } from "@nestjs/config";
 import {
@@ -84,6 +86,23 @@ function isQuotaError(message: string): boolean {
   return /quota|429|resource has been exhausted|daily/i.test(message);
 }
 
+/**
+ * Tope de tareas abiertas que se le pasan al asistente para resolver intents.
+ *
+ * Sin cota, un workspace grande materializaba todas sus tareas abiertas en cada
+ * mensaje. Se ordenan por vencimiento más próximo, que es lo relevante para
+ * "completá X" y recordatorios.
+ */
+const MAX_ASSISTANT_TASKS = 300;
+
+/**
+ * Tope de tags y canales que se listan al modelo al armar un borrador.
+ *
+ * Es contexto para que elija ids existentes; más allá de este número el modelo
+ * no los ve y `sanitizeDraft` descarta igual cualquier id fuera de la lista.
+ */
+const MAX_DRAFT_CONTEXT_ITEMS = 200;
+
 interface DailyQuota {
   day: string;
   used: number;
@@ -99,6 +118,7 @@ export class AiService {
     private readonly access: WorkspaceAccessService,
     private readonly provider: AiProvider,
     private readonly config: ConfigService,
+    private readonly redis: RedisService,
   ) {}
 
   async generateTaskDraft(
@@ -120,10 +140,14 @@ export class AiService {
       this.prisma.tag.findMany({
         where: { workspaceId },
         select: { id: true, name: true },
+        orderBy: { name: "asc" },
+        take: MAX_DRAFT_CONTEXT_ITEMS,
       }),
       this.prisma.channel.findMany({
         where: { workspaceId },
         select: { id: true, name: true },
+        orderBy: { name: "asc" },
+        take: MAX_DRAFT_CONTEXT_ITEMS,
       }),
     ]);
 
@@ -189,6 +213,8 @@ export class AiService {
         workspaceId,
         status: { notIn: [TaskStatus.DONE, TaskStatus.ARCHIVED] },
       },
+      orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { id: "asc" }],
+      take: MAX_ASSISTANT_TASKS,
       select: {
         id: true,
         title: true,
@@ -402,21 +428,100 @@ export class AiService {
   }
 
   /**
-   * Sembra el contador en memoria desde la base la primera vez al día (y
-   * tras un restart). La reserva posterior es síncrona, sin await entre
-   * lectura y escritura, por lo que es atómica dentro del proceso: dos
-   * peticiones concurrentes no pueden superar el límite.
+   * Resuelve la cuota diaria del usuario y reserva un consumo.
+   *
+   * El contador vive en Redis para que el límite se comparta entre réplicas; si
+   * Redis no responde, `RedisService.withFallback` degrada al gate en memoria por
+   * proceso (el comportamiento previo a esta fase). En ambos caminos la reserva
+   * es atómica: en Redis por `INCR` (con `DECR` de reversa si se pasó del
+   * límite), y en memoria por una lectura-escritura síncrona sin `await` en el
+   * medio.
    */
-  private async seedDailyQuota(userId: string): Promise<void> {
+  private async assertDailyQuota(userId: string): Promise<void> {
+    const limit = this.config.get<number>("GEMINI_DAILY_LIMIT") ?? 15;
     const today = this.localDayKey();
+
+    const used = await this.redis.withFallback(
+      () => this.consumeQuotaRedis(userId, today, limit),
+      () => this.consumeQuotaMemory(userId, today),
+      "ai-quota",
+    );
+
+    if (used > limit) {
+      throw new HttpException(
+        `Alcanzaste tu límite diario de IA (${limit}/${limit}). Volvé a intentar mañana o subí GEMINI_DAILY_LIMIT para tu instancia.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  /**
+   * Reserva una generación en Redis y devuelve el consumo resultante.
+   *
+   * Si la key del día no existe la sembramos con el conteo de la base: así un
+   * Redis reiniciado a mitad de jornada no regala cuota y el número coincide con
+   * `/usage`, que cuenta filas de `AiGeneration`. El `INCR` es la operación
+   * atómica que reparte la cuota entre réplicas; si pasa el límite se deshace
+   * con `DECR` para no dejar contabilizada una reserva rechazada.
+   */
+  private async consumeQuotaRedis(
+    userId: string,
+    day: string,
+    limit: number,
+  ): Promise<number> {
+    const key = aiQuotaKey(this.redis.keyPrefix, userId, day);
+    const client = this.redis.client;
+
+    if ((await client.exists(key)) === 0) {
+      const seeded = await this.todayCount(userId);
+      // `NX` deja ganar a la réplica que llegue primero: las demás no pisan el
+      // valor y el `INCR` posterior reparte igual.
+      await client.set(
+        key,
+        String(seeded),
+        "EX",
+        this.secondsUntilNextLocalDay(),
+        "NX",
+      );
+    }
+
+    const used = await client.incr(key);
+    if (used > limit) {
+      await client.decr(key);
+    }
+    return used;
+  }
+
+  /**
+   * Gate en memoria por proceso, usado solo cuando Redis no está disponible.
+   *
+   * Siembra el contador desde la base la primera vez del día (y tras un
+   * restart) y reserva de forma síncrona: dentro de un mismo proceso dos
+   * peticiones concurrentes no pueden superar el límite. No comparte estado
+   * entre réplicas, así que en la ventana degradada el límite cuenta por
+   * proceso.
+   */
+  private async consumeQuotaMemory(
+    userId: string,
+    day: string,
+  ): Promise<number> {
+    await this.seedDailyQuota(userId, day);
+
+    const current = this.quotaGate.get(userId);
+    const used = current && current.day === day ? current.used : 0;
+    this.quotaGate.set(userId, { day, used: used + 1 });
+    return used + 1;
+  }
+
+  private async seedDailyQuota(userId: string, day: string): Promise<void> {
     const existing = this.quotaGate.get(userId);
-    if (existing && existing.day === today) return;
+    if (existing && existing.day === day) return;
 
     let seeding = this.quotaSeeds.get(userId);
     if (!seeding) {
       seeding = this.todayCount(userId)
         .then((count) => {
-          this.quotaGate.set(userId, { day: today, used: count });
+          this.quotaGate.set(userId, { day, used: count });
         })
         .finally(() => {
           this.quotaSeeds.delete(userId);
@@ -426,22 +531,16 @@ export class AiService {
     await seeding;
   }
 
-  private async assertDailyQuota(userId: string): Promise<void> {
-    await this.seedDailyQuota(userId);
-
-    const limit = this.config.get<number>("GEMINI_DAILY_LIMIT") ?? 15;
-    const today = this.localDayKey();
-    const current = this.quotaGate.get(userId);
-    const used = current && current.day === today ? current.used : 0;
-
-    if (used >= limit) {
-      throw new HttpException(
-        `Alcanzaste tu límite diario de IA (${used}/${limit}). Volvé a intentar mañana o subí GEMINI_DAILY_LIMIT para tu instancia.`,
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
-    this.quotaGate.set(userId, { day: today, used: used + 1 });
+  /**
+   * Segundos hasta el próximo fin de día local, el TTL de la key de cuota.
+   *
+   * El día también va en el nombre de la key, así que este TTL es solo limpieza:
+   * no es la fuente de verdad de a qué jornada pertenece el contador.
+   */
+  private secondsUntilNextLocalDay(now = new Date()): number {
+    const next = this.startOfLocalDay(now);
+    next.setDate(next.getDate() + 1);
+    return Math.max(1, Math.round((next.getTime() - now.getTime()) / 1000));
   }
 
   private buildNlTaskPrompt(text: string, ctx: NlTaskContext): string {

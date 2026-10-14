@@ -11,6 +11,10 @@ está implementado; es una lista de deuda técnica para priorizar.
 >   al arrastrar (`undefined` = no tocar, `null`/`""` = borrar), `PATCH {}` da 400
 >   y `DreamBoard.updatedAt` se marca al crear/mover/borrar pins.
 > - Gemini: la api key ya viaja por cabecera `x-goog-api-key`, no en la URL.
+> - IA (I1/I3/I8): la cuota diaria ahora vive en Redis (con fallback en memoria
+>   por proceso, vía `RedisService.withFallback`), el límite de la IA se aplica
+>   por `usuario:workspace` y no por IP, y las lecturas del asistente están
+>   acotadas (`take` por vencimiento en tareas, tope de tags/canales).
 
 ## Notas
 
@@ -41,18 +45,15 @@ está implementado; es una lista de deuda técnica para priorizar.
 
 ## IA
 
-| #   | Hallazgo                                                                                                                                      | Severidad | Ubicación                                                                                                     | Esfuerzo |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------- | -------- |
-| I1  | Cuota diaria en memoria por proceso (`Map`), no en Redis: con N réplicas el límite se multiplica ×N; `aiQuotaKey` existe pero no tiene caller | Alta      | `apps/api/src/modules/ai/ai.service.ts:94-95,395-445` · `apps/api/src/redis/redis-keys.ts:47-63`              | M        |
-| I2  | Cuota/uso por usuario, no por workspace: `getUsage` no filtra por `workspaceId` en un endpoint workspace-scoped                               | Media     | `apps/api/src/modules/ai/ai.service.ts:366-383,429-445`                                                       | S        |
-| I3  | Throttle por IP (tracker default), no por usuario/workspace: oficinas con NAT compartido se frenan entre sí                                   | Media     | `apps/api/src/modules/ai/ai.controller.ts:19,33` · `apps/api/src/common/guards/email-throttle.guard.ts:22-28` | S        |
-| I4  | PII a Google sin redactar: títulos/tags/channels y texto libre se envían al proveedor (key ya está en cabecera)                               | Alta      | `apps/api/src/modules/ai/ai.service.ts:312-342,447-474`                                                       | M        |
-| I5  | Chat sin persistencia: estado `useState` en el cliente, se pierde al recargar                                                                 | Media     | `apps/web/src/features/ai/hooks/useAiAssistant.ts:44-48,179-182`                                              | M        |
-| I6  | Caché de capacidades nunca expira y cachea fallos `NO_AI` para toda la sesión                                                                 | Baja      | `apps/web/src/features/ai/lib/capabilities.ts:29-45`                                                          | S        |
-| I7  | Documentación menciona `OPENAI_API_KEY`; la implementación es solo Gemini                                                                     | Baja      | `GUIA-DE-NAVEGACION-TASKMASTER.md:204`                                                                        | S        |
-| I8  | Lecturas sin cota de contexto: todas las tareas abiertas / todos tags+channels antes de recortar                                              | Media     | `apps/api/src/modules/ai/ai.service.ts:187-199,119-128`                                                       | S        |
-| I9  | Sin streaming: POST bloqueante (hasta 30 s) con typewriter cosmético                                                                          | Media     | `apps/api/src/modules/ai/gemini.provider.ts:61-133` · `apps/web/src/features/ai/hooks/useTypewriter.ts`       | L        |
-| I10 | Sin observabilidad: no hay `Logger`; solo la fila de `AiGeneration` (los intents determinísticos no loguean nada)                             | Baja      | `apps/api/src/modules/ai/ai.service.ts:496-521`                                                               | S        |
+| #   | Hallazgo                                                                                                          | Severidad | Ubicación                                                                                               | Esfuerzo |
+| --- | ----------------------------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------- | -------- |
+| I2  | Cuota/uso por usuario, no por workspace: `getUsage` no filtra por `workspaceId` en un endpoint workspace-scoped   | Media     | `apps/api/src/modules/ai/ai.service.ts:366-383,429-445`                                                 | S        |
+| I4  | PII a Google sin redactar: títulos/tags/channels y texto libre se envían al proveedor (key ya está en cabecera)   | Alta      | `apps/api/src/modules/ai/ai.service.ts:312-342,447-474`                                                 | M        |
+| I5  | Chat sin persistencia: estado `useState` en el cliente, se pierde al recargar                                     | Media     | `apps/web/src/features/ai/hooks/useAiAssistant.ts:44-48,179-182`                                        | M        |
+| I6  | Caché de capacidades nunca expira y cachea fallos `NO_AI` para toda la sesión                                     | Baja      | `apps/web/src/features/ai/lib/capabilities.ts:29-45`                                                    | S        |
+| I7  | Documentación menciona `OPENAI_API_KEY`; la implementación es solo Gemini                                         | Baja      | `GUIA-DE-NAVEGACION-TASKMASTER.md:204`                                                                  | S        |
+| I9  | Sin streaming: POST bloqueante (hasta 30 s) con typewriter cosmético                                              | Media     | `apps/api/src/modules/ai/gemini.provider.ts:61-133` · `apps/web/src/features/ai/hooks/useTypewriter.ts` | L        |
+| I10 | Sin observabilidad: no hay `Logger`; solo la fila de `AiGeneration` (los intents determinísticos no loguean nada) | Baja      | `apps/api/src/modules/ai/ai.service.ts:496-521`                                                         | S        |
 
 ## Dashboard / time-entries / agenda
 

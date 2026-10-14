@@ -8,6 +8,48 @@ import {
 import { AiProviderError } from "./ai.types";
 import { AiService } from "./ai.service";
 
+/**
+ * Cliente Redis falso para el contador de cuota.
+ *
+ * Implementa solo lo que usa `AiService.consumeQuotaRedis` (`EXISTS`, `SET …
+ * NX`, `INCR`, `DECR`) sobre un `Map`, con un interruptor `enabled` para simular
+ * un Redis caído y forzar el camino de fallback.
+ */
+function createFakeRedisClient() {
+  const store = new Map<string, number>();
+  const state = { enabled: true };
+  const up = () => {
+    if (!state.enabled) throw new Error("Redis no disponible");
+  };
+  return {
+    state,
+    store,
+    async exists(key: string) {
+      up();
+      return store.has(key) ? 1 : 0;
+    },
+    async set(key: string, value: string, ...args: unknown[]) {
+      up();
+      if (!args.includes("NX") || !store.has(key)) {
+        store.set(key, parseInt(value, 10));
+      }
+      return "OK";
+    },
+    async incr(key: string) {
+      up();
+      const next = (store.get(key) ?? 0) + 1;
+      store.set(key, next);
+      return next;
+    },
+    async decr(key: string) {
+      up();
+      const next = (store.get(key) ?? 0) - 1;
+      store.set(key, next);
+      return next;
+    },
+  };
+}
+
 function setup(configured = true) {
   const prisma = {
     tag: {
@@ -42,13 +84,30 @@ function setup(configured = true) {
       key === "GEMINI_DAILY_LIMIT" ? 15 : undefined,
     ),
   };
+  const client = createFakeRedisClient();
+  const redis = {
+    keyPrefix: "taskmaster",
+    client,
+    // Réplica de la semántica de `RedisService.withFallback`: si la operación
+    // falla, corre el fallback en memoria.
+    withFallback: vi.fn(
+      async (operation: () => unknown, fallback: () => unknown) => {
+        try {
+          return await operation();
+        } catch {
+          return await fallback();
+        }
+      },
+    ),
+  };
   const service = new AiService(
     prisma as never,
     access as never,
     provider as never,
     config as never,
+    redis as never,
   );
-  return { service, prisma, access, provider, config };
+  return { service, prisma, access, provider, config, redis, client };
 }
 
 describe("AiService.generateTaskDraft", () => {
@@ -89,10 +148,14 @@ describe("AiService.generateTaskDraft", () => {
     expect(prisma.tag.findMany).toHaveBeenCalledWith({
       where: { workspaceId: "ws1" },
       select: { id: true, name: true },
+      orderBy: { name: "asc" },
+      take: expect.any(Number),
     });
     expect(prisma.channel.findMany).toHaveBeenCalledWith({
       where: { workspaceId: "ws1" },
       select: { id: true, name: true },
+      orderBy: { name: "asc" },
+      take: expect.any(Number),
     });
   });
 
@@ -384,9 +447,34 @@ describe("AiService.assistantStep", () => {
     });
     expect(res.actions[0]).toMatchObject({ kind: "reminder" });
   });
+
+  it("acota las tareas abiertas que lee (las más próximas por vencimiento)", async () => {
+    const { service, prisma } = setup();
+
+    await service.assistantStep("ws1", "u1", {
+      messages: baseMessages,
+      text: "ya esta listo",
+    });
+
+    expect(prisma.task.findMany).toHaveBeenCalledWith({
+      where: {
+        workspaceId: "ws1",
+        status: { notIn: ["DONE", "ARCHIVED"] },
+      },
+      orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { id: "asc" }],
+      take: expect.any(Number),
+      select: {
+        id: true,
+        title: true,
+        dueDate: true,
+        priority: true,
+        status: true,
+      },
+    });
+  });
 });
 
-describe("AiService.límite diario (gate en memoria)", () => {
+describe("AiService.límite diario (Redis con fallback en memoria)", () => {
   const okResult = {
     data: { title: "Tarea", description: "", tagIds: [], subtasks: [] },
     latencyMs: 10,
@@ -483,6 +571,55 @@ describe("AiService.límite diario (gate en memoria)", () => {
       ),
     );
     expect(provider.completeJson).not.toHaveBeenCalled();
+  });
+
+  it("sembra la key diaria desde la base y reserva ahí, no solo en memoria", async () => {
+    const { service, prisma, provider, client, redis } = setup();
+    provider.completeJson.mockResolvedValue(okResult);
+    prisma.aiGeneration.count.mockResolvedValue(3);
+
+    await service.generateTaskDraft("ws1", "u1", "Tarea");
+
+    const keys = [...client.store.keys()];
+    expect(keys).toHaveLength(1);
+    expect(keys[0]).toMatch(/^taskmaster:ai:quota:u1:\d{4}-\d{1,2}-\d{1,2}$/);
+    expect(client.store.get(keys[0]!)).toBe(4);
+    expect(redis.withFallback).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.any(Function),
+      "ai-quota",
+    );
+  });
+
+  it("deshace con DECR la reserva rechazada para no dejar la cuota arriba del límite", async () => {
+    const { service, prisma, provider, client } = setup();
+    prisma.aiGeneration.count.mockResolvedValue(15);
+
+    expectTooMany(
+      await capture(() => service.generateTaskDraft("ws1", "u1", "Tarea")),
+    );
+
+    expect(provider.completeJson).not.toHaveBeenCalled();
+    expect([...client.store.values()]).toEqual([15]);
+  });
+
+  it("cae al gate en memoria por proceso cuando Redis no responde (fail-open)", async () => {
+    const { service, prisma, provider, client, redis } = setup();
+    provider.completeJson.mockResolvedValue(okResult);
+    client.state.enabled = false;
+    prisma.aiGeneration.count.mockResolvedValue(5);
+
+    // Con Redis caído el fallback en memoria deja pasar y corta recién en el
+    // límite, en vez de rechazar todo (fail-closed).
+    for (let i = 0; i < 10; i += 1) {
+      await service.generateTaskDraft("ws1", "u1", `Tarea ${i}`);
+    }
+    expectTooMany(
+      await capture(() => service.generateTaskDraft("ws1", "u1", "Una más")),
+    );
+
+    expect(provider.completeJson).toHaveBeenCalledTimes(10);
+    expect(redis.withFallback).toHaveBeenCalledTimes(11);
   });
 });
 
