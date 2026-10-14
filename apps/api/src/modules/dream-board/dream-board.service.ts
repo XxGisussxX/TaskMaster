@@ -9,14 +9,28 @@ import type {
   DreamPinDto,
   UpdateDreamPinInput,
 } from "@taskmaster/contracts";
-import type { DreamPin, Prisma, WorkspaceRole } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import type { DreamBoard, DreamPin, WorkspaceRole } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { WorkspaceAccessService } from "../workspaces/workspace-access.service";
 
 /** Roles que pueden tocar un pin ajeno: admins del workspace y el owner. */
 const ELEVATED_ROLES: WorkspaceRole[] = ["ADMIN", "OWNER"];
 
+/** Pins cronológicos y la tarea vinculada con un select mínimo. */
+const BOARD_INCLUDE = {
+  pins: {
+    orderBy: { createdAt: "asc" as const },
+    include: {
+      linkedTask: { select: { id: true, title: true, status: true } },
+    },
+  },
+} satisfies Prisma.DreamBoardInclude;
+
 type PinRecord = DreamPin;
+type BoardRecord = Prisma.DreamBoardGetPayload<{
+  include: typeof BOARD_INCLUDE;
+}>;
 
 @Injectable()
 export class DreamBoardService {
@@ -29,30 +43,17 @@ export class DreamBoardService {
   async getBoard(workspaceId: string, userId: string): Promise<DreamBoardDto> {
     await this.access.assertMembership(workspaceId, userId);
 
-    const board = await this.prisma.$transaction(async (tx) => {
-      const existing = await tx.dreamBoard.findUnique({
-        where: { workspaceId },
-        include: {
-          pins: {
-            orderBy: { createdAt: "asc" },
-            include: {
-              linkedTask: { select: { id: true, title: true, status: true } },
-            },
-          },
-        },
-      });
-      if (existing) return existing;
+    const existing = await this.prisma.dreamBoard.findUnique({
+      where: { workspaceId },
+      include: BOARD_INCLUDE,
+    });
+    if (existing) return this.toBoardDto(existing);
 
-      return tx.dreamBoard.create({
-        data: { workspaceId },
-        include: {
-          pins: {
-            include: {
-              linkedTask: { select: { id: true, title: true, status: true } },
-            },
-          },
-        },
-      });
+    // Primera consulta: lo crea (tolerando la carrera ver `ensureBoard`).
+    await this.ensureBoard(workspaceId);
+    const board = await this.prisma.dreamBoard.findUniqueOrThrow({
+      where: { workspaceId },
+      include: BOARD_INCLUDE,
     });
 
     return this.toBoardDto(board);
@@ -204,13 +205,31 @@ export class DreamBoardService {
     if (!task) throw new NotFoundException("Tarea no encontrada");
   }
 
-  private async ensureBoard(workspaceId: string) {
+  /**
+   * Devuelve (creándolo si falta) el tablero del workspace.
+   *
+   * `find-then-create` es una TOCTOU clásica: dos `GET /dream-board` (o un GET
+   * y la primera creación de un pin) concurrentes pasan el `findUnique` y las
+   * dos intentan insertar, y el perdedor muere con P2002 por
+   * `@@unique(workspaceId)`. En lugar de propagar ese error se reintenta la
+   * lectura: el estado del tablero es idempotente, no un fallo.
+   */
+  private async ensureBoard(workspaceId: string): Promise<DreamBoard> {
     const existing = await this.prisma.dreamBoard.findUnique({
       where: { workspaceId },
     });
     if (existing) return existing;
 
-    return this.prisma.dreamBoard.create({ data: { workspaceId } });
+    try {
+      return await this.prisma.dreamBoard.create({ data: { workspaceId } });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        return await this.prisma.dreamBoard.findUniqueOrThrow({
+          where: { workspaceId },
+        });
+      }
+      throw error;
+    }
   }
 
   private toPinDto(
@@ -236,16 +255,7 @@ export class DreamBoardService {
     };
   }
 
-  private toBoardDto(board: {
-    id: string;
-    workspaceId: string;
-    title: string;
-    createdAt: Date;
-    updatedAt: Date;
-    pins?: (PinRecord & {
-      linkedTask?: { id: string; title: string; status: string } | null;
-    })[];
-  }): DreamBoardDto {
+  private toBoardDto(board: BoardRecord): DreamBoardDto {
     return {
       id: board.id,
       workspaceId: board.workspaceId,
@@ -255,4 +265,12 @@ export class DreamBoardService {
       pins: (board.pins ?? []).map((pin) => this.toPinDto(pin as any)),
     };
   }
+}
+
+/** P2002 = violación de unique (por ej. `@@unique(workspaceId)` del board). */
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  );
 }

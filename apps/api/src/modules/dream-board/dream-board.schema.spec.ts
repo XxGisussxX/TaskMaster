@@ -77,6 +77,19 @@ describe("createPinSchema", () => {
     ).toBe(false);
   });
 
+  it("acota las coordenadas a los límites del corcho (D6)", () => {
+    expect(
+      createPinSchema.safeParse({ title: "Meta", x: 10_001 }).success,
+    ).toBe(false);
+    expect(
+      createPinSchema.safeParse({ title: "Meta", y: -10_001 }).success,
+    ).toBe(false);
+    expect(
+      createPinSchema.safeParse({ title: "Meta", x: 10_000, y: -10_000 })
+        .success,
+    ).toBe(true);
+  });
+
   it("acepta descripción opcional y acota su largo", () => {
     expect(
       createPinSchema.parse({ title: "Meta", description: "  con detalle " })
@@ -173,6 +186,32 @@ describe("updateDreamPinSchema", () => {
       false,
     );
     expect(updateDreamPinSchema.safeParse({ color: "NOPE" }).success).toBe(
+      false,
+    );
+  });
+
+  it("acota las coordenadas a los límites del corcho (D6)", () => {
+    expect(updateDreamPinSchema.safeParse({ positionX: 10_001 }).success).toBe(
+      false,
+    );
+    expect(updateDreamPinSchema.safeParse({ positionY: -10_001 }).success).toBe(
+      false,
+    );
+    expect(updateDreamPinSchema.safeParse({ positionX: 10_000 }).success).toBe(
+      true,
+    );
+  });
+
+  it("acepta ids de tarea no-cuid (seed) al re-vincular (D5)", () => {
+    expect(
+      updateDreamPinSchema.safeParse({ linkedTaskId: "seed_task_1" }).success,
+    ).toBe(true);
+    expect(
+      updateDreamPinSchema.safeParse({
+        linkedTaskId: "cmuxkg9tg0003v430hgpac5f4",
+      }).success,
+    ).toBe(true);
+    expect(updateDreamPinSchema.safeParse({ linkedTaskId: "" }).success).toBe(
       false,
     );
   });

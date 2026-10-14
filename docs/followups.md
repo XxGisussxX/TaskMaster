@@ -19,6 +19,9 @@ está implementado; es una lista de deuda técnica para priorizar.
 >   (las tags de notas son filas `NoteTag` por nota, un `id` solo podía matchear
 >   una nota), y `update` aplica diffs sobre tags/items/collaborators en vez de
 >   borrarlos y recrearlos (menos escrituras, sin pisar cambios concurrentes).
+> - DreamBoard (D4/D5/D6): crear el tablero tolera la carrera (`P2002` → relee
+>   en vez de fallar), el `linkedTaskId` del update ya no exige formato cuid
+>   (coherente con el create) y las coordenadas están acotadas al corcho.
 
 ## Notas
 
@@ -38,11 +41,8 @@ está implementado; es una lista de deuda técnica para priorizar.
 | #   | Hallazgo                                                                                                                                              | Severidad | Ubicación                                                                                                                     | Esfuerzo |
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------- | -------- |
 | D1  | Drag & drop sin debounce/throttle: 1 `PATCH` por `dragstop` + refetch completo del board                                                              | Media     | `apps/web/src/features/dream-board/pages/DreamBoardPage.tsx:58-63` · `hooks/useDreamBoard.ts:40-41`                           | S        |
-| D2  | `getBoard` carga todos los pins sin límite; no existe índice compuesto `(boardId, createdAt)` para el `orderBy`                                       | Media     | `apps/api/src/modules/dream-board/dream-board.service.ts:32-43` · `apps/api/prisma/schema.prisma:703-706`                     | S        |
+| D2  | `getBoard` carga todos los pins sin límite; no existe índice compuesto `(boardId, createdAt)` para el `orderBy`                                       | Media     | `apps/api/src/modules/dream-board/dream-board.service.ts:42-60` · `apps/api/prisma/schema.prisma:703-706`                     | S        |
 | D3  | Imágenes huérfanas: `removePin` no destruye el asset y los pins guardan solo `url` (sin `publicId`); fallback a `data:` base64 gigante sin Cloudinary | Media     | `apps/api/src/modules/dream-board/dream-board.service.ts:141` · `apps/api/src/modules/uploads/uploads.service.ts:227,232-234` | M        |
-| D4  | TOCTOU en la creación del board: `ensureBoard` hace find-then-create sin transacción (P2002 posible) y `getBoard` falla idempotencia en concurrentes  | Baja      | `apps/api/src/modules/dream-board/dream-board.service.ts:32-56,186-193`                                                       | S        |
-| D5  | `updateDreamPinSchema.linkedTaskId` exige `.cuid()` mientras el create usa `namedIdSchema`: pins del seed (ids legibles) no se pueden re-vincular     | Baja      | `packages/contracts/src/schemas/dream-board.schema.ts:72 (create) vs 104 (update)`                                            | S        |
-| D6  | `positionSchema` sin límites: se pueden guardar coordenadas arbitrarias                                                                               | Baja      | `packages/contracts/src/schemas/dream-board.schema.ts:44`                                                                     | S        |
 | D7  | `DreamBoard.title` inerte (sin endpoint/UI) y el selector de tarea limitado a la 1ª página (`pageSize` 20)                                            | Baja      | `apps/api/prisma/schema.prisma:669-678` · `apps/web/.../AddPinModal.tsx:41`                                                   | S        |
 
 ## IA

@@ -175,6 +175,40 @@ describe("dream board CRUD (integración Postgres)", () => {
     ).toBe(1);
   });
 
+  it("dos GET concurrentes del primer tablero no fallan ni duplican el board (D4)", async () => {
+    if (!dbUp) return;
+
+    const raceWorkspace = await admin!.workspace.create({
+      data: {
+        name: "Dream Race",
+        slug: `dream-race-${suffix}`,
+        ownerId,
+        members: { create: { userId: ownerId, role: "OWNER" } },
+      },
+    });
+
+    try {
+      const service = makeService();
+      const [a, b] = await Promise.all([
+        asWorkspace(raceWorkspace.id, ownerId, "OWNER", () =>
+          service.getBoard(raceWorkspace.id, ownerId),
+        ),
+        asWorkspace(raceWorkspace.id, ownerId, "OWNER", () =>
+          service.getBoard(raceWorkspace.id, ownerId),
+        ),
+      ]);
+
+      expect(a.id).toBe(b.id);
+      expect(
+        await admin!.dreamBoard.count({
+          where: { workspaceId: raceWorkspace.id },
+        }),
+      ).toBe(1);
+    } finally {
+      await admin!.workspace.delete({ where: { id: raceWorkspace.id } });
+    }
+  });
+
   it("recorre el ciclo completo: crear, leer, mover, editar y eliminar", async () => {
     if (!dbUp) return;
 

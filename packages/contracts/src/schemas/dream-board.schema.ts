@@ -40,8 +40,15 @@ export const dreamPinColorSchema = z.enum([
   "SLATE",
 ]);
 
-/** Coordenadas absolutas en el corcho, en px. */
-const positionSchema = z.number().finite();
+/**
+ * Coordenadas absolutas en el corcho, en px.
+ *
+ * Un `z.number().finite()` solo descartaba `NaN`/`Infinity`: nada impedía
+ * guardar un millón de píxeles (o cualquier valor arbitrario) desde el API.
+ * El rango es amplio de sobra para un corcho de arrastrar-soltar y también
+ * acepta posiciones negativas (arrastrar a la izquierda del origen).
+ */
+const positionSchema = z.number().finite().min(-10_000).max(10_000);
 
 export const createPinSchema = z.object({
   title: z
@@ -112,7 +119,10 @@ export const updateDreamPinSchema = z
     positionY: positionSchema.optional(),
     imageUrl: z.union([z.string().url(), z.literal(""), z.null()]).optional(),
     sticker: z.union([z.string().max(10), z.literal(""), z.null()]).optional(),
-    linkedTaskId: z.string().cuid().nullable().optional(),
+    // Mismo criterio que `createDreamPinSchema`: la forma del id no la exige
+    // nadie (el seed usa ids legibles). Exigir `.cuid()` hacía que un pin
+    // enlazado a una tarea del seed no se pudiera re-vincular.
+    linkedTaskId: namedIdSchema("ID de tarea inválido").nullable().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: "No hay cambios para guardar",

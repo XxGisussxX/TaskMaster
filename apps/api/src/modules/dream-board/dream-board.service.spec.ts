@@ -1,4 +1,5 @@
 import { ForbiddenException, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { WorkspaceRole } from "@taskmaster/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DreamBoardService } from "./dream-board.service";
@@ -42,24 +43,15 @@ function setup(options?: {
     createdAt: new Date(0),
   };
 
-  const tx = {
+  const prisma = {
     dreamBoard: {
       findUnique: vi
         .fn()
         .mockResolvedValue(
           options?.boardExists === false ? null : { ...BOARD, pins: [PIN] },
         ),
+      findUniqueOrThrow: vi.fn().mockResolvedValue({ ...BOARD, pins: [] }),
       create: vi.fn().mockResolvedValue({ ...BOARD, pins: [] }),
-    },
-  };
-
-  const prisma = {
-    $transaction: vi.fn(async (fn: (arg: unknown) => unknown) => fn(tx)),
-    dreamBoard: {
-      findUnique: vi
-        .fn()
-        .mockResolvedValue(options?.boardExists === false ? null : BOARD),
-      create: vi.fn().mockResolvedValue(BOARD),
       update: vi.fn().mockResolvedValue(BOARD),
     },
     dreamPin: {
@@ -81,7 +73,7 @@ function setup(options?: {
   };
 
   const service = new DreamBoardService(prisma as never, access as never);
-  return { service, prisma, tx, access, member };
+  return { service, prisma, access, member };
 }
 
 describe("DreamBoardService.getBoard", () => {
@@ -106,21 +98,45 @@ describe("DreamBoardService.getBoard", () => {
   });
 
   it("crea el tablero la primera vez que se consulta", async () => {
-    const { service, tx } = setup({ boardExists: false });
+    const { service, prisma } = setup({ boardExists: false });
 
     const board = await service.getBoard("ws1", "u1");
 
-    expect(tx.dreamBoard.create).toHaveBeenCalledWith({
+    expect(prisma.dreamBoard.create).toHaveBeenCalledWith({
       data: { workspaceId: "ws1" },
-      include: {
-        pins: {
-          include: {
-            linkedTask: expect.any(Object),
-          },
-        },
-      },
+    });
+    expect(prisma.dreamBoard.findUniqueOrThrow).toHaveBeenCalledWith({
+      where: { workspaceId: "ws1" },
+      include: expect.objectContaining({ pins: expect.any(Object) }),
     });
     expect(board.pins).toEqual([]);
+  });
+
+  it("tolera la carrera de creación: P2002 relee el tablero del ganador", async () => {
+    const { service, prisma } = setup({ boardExists: false });
+    prisma.dreamBoard.create.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "6.19.3",
+        meta: { target: ["workspaceId"] },
+      }),
+    );
+
+    const board = await service.getBoard("ws1", "u1");
+
+    expect(prisma.dreamBoard.findUniqueOrThrow).toHaveBeenCalledWith({
+      where: { workspaceId: "ws1" },
+      include: expect.objectContaining({ pins: expect.any(Object) }),
+    });
+    expect(board.id).toBe("board1");
+  });
+
+  it("propaga errores que no son P2002 al crear el tablero", async () => {
+    const { service, prisma } = setup({ boardExists: false });
+    prisma.dreamBoard.create.mockRejectedValueOnce(new Error("boom"));
+
+    await expect(service.getBoard("ws1", "u1")).rejects.toThrow("boom");
+    expect(prisma.dreamBoard.findUniqueOrThrow).not.toHaveBeenCalled();
   });
 });
 
