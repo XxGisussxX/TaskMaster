@@ -62,7 +62,10 @@ export function TimeEntryList({
   taskId,
   readOnly = false,
 }: TimeEntryListProps) {
-  const { data: entries = [], isLoading } = useTimeEntries({ taskId });
+  const { data, isLoading } = useTimeEntries({ taskId });
+  const entries = data?.items ?? [];
+  const total = data?.total ?? entries.length;
+  const truncation = total > entries.length; // la página trae solo `pageSize` filas
   const deleteEntry = useDeleteTimeEntry();
 
   function handleDelete(id: string) {
@@ -74,7 +77,7 @@ export function TimeEntryList({
   return (
     <div className="space-y-4">
       <h3 className="text-sm font-medium text-muted-foreground">
-        Registro de tiempo ({entries.length})
+        Registro de tiempo ({total})
       </h3>
 
       {isLoading && (
@@ -84,6 +87,13 @@ export function TimeEntryList({
       {!isLoading && entries.length === 0 && (
         <p className="text-sm text-muted-foreground">
           Sin registros de tiempo.
+        </p>
+      )}
+
+      {!isLoading && truncation && (
+        <p className="text-sm text-muted-foreground">
+          Mostrando las últimas {entries.length.toLocaleString("es")} de{" "}
+          {total.toLocaleString("es")} entradas.
         </p>
       )}
 

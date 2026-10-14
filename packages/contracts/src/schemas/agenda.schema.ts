@@ -18,6 +18,8 @@ export const agendaReviewQuerySchema = z.object({
   /** Cuántas tareas se consideran asumibles en un día. */
   dailyCapacity: z.coerce.number().int().positive().max(50).optional(),
   horizonDays: z.coerce.number().int().positive().max(90).optional(),
+  /** Tope de hallazgos a devolver. Aplica solo sobre el intervalo solicitado. */
+  maxFindings: z.coerce.number().int().min(1).max(10_000).optional(),
 });
 export type AgendaReviewQuery = z.infer<typeof agendaReviewQuerySchema>;
 
@@ -38,6 +40,8 @@ export const agendaReviewSchema = z.object({
   generatedAt: z.string(),
   /** Tareas abiertas que entraron en el análisis, para que la UI pueda escalar. */
   analyzedTasks: z.number().int().nonnegative(),
+  /** `true` si se alcanzó el tope y la revisión se trunca (payload acotado). */
+  truncated: z.boolean().optional(),
 });
 
 export type AgendaReview = z.infer<typeof agendaReviewSchema>;

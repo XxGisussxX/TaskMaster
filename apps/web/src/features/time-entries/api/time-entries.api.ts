@@ -1,4 +1,4 @@
-import type { TimeEntry } from "@taskmaster/contracts";
+import type { PaginatedTimeEntries, TimeEntry } from "@taskmaster/contracts";
 import { http } from "@/services/http";
 
 export const timeEntriesApi = {
@@ -9,6 +9,8 @@ export const timeEntriesApi = {
       userId?: string;
       from?: string;
       to?: string;
+      page?: number;
+      pageSize?: number;
     },
   ) => {
     const searchParams = new URLSearchParams();
@@ -16,8 +18,10 @@ export const timeEntriesApi = {
     if (params?.userId) searchParams.set("userId", params.userId);
     if (params?.from) searchParams.set("from", params.from);
     if (params?.to) searchParams.set("to", params.to);
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.pageSize) searchParams.set("pageSize", String(params.pageSize));
     const qs = searchParams.toString();
-    return http.get<TimeEntry[]>(
+    return http.get<PaginatedTimeEntries>(
       `/workspaces/${workspaceId}/time-entries${qs ? `?${qs}` : ""}`,
     );
   },

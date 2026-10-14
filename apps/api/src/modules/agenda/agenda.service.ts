@@ -7,6 +7,18 @@ import {
 import { PrismaService } from "../../prisma/prisma.service";
 import { WorkspaceAccessService } from "../workspaces/workspace-access.service";
 
+/**
+ * Tope de tareas abiertas que entran al análisis.
+ *
+ * La revisión es O(n²) en el peor caso (solapas del mismo responsable), así que
+ * aun con el tope de hallazgos del dominio el barrido necesita un techo. Se
+ * ordenan por vencimiento (las que vencen antes importan más) y se pide una fila
+ * de más para saber si había más: si llegó la de más, la revisión se marca
+ * `truncated` y se descarta. El límite queda documentado en la respuesta
+ * (`analyzedTasks` y `truncated`).
+ */
+const MAX_AGENDA_TASKS = 5000;
+
 @Injectable()
 export class AgendaService {
   constructor(
@@ -29,7 +41,7 @@ export class AgendaService {
   ) {
     await this.access.assertMembership(workspaceId, userId);
 
-    const tasks = await this.prisma.task.findMany({
+    const fetched = await this.prisma.task.findMany({
       where: {
         workspaceId,
         status: { notIn: [TaskStatus.DONE, TaskStatus.ARCHIVED] },
@@ -43,7 +55,12 @@ export class AgendaService {
         completedAt: true,
         assignees: { select: { userId: true } },
       },
+      orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { id: "asc" }],
+      take: MAX_AGENDA_TASKS + 1,
     });
+
+    const tasksTruncated = fetched.length > MAX_AGENDA_TASKS;
+    const tasks = tasksTruncated ? fetched.slice(0, MAX_AGENDA_TASKS) : fetched;
 
     // El dominio habla de `assignees: { id }` y la fila de Prisma trae
     // `userId`. Se traduce acá en vez de en el dominio para no atar el cálculo a
@@ -60,6 +77,13 @@ export class AgendaService {
 
     const review = reviewAgenda(domainTasks, query, now);
 
-    return { ...review, analyzedTasks: domainTasks.length };
+    return {
+      ...review,
+      analyzedTasks: domainTasks.length,
+      // El tope de tareas y el tope de hallazgos del dominio son causas
+      // distintas de truncado; la UI solo necesita saber que el informe está
+      // incompleto.
+      ...(tasksTruncated ? { truncated: true } : {}),
+    };
   }
 }

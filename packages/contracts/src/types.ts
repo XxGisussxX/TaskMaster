@@ -306,6 +306,37 @@ export interface TimeEntry {
   createdAt: string;
 }
 
+export interface TimeEntryTotals {
+  /** Filas que cumplen el filtro aplicado, sin paginar. */
+  count: number;
+  /** Suma de duración en segundos (todas las filas del filtro, sin paginar). */
+  durationSeconds: number;
+}
+
+export interface PaginatedTimeEntries extends Paginated<TimeEntry> {
+  totals: TimeEntryTotals;
+}
+
+/** Un grupo del reporte de horas (por tarea, persona o semana). */
+export interface TimeEntryTotalGroup {
+  /** Identificador del grupo: `taskId`, `userId` o `IYYY-Www` según el eje. */
+  key: string;
+  /** Nombre legible (título de la tarea o nombre de la persona); `null` para semanas. */
+  label: string | null;
+  count: number;
+  durationSeconds: number;
+}
+
+/** Reporte de horas agrupadas, acotado al rango normalizado (from/to). */
+export interface TimeEntryTotalsReport {
+  groupBy: "task" | "user" | "week";
+  /** Rango efectivo aplicado, en ISO 8601. */
+  from: string;
+  to: string;
+  totals: TimeEntryTotals;
+  groups: TimeEntryTotalGroup[];
+}
+
 export interface CustomFieldDefinition {
   id: string;
   workspaceId: string;

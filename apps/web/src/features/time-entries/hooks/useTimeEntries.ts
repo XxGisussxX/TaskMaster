@@ -12,6 +12,8 @@ export function useTimeEntries(filters?: {
   userId?: string;
   from?: string;
   to?: string;
+  page?: number;
+  pageSize?: number;
 }) {
   const workspaceId = useCurrentWorkspaceId();
   return useQuery({

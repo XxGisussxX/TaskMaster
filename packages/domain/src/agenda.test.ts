@@ -342,6 +342,63 @@ describe("tareas sin ventana", () => {
   });
 });
 
+describe("tope de hallazgos (maxFindings)", () => {
+  it("recorta las solapas cuando el tope se alcanza y lo avisa", () => {
+    const tasks = Array.from({ length: 40 }, (_, i) =>
+      makeAgendaTask({ id: `t${i}`, startDate: TODAY, assigneeIds: ["u1"] }),
+    );
+
+    const review = reviewAgenda(
+      tasks,
+      { dailyCapacity: 10, maxFindings: 5 },
+      NOW,
+    );
+
+    expect(review.findings.length).toBeLessThanOrEqual(5);
+    expect(review.truncated).toBe(true);
+  });
+
+  it("no marca truncado si los hallazgos caben en el tope", () => {
+    const review = reviewAgenda(
+      [makeAgendaTask({ id: "t1", dueDate: "2026-10-01" })],
+      { maxFindings: 1000 },
+      NOW,
+    );
+
+    expect(review.truncated).toBeUndefined();
+  });
+
+  it("no revienta la pila con miles de solapas", () => {
+    const tasks = Array.from({ length: 1000 }, (_, i) =>
+      makeAgendaTask({ id: `t${i}`, startDate: TODAY, assigneeIds: ["u1"] }),
+    );
+
+    expect(() => reviewAgenda(tasks, { dailyCapacity: 10 }, NOW)).not.toThrow();
+
+    const review = reviewAgenda(tasks, { dailyCapacity: 10 }, NOW);
+
+    expect(review.findings.length).toBeLessThanOrEqual(1000);
+    expect(review.truncated).toBe(true);
+  });
+
+  it("deja espacio para los demás grupos dentro del tope", () => {
+    const review = reviewAgenda(
+      [
+        makeAgendaTask({ id: "load", dueDate: TODAY }),
+        makeAgendaTask({ id: "load2", dueDate: TODAY }),
+        makeAgendaTask({ id: "stale", status: TaskStatus.IN_REVIEW }),
+        makeAgendaTask({ id: "overdue", dueDate: "2026-10-01" }),
+      ],
+      { dailyCapacity: 1, maxFindings: 10 },
+      NOW,
+    );
+
+    expect(review.findings.map((f) => f.kind)).toEqual(
+      expect.arrayContaining(["OVERLOAD", "STALE_REVIEW", "UNFLAGGED_OVERDUE"]),
+    );
+  });
+});
+
 describe("orden y forma de la respuesta", () => {
   it("ordena por gravedad, de más urgente a menos", () => {
     const review = reviewAgenda(

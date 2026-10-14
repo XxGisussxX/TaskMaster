@@ -59,6 +59,43 @@ describe("AgendaService.review", () => {
     );
   });
 
+  it("pide una fila de más y ordena por vencimiento para acotar la lectura", async () => {
+    const { service, prisma } = setup([]);
+
+    await service.review("ws1", "u1", {});
+
+    expect(prisma.task.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { id: "asc" }],
+        take: 5001,
+      }),
+    );
+  });
+
+  it("marca truncated y recorta al tope cuando hay más tareas que el límite", async () => {
+    const many = Array.from({ length: 5001 }, (_, i) =>
+      prismaTask({ id: `t${i}` }),
+    );
+    const { service } = setup(many);
+
+    const review = await service.review("ws1", "u1", {});
+
+    expect(review.analyzedTasks).toBe(5000);
+    expect(review.truncated).toBe(true);
+  });
+
+  it("no marca truncated cuando las tareas caben en el tope", async () => {
+    const { service } = setup([
+      prismaTask({ id: "a" }),
+      prismaTask({ id: "b" }),
+    ]);
+
+    const review = await service.review("ws1", "u1", {});
+
+    expect(review.analyzedTasks).toBe(2);
+    expect(review.truncated).toBeUndefined();
+  });
+
   it("traduce `assignees: [{ userId }]` a `[{ id }]`", async () => {
     const { service } = setup([
       prismaTask({

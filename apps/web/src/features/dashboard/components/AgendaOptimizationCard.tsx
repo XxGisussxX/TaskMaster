@@ -97,6 +97,13 @@ export function AgendaOptimizationCard() {
               .join(", ")}
           </p>
         ) : null}
+
+        {data?.truncated ? (
+          <p className="text-[11px] text-muted-foreground">
+            El informe está acotado: hay más hallazgos de los que se muestran
+            aquí.
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );

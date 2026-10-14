@@ -12,11 +12,13 @@ import {
   createTimeEntrySchema,
   timeEntryFiltersSchema,
   timeEntryIdParamsSchema,
+  timeEntryTotalsQuerySchema,
   updateTimeEntrySchema,
   workspaceIdParamsSchema,
   type CreateTimeEntryInput,
   type UpdateTimeEntryInput,
   type TimeEntryFilters,
+  type TimeEntryTotalsQuery,
 } from "@taskmaster/contracts";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { ParseIdPipe } from "../../common/pipes/parse-id.pipe";
@@ -38,6 +40,19 @@ export class TimeEntriesController {
     @Query(new ZodPipe(timeEntryFiltersSchema)) filters: TimeEntryFilters,
   ) {
     return this.timeEntriesService.list(workspaceId, user.sub, filters);
+  }
+
+  /**
+   * Totales de horas por tarea/persona/semana. Se declara antes de las rutas
+   * con `:id` para que `totals` no se lea como un id.
+   */
+  @Get("totals")
+  totals(
+    @Param("workspaceId", workspaceIdPipe) workspaceId: string,
+    @CurrentUser() user: AuthUser,
+    @Query(new ZodPipe(timeEntryTotalsQuerySchema)) query: TimeEntryTotalsQuery,
+  ) {
+    return this.timeEntriesService.totals(workspaceId, user.sub, query);
   }
 
   @Post()

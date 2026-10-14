@@ -19,6 +19,16 @@ export const DEFAULT_DAILY_CAPACITY = 5;
 export const DEFAULT_HORIZON_DAYS = 7;
 
 /**
+ * Tope de hallazgos devueltos por revisión.
+ *
+ * Acota el payload y también el costo del peor caso de OVERLAP: en un
+ * workspace con miles de tareas del mismo responsable, los pares que se pisan
+ * crecen cuadráticamente, y sin límite el `findings.push(...array)` anterior
+ * reventaba la pila con un `RangeError` alrededor de los 100k elementos.
+ */
+export const DEFAULT_MAX_FINDINGS = 1000;
+
+/**
  * El tipo de tarea que la función necesita, más chico que `Task` a propósito:
  * la revisión no usa títulos ni etiquetas, y reduce lo que hay que traer de la
  * base a un `select` chico.
@@ -32,6 +42,8 @@ export interface AgendaOptions {
   /** Tareas que se consideran asumibles en un día. */
   dailyCapacity?: number;
   horizonDays?: number;
+  /** Tope de hallazgos a devolver. Por defecto {@link DEFAULT_MAX_FINDINGS}. */
+  maxFindings?: number;
 }
 
 function dayKey(value: Date | string): string {
@@ -90,6 +102,8 @@ export interface AgendaReview {
   /** Días con más carga que la capacidad, para el resumen. */
   overloadedDays: { date: string; count: number }[];
   generatedAt: string;
+  /** `true` si se alcanzó el tope de hallazgos y la revisión se truncó. */
+  truncated?: boolean;
 }
 
 /**
@@ -105,6 +119,7 @@ export function reviewAgenda(
 ): AgendaReview {
   const capacity = Math.max(1, options.dailyCapacity ?? DEFAULT_DAILY_CAPACITY);
   const horizon = Math.max(0, options.horizonDays ?? DEFAULT_HORIZON_DAYS);
+  const maxFindings = Math.max(1, options.maxFindings ?? DEFAULT_MAX_FINDINGS);
 
   const today = toLocalDateKey(now);
   const lastDay = dayKey(
@@ -117,14 +132,32 @@ export function reviewAgenda(
     return w !== null && w.start <= lastDay;
   });
 
+  // Los hallazgos se acumulan contra un presupuesto compartido: cada grupo
+  // empuja hasta agotar `maxFindings`. Escribir con tope y sin `push(...array)`
+  // evita el spread gigante que reventaba la pila en workspaces grandes.
   const findings: AgendaFinding[] = [];
 
-  findings.push(...overlapFindings(inWindow));
-  findings.push(...overloadFindings(inWindow, capacity, today, lastDay));
-  findings.push(...staleReviewFindings(open));
-  findings.push(...unflaggedOverdueFindings(open, now));
+  let truncated = fillOverlapFindings(findings, inWindow, maxFindings);
+  truncated =
+    pushBounded(
+      findings,
+      overloadFindings(inWindow, capacity, today, lastDay),
+      maxFindings,
+    ) || truncated;
+  truncated =
+    pushBounded(findings, staleReviewFindings(open), maxFindings) || truncated;
+  truncated =
+    pushBounded(findings, unflaggedOverdueFindings(open, now), maxFindings) ||
+    truncated;
 
   findings.sort(bySeverity);
+
+  // Redundante con los topes de escritura, pero barato: protege la forma de la
+  // respuesta si algún día un grupo nuevo se suma sin respetar el presupuesto.
+  if (findings.length > maxFindings) {
+    truncated = true;
+    findings.length = maxFindings;
+  }
 
   const overloadedDays = countPerDay(inWindow, today, lastDay)
     .filter((d) => d.count > capacity)
@@ -134,6 +167,7 @@ export function reviewAgenda(
     findings,
     overloadedDays,
     generatedAt: now.toISOString(),
+    ...(truncated ? { truncated: true } : {}),
   };
 }
 
@@ -143,8 +177,16 @@ export function reviewAgenda(
  * El solapamiento se evalúa por día clave, no por instante: las tareas tienen
  * granularidad de fecha, y comparar timestamps produciría falsos negativos
  * entre dos tareas que ambas caen en el mismo día.
+ *
+ * Escribe directamente en `target` y se corta al llegar a `limit`: además de
+ * acotar el payload, corta el barrido cuadrático de pares, que era lo que
+ * hacía el peor caso insostenible.
  */
-function overlapFindings(tasks: AgendaTask[]): AgendaFinding[] {
+function fillOverlapFindings(
+  target: AgendaFinding[],
+  tasks: AgendaTask[],
+  limit: number,
+): boolean {
   const byAssignee = new Map<string, AgendaTask[]>();
 
   for (const task of tasks) {
@@ -155,8 +197,6 @@ function overlapFindings(tasks: AgendaTask[]): AgendaFinding[] {
       else byAssignee.set(assignee.id, [task]);
     }
   }
-
-  const findings: AgendaFinding[] = [];
 
   for (const tasksOfPerson of byAssignee.values()) {
     const dated = tasksOfPerson
@@ -174,7 +214,9 @@ function overlapFindings(tasks: AgendaTask[]): AgendaFinding[] {
         const end = a.w.end < b.w.end ? a.w.end : b.w.end;
         if (start > end) continue;
 
-        findings.push({
+        if (target.length >= limit) return true;
+
+        target.push({
           kind: "OVERLAP",
           // `Math.min` y no `Math.max`: el rango ordena URGENT como 0, así que
           // el más bajo es el más urgente. Tomar el mayor hacía que un choque
@@ -191,7 +233,23 @@ function overlapFindings(tasks: AgendaTask[]): AgendaFinding[] {
     }
   }
 
-  return findings;
+  return false;
+}
+
+/**
+ * Empuja `items` a `target` respetando el presupuesto `limit` y devuelve si
+ * quedó material fuera por falta de presupuesto (es decir, si se truncó).
+ */
+function pushBounded(
+  target: AgendaFinding[],
+  items: AgendaFinding[],
+  limit: number,
+): boolean {
+  if (items.length === 0) return false;
+  const room = limit - target.length;
+  if (room <= 0) return true;
+  for (let i = 0; i < items.length && i < room; i++) target.push(items[i]!);
+  return items.length > room;
 }
 
 /** Días con más tareas de las que la jornada soporta. */
