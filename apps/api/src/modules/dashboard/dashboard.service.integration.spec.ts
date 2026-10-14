@@ -376,11 +376,21 @@ describe("dashboard SQL vs dominio (integración Postgres)", () => {
     expect(ownerStats.hoursByPerson?.some((h) => h.seconds === 3600)).toBe(
       true,
     );
+    expect(ownerStats.teamLoad?.members?.length).toBeGreaterThan(0);
+    expect(
+      ownerStats.teamLoad?.members?.some((m) => m.userId === ownerId),
+    ).toBe(true);
+    expect(Array.isArray(ownerStats.upcomingDeadlines)).toBe(true);
 
     const viewerStats = await asWorkspace(viewerId, WorkspaceRole.VIEWER, () =>
       service.stats(workspaceId, viewerId, { from: FROM, to: TO, year: YEAR }),
     );
     expect(viewerStats.workloadByPerson).toBeUndefined();
     expect(viewerStats.hoursByPerson).toBeUndefined();
+    expect(viewerStats.teamLoad?.members).toBeUndefined();
+    expect(viewerStats.teamLoad?.totalOpen).toBe(
+      ownerStats.teamLoad?.totalOpen,
+    );
+    expect(Array.isArray(viewerStats.upcomingDeadlines)).toBe(true);
   });
 });

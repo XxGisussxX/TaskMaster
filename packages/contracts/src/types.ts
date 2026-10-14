@@ -195,6 +195,35 @@ export interface KpiTrend {
   avgCompletionDays: number;
 }
 
+/** Próxima fecha límite del dashboard (tarea abierta con `dueDate` futura). */
+export interface DashboardUpcomingTask {
+  id: string;
+  title: string;
+  dueDate: string | null;
+  priority: Priority;
+  status: TaskStatus;
+  assignees: { id: string; name: string; avatarUrl: string | null }[];
+}
+
+/** Carga por persona; sólo se devuelve a ADMIN/OWNER (ver `members`). */
+export interface DashboardTeamLoadMember {
+  userId: string;
+  name: string;
+  avatarUrl: string | null;
+  role: WorkspaceRole;
+  open: number;
+  completed: number;
+}
+
+/** Resumen de carga del equipo. Los totales son del workspace (todos los roles). */
+export interface DashboardTeamLoad {
+  totalOpen: number;
+  totalCompleted: number;
+  unassignedOpen: number;
+  /** Presente sólo para ADMIN/OWNER: es una métrica por persona. */
+  members?: DashboardTeamLoadMember[];
+}
+
 export interface DashboardStats {
   kpis: {
     activeTasks: number;
@@ -202,6 +231,8 @@ export interface DashboardStats {
     overdueTasks: number;
     avgCompletionDays: number;
     completionRate: number;
+    /** Vencidas abiertas con prioridad URGENT/HIGH. */
+    overdueCritical?: number;
   };
   kpiTrends: KpiTrend[];
   createdCompletedSeries: {
@@ -233,6 +264,10 @@ export interface DashboardStats {
   }[];
   /** Horas registradas por persona. Solo se incluye para ADMIN/OWNER. */
   hoursByPerson?: { userId: string; name: string; seconds: number }[];
+  /** Próximas fechas límite (tope fijo) para alimentar el widget del dashboard. */
+  upcomingDeadlines?: DashboardUpcomingTask[];
+  /** Carga del equipo: totales para todos; desglose por persona solo ADMIN/OWNER. */
+  teamLoad?: DashboardTeamLoad;
 }
 
 export interface BulkActionResult {

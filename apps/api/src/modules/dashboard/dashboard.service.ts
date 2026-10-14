@@ -104,6 +104,7 @@ export class DashboardService {
           completed_today: number;
           avg_days: number | null;
           overdue: number;
+          overdue_critical: number;
         }[]
       >(Prisma.sql`
         SELECT
@@ -120,7 +121,12 @@ export class DashboardService {
           COUNT(*) FILTER (
             WHERE "dueDate" IS NOT NULL AND "status" <> 'DONE'
               AND ${dayOf("dueDate")} < ${today}
-          )::int AS overdue
+          )::int AS overdue,
+          COUNT(*) FILTER (
+            WHERE "dueDate" IS NOT NULL AND "status" <> 'DONE'
+              AND "priority" IN ('URGENT', 'HIGH')
+              AND ${dayOf("dueDate")} < ${today}
+          )::int AS overdue_critical
         FROM "Task"
         WHERE "workspaceId" = ${workspaceId} AND "status" <> 'ARCHIVED'`),
       this.prisma.$queryRaw<DailyRow[]>(Prisma.sql`
@@ -242,6 +248,7 @@ export class DashboardService {
       completed_today: 0,
       avg_days: 0,
       overdue: 0,
+      overdue_critical: 0,
     };
     const avgDays = kpi.avg_days === null ? 0 : Number(kpi.avg_days);
 
@@ -263,6 +270,7 @@ export class DashboardService {
       avgCompletionDays: Math.round(avgDays * 10) / 10,
       completionRate:
         kpi.total > 0 ? Math.round((kpi.done / kpi.total) * 100) : 0,
+      overdueCritical: Number(kpi.overdue_critical),
     };
 
     // --- Series diarias ---------------------------------------------------
@@ -405,6 +413,109 @@ export class DashboardService {
       }));
     }
 
+    // --- Widgets: próximas fechas límite y carga del equipo ---------------
+    // Reemplazan al `useTasks({ pageSize: 200 })` que el front hacía en tres
+    // componentes: la ventana es fija y chica (6 filas) y la carga se agrega en
+    // SQL, no materializando tareas.
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const [unassignedRows, upcomingTasks] = await Promise.all([
+      this.prisma.$queryRaw<{ unassigned: number }[]>(Prisma.sql`
+        SELECT COUNT(*)::int AS unassigned
+        FROM "Task" t
+        WHERE t."workspaceId" = ${workspaceId}
+          AND t."status" <> 'ARCHIVED' AND t."status" <> 'DONE'
+          AND NOT EXISTS (
+            SELECT 1 FROM "TaskAssignee" ta WHERE ta."taskId" = t."id"
+          )`),
+      this.prisma.task.findMany({
+        where: {
+          workspaceId,
+          status: { notIn: [TaskStatus.DONE, TaskStatus.ARCHIVED] },
+          dueDate: { gte: startOfToday },
+        },
+        orderBy: { dueDate: "asc" },
+        take: 6,
+        select: {
+          id: true,
+          title: true,
+          dueDate: true,
+          priority: true,
+          status: true,
+          assignees: {
+            select: {
+              user: { select: { id: true, name: true, avatarUrl: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const upcomingDeadlines = upcomingTasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      dueDate: task.dueDate?.toISOString() ?? null,
+      priority: task.priority,
+      status: task.status,
+      assignees: task.assignees.map((a) => ({
+        id: a.user.id,
+        name: a.user.name,
+        avatarUrl: a.user.avatarUrl,
+      })),
+    }));
+
+    let teamLoadMembers:
+      | {
+          userId: string;
+          name: string;
+          avatarUrl: string | null;
+          role: WorkspaceRole;
+          open: number;
+          completed: number;
+        }[]
+      | undefined;
+    if (canSeePeople) {
+      const memberRows = await this.prisma.$queryRaw<
+        {
+          userId: string;
+          name: string;
+          avatarUrl: string | null;
+          role: WorkspaceRole;
+          open: number;
+          completed: number;
+        }[]
+      >(Prisma.sql`
+        SELECT wm."userId" AS "userId", u."name" AS name,
+          u."avatarUrl" AS "avatarUrl", wm."role"::text AS role,
+          COUNT(t."id") FILTER (WHERE t."status" <> 'DONE')::int AS open,
+          COUNT(t."id") FILTER (WHERE t."status" = 'DONE')::int AS completed
+        FROM "WorkspaceMember" wm
+        JOIN "User" u ON u."id" = wm."userId"
+        LEFT JOIN "TaskAssignee" ta ON ta."userId" = wm."userId"
+        LEFT JOIN "Task" t ON t."id" = ta."taskId"
+          AND t."workspaceId" = wm."workspaceId"
+          AND t."status" <> 'ARCHIVED'
+        WHERE wm."workspaceId" = ${workspaceId}
+        GROUP BY 1, 2, 3, 4
+        ORDER BY open DESC, name ASC`);
+      teamLoadMembers = memberRows.map((row) => ({
+        userId: row.userId,
+        name: row.name,
+        avatarUrl: row.avatarUrl,
+        role: row.role,
+        open: Number(row.open),
+        completed: Number(row.completed),
+      }));
+    }
+
+    const teamLoad = {
+      totalOpen: kpis.activeTasks,
+      totalCompleted: kpi.done,
+      unassignedOpen: Number(unassignedRows[0]?.unassigned ?? 0),
+      ...(teamLoadMembers ? { members: teamLoadMembers } : {}),
+    };
+
     const activity = await this.activity.list(workspaceId, 30);
 
     return {
@@ -418,6 +529,8 @@ export class DashboardService {
       heatmap,
       weeklyThroughput,
       overdueByAge,
+      upcomingDeadlines,
+      teamLoad,
       ...(canSeePeople ? { workloadByPerson, hoursByPerson } : {}),
     };
   }

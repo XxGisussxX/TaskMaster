@@ -185,6 +185,7 @@ export interface DashboardKpis {
   activeTasks: number;
   completedToday: number;
   overdueTasks: number;
+  overdueCritical: number;
   avgCompletionDays: number;
   completionRate: number;
 }
@@ -215,6 +216,11 @@ export function computeKpis(tasks: Task[], now = new Date()): DashboardKpis {
     activeTasks,
     completedToday,
     overdueTasks: tasks.filter((t) => isOverdue(t, now)).length,
+    overdueCritical: tasks.filter(
+      (t) =>
+        isOverdue(t, now) &&
+        (t.priority === Priority.URGENT || t.priority === Priority.HIGH),
+    ).length,
     avgCompletionDays: Math.round(avgCompletionDays * 10) / 10,
     completionRate:
       tasks.length > 0 ? Math.round((doneCount / tasks.length) * 100) : 0,

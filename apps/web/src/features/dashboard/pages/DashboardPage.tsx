@@ -8,7 +8,7 @@ import {
   Target,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageLoader } from "@/components/ui/spinner";
@@ -31,16 +31,12 @@ import { PersonLoadCard } from "../components/PersonLoadCard";
 import { useAuthStore } from "@/store/auth.store";
 import { useUiStore } from "@/store/ui.store";
 import { useCurrentMembership } from "@/features/workspace/hooks/useMembers";
-import { useTasks } from "@/features/tasks/hooks/useTasks";
 import {
   defaultRange,
   formatLongToday,
-  isCritical,
-  isOpen,
   partOfDayGreeting,
   weekCompleted,
 } from "../lib/dashboardStats";
-import { isOverdue } from "@taskmaster/domain";
 import { Priority } from "@taskmaster/contracts";
 
 type DashboardStatsLike = NonNullable<
@@ -55,15 +51,7 @@ export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const requestTaskModal = useUiStore((s) => s.requestTaskModal);
   const { canWrite } = useCurrentMembership();
-  const { data: tasksData } = useTasks({ pageSize: 200 });
-
-  const overdueCritical = useMemo(
-    () =>
-      (tasksData?.items ?? []).filter(
-        (t) => isOpen(t) && isCritical(t.priority) && isOverdue(t),
-      ).length,
-    [tasksData],
-  );
+  const overdueCritical = data?.kpis.overdueCritical ?? 0;
 
   const greeting = `${partOfDayGreeting()}, ${user?.name ?? "ahí"} 👋`;
   const summary = data
@@ -202,7 +190,7 @@ export function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <UpcomingDeadlines />
+              <UpcomingDeadlines tasks={data.upcomingDeadlines ?? []} />
             </CardContent>
           </Card>
 
@@ -213,7 +201,7 @@ export function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <TeamLoadCard />
+              <TeamLoadCard teamLoad={data.teamLoad} />
             </CardContent>
           </Card>
 
@@ -290,7 +278,7 @@ function TaskBasedBlocks() {
           <CardTitle className="text-base">Próximas fechas límite</CardTitle>
         </CardHeader>
         <CardContent>
-          <UpcomingDeadlines />
+          <UpcomingDeadlines tasks={[]} />
         </CardContent>
       </Card>
       <Card className="overflow-hidden">

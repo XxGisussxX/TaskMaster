@@ -12,17 +12,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useAuthStore } from "@/store/auth.store";
 import { usePresenceStore } from "@/store/presence.store";
-import {
-  useTasks,
-  useCurrentWorkspaceId,
-} from "@/features/tasks/hooks/useTasks";
+import { useCurrentWorkspaceId } from "@/features/tasks/hooks/useTasks";
 import { useWorkspaces } from "../hooks/useWorkspaces";
 import { useCurrentMembership, useMembers } from "../hooks/useMembers";
 import { useChannels } from "@/features/tasks/hooks/useChannels";
 import { useDashboardStats } from "@/features/dashboard/hooks/useDashboard";
-import { computeTeamLoad } from "@/features/dashboard/lib/dashboardStats";
 import { KpiCard } from "@/features/dashboard/components/KpiCard";
 import { MemberInviteDialog } from "../components/MemberInviteDialog";
 import { MembersTable } from "../components/MembersTable";
@@ -46,21 +41,16 @@ export function WorkspacePage() {
   const [activeTab, setActiveTab] = useState<TabId>("members");
   const [inviteOpen, setInviteOpen] = useState(false);
   const workspaceId = useCurrentWorkspaceId();
-  const user = useAuthStore((s) => s.user);
   const { data } = useWorkspaces();
   const { data: members = [], isLoading, isError } = useMembers();
   const channelsQuery = useChannels();
   const channels = channelsQuery.data ?? [];
   const { role } = useCurrentMembership();
-  const { data: tasksData } = useTasks({ pageSize: 200 });
   const { data: dashboard } = useDashboardStats();
   const presence = usePresenceStore();
   const workspace = data?.find((w) => w.id === workspaceId);
 
-  const team = useMemo(
-    () => computeTeamLoad(tasksData?.items ?? [], members, user?.id),
-    [tasksData, members, user?.id],
-  );
+  const team = dashboard?.teamLoad;
   const managers = useMemo(
     () =>
       members.filter(
@@ -138,10 +128,14 @@ export function WorkspacePage() {
         />
         <KpiCard
           label="Carga operativa"
-          value={team.totalOpen.toLocaleString("es")}
+          value={team ? team.totalOpen.toLocaleString("es") : "—"}
           icon={ListTodo}
           accent="warning"
-          hint={`${team.totalOpen} abiertas · ${team.unassignedOpen} sin asignar`}
+          hint={
+            team
+              ? `${team.totalOpen} abiertas · ${team.unassignedOpen} sin asignar`
+              : "Cargando tareas"
+          }
         />
         <KpiCard
           label="Canales de proyecto"

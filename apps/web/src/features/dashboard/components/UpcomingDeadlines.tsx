@@ -1,13 +1,14 @@
-import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { CalendarClock, Flag } from "lucide-react";
-import { Priority, TaskStatus } from "@taskmaster/contracts";
-import { useTasks } from "@/features/tasks/hooks/useTasks";
+import {
+  Priority,
+  TaskStatus,
+  type DashboardUpcomingTask,
+} from "@taskmaster/contracts";
 import { StatusBadge } from "@/features/tasks/components/StatusBadge";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/date";
-import { upcomingDeadlines } from "../lib/dashboardStats";
 
 const PRIORITY_META: Record<Priority, { label: string; className: string }> = {
   [Priority.URGENT]: { label: "Urgente", className: "text-destructive" },
@@ -26,10 +27,19 @@ function dueLabel(dueDate: string, now = new Date()): string {
   return formatDate(dueDate, { day: "numeric", month: "short" });
 }
 
-export function UpcomingDeadlines() {
+/**
+ * Próximas fechas límite. Los datos llegan del endpoint del dashboard (una sola
+ * query compartida con el resto de los widgets), no de un `useTasks` propio.
+ */
+export function UpcomingDeadlines({
+  tasks,
+  isLoading = false,
+}: {
+  tasks: DashboardUpcomingTask[];
+  isLoading?: boolean;
+}) {
   const navigate = useNavigate();
-  const { data, isLoading } = useTasks({ pageSize: 200 });
-  const deadlines = useMemo(() => upcomingDeadlines(data?.items ?? []), [data]);
+  const deadlines = tasks;
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Cargando tareas...</p>;

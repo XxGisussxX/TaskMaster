@@ -1,16 +1,10 @@
-import { useMemo } from "react";
 import { CircleDot, ListChecks, Sparkles, Users } from "lucide-react";
-import { WorkspaceRole } from "@taskmaster/contracts";
-import { useTasks } from "@/features/tasks/hooks/useTasks";
-import {
-  useMembers,
-  useCurrentMembership,
-} from "@/features/workspace/hooks/useMembers";
+import { WorkspaceRole, type DashboardTeamLoad } from "@taskmaster/contracts";
+import { useCurrentMembership } from "@/features/workspace/hooks/useMembers";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
-import { computeTeamLoad } from "../lib/dashboardStats";
 
 const ROLE_LABELS: Record<WorkspaceRole, string> = {
   [WorkspaceRole.OWNER]: "Propietario",
@@ -19,18 +13,25 @@ const ROLE_LABELS: Record<WorkspaceRole, string> = {
   [WorkspaceRole.VIEWER]: "Lector",
 };
 
-export function TeamLoadCard() {
+/**
+ * Carga real por miembro del workspace.
+ *
+ * Los totales y el desglose por persona llegan del endpoint del dashboard (una
+ * sola query compartida), no de un `useTasks({ pageSize: 200 })` propio. El
+ * desglose por persona es una métrica por persona: el backend solo lo devuelve
+ * a ADMIN/OWNER (`teamLoad.members`), así que para otros roles se muestra el
+ * agregado con una nota.
+ */
+export function TeamLoadCard({ teamLoad }: { teamLoad?: DashboardTeamLoad }) {
   const user = useAuthStore((s) => s.user);
-  const { data: tasksData } = useTasks({ pageSize: 200 });
-  const { data: members = [] } = useMembers();
   const { role, isOwnerOrAdmin } = useCurrentMembership();
 
-  const team = useMemo(
-    () => computeTeamLoad(tasksData?.items ?? [], members, user?.id),
-    [tasksData, members, user?.id],
-  );
+  const members = (teamLoad?.members ?? []).map((member) => ({
+    ...member,
+    currentUser: member.userId === user?.id,
+  }));
 
-  const maxOpen = Math.max(1, ...team.members.map((m) => m.open));
+  const maxOpen = Math.max(1, ...members.map((m) => m.open));
   const canManage = isOwnerOrAdmin || role === WorkspaceRole.OWNER;
 
   return (
@@ -46,29 +47,40 @@ export function TeamLoadCard() {
         calculada con las tareas y quienes integran el workspace.
       </p>
 
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="inline-flex items-center gap-1.5 rounded-md bg-muted/60 px-2 py-1 text-xs font-medium">
-          <CircleDot className="h-3.5 w-3.5 text-primary" />
-          {team.totalOpen} abiertas
-        </span>
-        <span className="inline-flex items-center gap-1.5 rounded-md bg-muted/60 px-2 py-1 text-xs font-medium">
-          <ListChecks className="h-3.5 w-3.5 text-success" />
-          {team.totalCompleted} completadas
-        </span>
-        {team.unassignedOpen > 0 && (
-          <span className="text-xs text-muted-foreground">
-            {team.unassignedOpen} sin asignar
+      {teamLoad && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="inline-flex items-center gap-1.5 rounded-md bg-muted/60 px-2 py-1 text-xs font-medium">
+            <CircleDot className="h-3.5 w-3.5 text-primary" />
+            {teamLoad.totalOpen} abiertas
           </span>
-        )}
-      </div>
+          <span className="inline-flex items-center gap-1.5 rounded-md bg-muted/60 px-2 py-1 text-xs font-medium">
+            <ListChecks className="h-3.5 w-3.5 text-success" />
+            {teamLoad.totalCompleted} completadas
+          </span>
+          {teamLoad.unassignedOpen > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {teamLoad.unassignedOpen} sin asignar
+            </span>
+          )}
+        </div>
+      )}
 
-      {team.members.length === 0 ? (
+      {!teamLoad ? (
+        <p className="text-sm text-muted-foreground">
+          No se pudo cargar la carga del equipo.
+        </p>
+      ) : !teamLoad.members ? (
+        <p className="text-sm text-muted-foreground">
+          El desglose por persona está disponible para administradores y
+          propietarios.
+        </p>
+      ) : members.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Sin miembros aún. Invita personas desde Workspace &amp; Team.
         </p>
       ) : (
         <ul className="space-y-3">
-          {team.members.map((member) => (
+          {members.map((member) => (
             <li key={member.userId} className="flex items-center gap-3">
               <Avatar
                 name={member.name}

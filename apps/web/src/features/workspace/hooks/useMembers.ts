@@ -137,6 +137,7 @@ export function useUpdateMemberRole() {
     onSuccess: () => {
       toast.success("Rol actualizado");
       void qc.invalidateQueries({ queryKey: ["members", workspaceId] });
+      void qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (error: Error) => {
       toast.error("No se pudo actualizar el rol", {
@@ -157,6 +158,7 @@ export function useRemoveMember() {
     onSuccess: () => {
       toast.success("Miembro eliminado");
       void qc.invalidateQueries({ queryKey: ["members", workspaceId] });
+      void qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (error: Error) => {
       toast.error("No se pudo eliminar al miembro", {
