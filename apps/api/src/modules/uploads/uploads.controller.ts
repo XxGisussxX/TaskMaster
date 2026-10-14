@@ -62,7 +62,10 @@ function fileFilter(
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   ]);
   if (!allowed.has(file.mimetype)) {
-    cb(new BadRequestException(`Tipo de archivo no permitido: ${file.mimetype}`), false);
+    cb(
+      new BadRequestException(`Tipo de archivo no permitido: ${file.mimetype}`),
+      false,
+    );
     return;
   }
   cb(null, true);

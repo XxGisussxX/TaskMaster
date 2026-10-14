@@ -4,7 +4,7 @@ import { MAX_HTML_LENGTH, sanitizeRichText } from "./html";
 describe("sanitizeRichText", () => {
   it("deja intacto el HTML que produce TipTap", () => {
     const html =
-      '<p>Hola <strong>mundo</strong> y <em>adiós</em></p>' +
+      "<p>Hola <strong>mundo</strong> y <em>adiós</em></p>" +
       "<ul><li>uno</li><li>dos</li></ul>" +
       "<h2>Título</h2><blockquote><p>cita</p></blockquote>" +
       "<p><code>const x = 1</code></p><hr /><pre>bloque</pre>";
@@ -142,12 +142,14 @@ describe("sanitizeRichText", () => {
   });
 
   it("elimina comentarios", () => {
-    expect(sanitizeRichText("<p>a</p><!-- secreto -->", "test")).toBe("<p>a</p>");
+    expect(sanitizeRichText("<p>a</p><!-- secreto -->", "test")).toBe(
+      "<p>a</p>",
+    );
   });
 
   it("elimina svg y math (puente para XSS en algunos parsers)", () => {
     const clean = sanitizeRichText(
-      '<p>a</p><svg><script>alert(1)</script></svg><math><mtext><script>alert(2)</script></mtext></math>',
+      "<p>a</p><svg><script>alert(1)</script></svg><math><mtext><script>alert(2)</script></mtext></math>",
       "test",
     );
 

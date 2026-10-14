@@ -265,7 +265,11 @@ export class WorkspacesService {
 
     await this.prisma.invite.update({
       where: { id: inviteId },
-      data: { tokenHash: this.hashInviteToken(token), expiresAt, invitedById: userId },
+      data: {
+        tokenHash: this.hashInviteToken(token),
+        expiresAt,
+        invitedById: userId,
+      },
     });
 
     const { sent, inviteUrl } = await this.sendInviteEmail({

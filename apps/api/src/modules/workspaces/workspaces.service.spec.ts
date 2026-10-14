@@ -19,7 +19,9 @@ const sha256 = (value: string): string =>
  * Primer argumento con el que se llamó a un mock. Lanza si nunca se llamó, para
  * que un test no pueda pasar por no haber ejercitado el código.
  */
-function firstCall(mock: { mock: { calls: unknown[][] } }): Record<string, any> {
+function firstCall(mock: {
+  mock: { calls: unknown[][] };
+}): Record<string, any> {
   const call = mock.mock.calls[0];
   if (!call) throw new Error("el mock nunca fue invocado");
   return (call[0] ?? {}) as Record<string, any>;
@@ -135,9 +137,11 @@ function setupInvites(actorRole: WorkspaceRole = WorkspaceRole.OWNER) {
     },
     user: {
       findUnique: vi.fn().mockResolvedValue(null),
-      findUniqueOrThrow: vi
-        .fn()
-        .mockResolvedValue({ id: "actor", name: "Actor", email: "actor@example.com" }),
+      findUniqueOrThrow: vi.fn().mockResolvedValue({
+        id: "actor",
+        name: "Actor",
+        email: "actor@example.com",
+      }),
     },
     invite: {
       findFirst: vi.fn().mockResolvedValue(null),
