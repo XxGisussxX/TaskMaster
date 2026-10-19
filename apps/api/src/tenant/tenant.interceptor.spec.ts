@@ -14,7 +14,7 @@ function makeContext(request: unknown): ExecutionContext {
 
 describe("TenantInterceptor", () => {
   it("no resuelve membresía ni contexto si falta workspaceId", async () => {
-    const access = { assertMembership: vi.fn() };
+    const access = { resolveEffectiveMembership: vi.fn() };
     const interceptor = new TenantInterceptor(access as never);
     let seen: TenantContext | undefined;
     const next: CallHandler = {
@@ -28,12 +28,12 @@ describe("TenantInterceptor", () => {
       ),
     );
 
-    expect(access.assertMembership).not.toHaveBeenCalled();
+    expect(access.resolveEffectiveMembership).not.toHaveBeenCalled();
     expect(seen).toBeUndefined();
   });
 
   it("no resuelve membresía ni contexto si falta el usuario", async () => {
-    const access = { assertMembership: vi.fn() };
+    const access = { resolveEffectiveMembership: vi.fn() };
     const interceptor = new TenantInterceptor(access as never);
     const next: CallHandler = { handle: () => of(undefined) };
 
@@ -44,12 +44,12 @@ describe("TenantInterceptor", () => {
       ),
     );
 
-    expect(access.assertMembership).not.toHaveBeenCalled();
+    expect(access.resolveEffectiveMembership).not.toHaveBeenCalled();
   });
 
   it("ejecuta el handler con el contexto y rol resueltos", async () => {
     const access = {
-      assertMembership: vi
+      resolveEffectiveMembership: vi
         .fn()
         .mockResolvedValue({ role: WorkspaceRole.ADMIN }),
     };
@@ -71,7 +71,7 @@ describe("TenantInterceptor", () => {
       ),
     );
 
-    expect(access.assertMembership).toHaveBeenCalledWith("ws1", "u1");
+    expect(access.resolveEffectiveMembership).toHaveBeenCalledWith("ws1", "u1");
     expect(seen).toEqual({
       userId: "u1",
       workspaceId: "ws1",
@@ -80,9 +80,11 @@ describe("TenantInterceptor", () => {
     expect(tenantContext.get()).toBeUndefined();
   });
 
-  it("propaga el error de assertMembership sin ejecutar el handler", async () => {
+  it("propaga el error de resolveEffectiveMembership sin ejecutar el handler", async () => {
     const error = new Error("No eres miembro");
-    const access = { assertMembership: vi.fn().mockRejectedValue(error) };
+    const access = {
+      resolveEffectiveMembership: vi.fn().mockRejectedValue(error),
+    };
     const interceptor = new TenantInterceptor(access as never);
     const handle = vi.fn(() => of(undefined));
 

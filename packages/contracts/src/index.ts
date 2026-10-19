@@ -19,6 +19,7 @@ export * from "./schemas/notification.schema";
 export * from "./schemas/tag.schema";
 export * from "./schemas/channel.schema";
 export * from "./schemas/team.schema";
+export * from "./schemas/permission-group.schema";
 export * from "./types";
 
 export * from "./schemas/document.schema";

@@ -243,6 +243,7 @@ model Workspace {
   owner             User                    @relation("OwnedWorkspaces", fields: [ownerId], references: [id], onDelete: Cascade)
   members           WorkspaceMember[]
   teams             Team[]
+  permissionGroups  PermissionGroup[]
   tasks             Task[]
   notes             Note[]
   tags              Tag[]
@@ -276,6 +277,7 @@ model WorkspaceMember {
   workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   teamMembers TeamMember[]
+  permissionGroupMembers PermissionGroupMember[]
 
   @@unique([workspaceId, userId])
   @@index([userId])
@@ -782,5 +784,44 @@ model TeamMember {
   workspaceMember WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
 
   @@unique([teamId, workspaceMemberId])
+  @@index([workspaceMemberId])
+}
+
+// ── Permission groups ───────────────────────────────────────────────
+
+/// Grupo de permisos: asigna un rol del workspace a sus miembros.
+///
+/// El rol efectivo de un miembro es el máximo entre su rol propio y los roles
+/// de sus grupos (`WorkspaceAccessService`), así que un grupo puede ampliar
+/// capacidades sin cambiar el rol base. No puede existir en un workspace sin
+/// ese owner: los grupos se crean/gestionan desde el backend con
+/// `assertWriteRole`.
+model PermissionGroup {
+  id          String        @id @default(cuid())
+  workspaceId String
+  name        String
+  description String        @default("")
+  color       String        @default("#6366f1")
+  role        WorkspaceRole @default(MEMBER)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  workspace Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members   PermissionGroupMember[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+model PermissionGroupMember {
+  id                String   @id @default(cuid())
+  groupId           String
+  workspaceMemberId String
+  createdAt         DateTime @default(now())
+
+  group           PermissionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  workspaceMember WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, workspaceMemberId])
   @@index([workspaceMemberId])
 }

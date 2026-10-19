@@ -1,7 +1,31 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { WorkspaceAccessService } from "../workspaces/workspace-access.service";
-import type { CreateTeamInput, UpdateTeamInput } from "@taskmaster/contracts";
+import type {
+  CreateTeamInput,
+  TeamMemberSummary,
+  TeamWithMembers,
+  UpdateTeamInput,
+} from "@taskmaster/contracts";
+
+const MEMBERS_INCLUDE = {
+  teamMembers: {
+    include: {
+      workspaceMember: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatarUrl: true,
+            },
+          },
+        },
+      },
+    },
+  },
+} as const;
 
 @Injectable()
 export class TeamsService {
@@ -12,55 +36,22 @@ export class TeamsService {
 
   async getTeams(workspaceId: string, userId: string) {
     await this.access.assertMembership(workspaceId, userId);
-    return this.prisma.team.findMany({
+    const teams = await this.prisma.team.findMany({
       where: { workspaceId },
       orderBy: { createdAt: "asc" },
-      include: {
-        teamMembers: {
-          include: {
-            workspaceMember: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                    avatarUrl: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+      include: MEMBERS_INCLUDE,
     });
+    return teams.map((team) => this.toDto(team));
   }
 
   async getTeam(workspaceId: string, userId: string, teamId: string) {
     await this.access.assertMembership(workspaceId, userId);
     const team = await this.prisma.team.findFirst({
       where: { id: teamId, workspaceId },
-      include: {
-        teamMembers: {
-          include: {
-            workspaceMember: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                    avatarUrl: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+      include: MEMBERS_INCLUDE,
     });
     if (!team) throw new NotFoundException("Equipo no encontrado");
-    return team;
+    return this.toDto(team);
   }
 
   async createTeam(
@@ -69,9 +60,11 @@ export class TeamsService {
     input: CreateTeamInput,
   ) {
     await this.access.assertWriteRole(workspaceId, userId);
-    return this.prisma.team.create({
+    const team = await this.prisma.team.create({
       data: { workspaceId, ...input },
+      include: MEMBERS_INCLUDE,
     });
+    return this.toDto(team);
   }
 
   async updateTeam(
@@ -82,10 +75,12 @@ export class TeamsService {
   ) {
     await this.access.assertWriteRole(workspaceId, userId);
     await this.ensureTeamExists(workspaceId, teamId);
-    return this.prisma.team.update({
+    const team = await this.prisma.team.update({
       where: { id: teamId },
       data: input,
+      include: MEMBERS_INCLUDE,
     });
+    return this.toDto(team);
   }
 
   async deleteTeam(workspaceId: string, userId: string, teamId: string) {
@@ -126,6 +121,43 @@ export class TeamsService {
     });
 
     return this.getTeam(workspaceId, userId, teamId);
+  }
+
+  private toDto(team: {
+    id: string;
+    workspaceId: string;
+    name: string;
+    description: string;
+    color: string;
+    avatar: string | null;
+    teamMembers: {
+      workspaceMemberId: string;
+      workspaceMember: {
+        userId: string;
+        user: {
+          id: string;
+          name: string;
+          email: string;
+          avatarUrl: string | null;
+        };
+      };
+    }[];
+  }): TeamWithMembers {
+    return {
+      id: team.id,
+      workspaceId: team.workspaceId,
+      name: team.name,
+      description: team.description,
+      color: team.color,
+      avatar: team.avatar,
+      members: team.teamMembers.map((m): TeamMemberSummary => ({
+        memberId: m.workspaceMemberId,
+        userId: m.workspaceMember.userId,
+        name: m.workspaceMember.user.name,
+        email: m.workspaceMember.user.email,
+        avatarUrl: m.workspaceMember.user.avatarUrl,
+      })),
+    };
   }
 
   private async ensureTeamExists(workspaceId: string, teamId: string) {

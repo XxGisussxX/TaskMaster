@@ -28,9 +28,17 @@ function makeMember(role: WorkspaceRole): FakeMemberRow {
 }
 
 function setup(
-  options: { member?: FakeMemberRow | null; workspaceId?: string | null } = {},
+  options: {
+    member?: FakeMemberRow | null;
+    workspaceId?: string | null;
+    groupRoles?: WorkspaceRole[];
+  } = {},
 ) {
-  const { member = null, workspaceId = WORKSPACE_ID } = options;
+  const {
+    member = null,
+    workspaceId = WORKSPACE_ID,
+    groupRoles = [],
+  } = options;
   const prisma = {
     workspaceMember: {
       findUnique: vi.fn().mockResolvedValue(member),
@@ -39,6 +47,11 @@ function setup(
       findUnique: vi
         .fn()
         .mockResolvedValue(workspaceId ? { id: workspaceId } : null),
+    },
+    permissionGroupMember: {
+      findMany: vi
+        .fn()
+        .mockResolvedValue(groupRoles.map((role) => ({ group: { role } }))),
     },
   };
   const service = new WorkspaceAccessService(prisma as never);
@@ -205,6 +218,56 @@ describe("WorkspaceAccessService.assertWriteRole", () => {
     await expect(
       service.assertWriteRole(WORKSPACE_ID, USER_ID),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe("WorkspaceAccessService con grupos de permisos", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("promueve el rol al máximo de los grupos", async () => {
+    const { service } = setup({
+      member: makeMember(WorkspaceRole.MEMBER),
+      groupRoles: [WorkspaceRole.ADMIN],
+    });
+
+    const member = await service.assertMembership(WORKSPACE_ID, USER_ID);
+
+    expect(member.role).toBe(WorkspaceRole.ADMIN);
+  });
+
+  it("usa el rol propio cuando es mayor que los grupos", async () => {
+    const { service } = setup({
+      member: makeMember(WorkspaceRole.OWNER),
+      groupRoles: [WorkspaceRole.VIEWER],
+    });
+
+    const member = await service.assertMembership(WORKSPACE_ID, USER_ID);
+
+    expect(member.role).toBe(WorkspaceRole.OWNER);
+  });
+
+  it("toma el máximo entre varios grupos", async () => {
+    const { service } = setup({
+      member: makeMember(WorkspaceRole.VIEWER),
+      groupRoles: [WorkspaceRole.MEMBER, WorkspaceRole.ADMIN],
+    });
+
+    const member = await service.assertMembership(WORKSPACE_ID, USER_ID);
+
+    expect(member.role).toBe(WorkspaceRole.ADMIN);
+  });
+
+  it("un VIEWER en un grupo ADMIN supera el mínimo de escritura", async () => {
+    const { service } = setup({
+      member: makeMember(WorkspaceRole.VIEWER),
+      groupRoles: [WorkspaceRole.ADMIN],
+    });
+
+    await expect(
+      service.assertWriteRole(WORKSPACE_ID, USER_ID),
+    ).resolves.toMatchObject({ role: WorkspaceRole.ADMIN });
   });
 });
 

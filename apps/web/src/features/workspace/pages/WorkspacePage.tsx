@@ -21,6 +21,7 @@ import { useDashboardStats } from "@/features/dashboard/hooks/useDashboard";
 import { KpiCard } from "@/features/dashboard/components/KpiCard";
 import { MemberInviteDialog } from "../components/MemberInviteDialog";
 import { MembersTable } from "../components/MembersTable";
+import { TeamsTab } from "../components/TeamsTab";
 import { InvitesTab } from "../components/InvitesTab";
 import { PermissionsTab } from "../components/PermissionsTab";
 import { ActivityTab } from "../components/ActivityTab";
@@ -28,10 +29,11 @@ import { SidePanel } from "../components/SidePanel";
 import { canManageMembers, ROLE_LABELS } from "../lib/teamPermissions";
 import { exportAuditCsv } from "../lib/auditExport";
 
-type TabId = "members" | "invites" | "permissions" | "activity";
+type TabId = "members" | "teams" | "invites" | "permissions" | "activity";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "members", label: "Miembros y roles" },
+  { id: "teams", label: "Equipos" },
   { id: "invites", label: "Invitaciones pendientes" },
   { id: "permissions", label: "Permisos y grupos" },
   { id: "activity", label: "Registro de actividad" },
@@ -180,6 +182,7 @@ export function WorkspacePage() {
                     onInvite={canManage ? () => setInviteOpen(true) : undefined}
                   />
                 )}
+                {activeTab === "teams" && <TeamsTab />}
                 {activeTab === "invites" && <InvitesTab />}
                 {activeTab === "permissions" && <PermissionsTab />}
                 {activeTab === "activity" && <ActivityTab />}

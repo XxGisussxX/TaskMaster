@@ -37,6 +37,7 @@ import { DocumentsModule } from "./modules/documents/documents.module";
 import { DreamBoardModule } from "./modules/dream-board/dream-board.module";
 import { WebSocketModule } from "./modules/websocket/websocket.module";
 import { TeamsModule } from "./modules/teams/teams.module";
+import { PermissionGroupsModule } from "./modules/permission-groups/permission-groups.module";
 import { TenantModule } from "./tenant/tenant.module";
 
 @Module({
@@ -118,6 +119,7 @@ import { TenantModule } from "./tenant/tenant.module";
     DreamBoardModule,
     WebSocketModule,
     TeamsModule,
+    PermissionGroupsModule,
     TenantModule,
   ],
   providers: [

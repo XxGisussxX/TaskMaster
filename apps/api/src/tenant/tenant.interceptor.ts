@@ -34,7 +34,7 @@ export class TenantInterceptor implements NestInterceptor {
 
     return from(
       this.access
-        .assertMembership(workspaceId, userId)
+        .resolveEffectiveMembership(workspaceId, userId)
         .then((member) =>
           tenantContext.run({ userId, workspaceId, role: member.role }, () =>
             lastValueFrom(next.handle()),

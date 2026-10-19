@@ -4,6 +4,7 @@ import { ShieldCheck, UsersRound } from "lucide-react";
 import { WorkspaceRole } from "@taskmaster/contracts";
 import { useCurrentMembership } from "../hooks/useMembers";
 import { ROLE_LABELS } from "../lib/teamPermissions";
+import { PermissionGroupsSection } from "./PermissionGroupsSection";
 
 const ROLES = [
   WorkspaceRole.OWNER,
@@ -154,11 +155,7 @@ export function PermissionsTab() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Los grupos personalizados aún no existen en el backend. Hasta que
-            lleguen, la gestión de acceso se define por los 4 roles del
-            workspace (Propietario, Administrador, Miembro y Observador).
-          </p>
+          <PermissionGroupsSection />
         </CardContent>
       </Card>
     </div>

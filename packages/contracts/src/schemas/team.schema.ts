@@ -36,3 +36,20 @@ export const assignTeamMembersSchema = z.object({
 });
 
 export type AssignTeamMembersInput = z.infer<typeof assignTeamMembersSchema>;
+
+/** Miembro resumido dentro de un equipo. */
+export const teamMemberSummarySchema = z.object({
+  memberId: namedIdSchema("ID de miembro inválido"),
+  userId: namedIdSchema("ID de usuario inválido"),
+  name: z.string(),
+  email: z.string(),
+  avatarUrl: z.string().nullable().optional(),
+});
+
+export type TeamMemberSummary = z.infer<typeof teamMemberSummarySchema>;
+
+export const teamWithMembersSchema = teamSchema.extend({
+  members: z.array(teamMemberSummarySchema).default([]),
+});
+
+export type TeamWithMembers = z.infer<typeof teamWithMembersSchema>;

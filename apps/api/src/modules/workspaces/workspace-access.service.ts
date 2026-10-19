@@ -18,6 +18,11 @@ const ROLE_WEIGHT: Record<WorkspaceRole, number> = {
   OWNER: 4,
 };
 
+/** Devuelve el rol de mayor peso entre dos roles. */
+export function maxRole(a: WorkspaceRole, b: WorkspaceRole): WorkspaceRole {
+  return ROLE_WEIGHT[a] >= ROLE_WEIGHT[b] ? a : b;
+}
+
 @Injectable()
 export class WorkspaceAccessService {
   constructor(private readonly prisma: UnscopedPrismaService) {}
@@ -43,14 +48,40 @@ export class WorkspaceAccessService {
     };
   }
 
-  /** Devuelve la membresía o lanza error si el workspace no existe o no eres miembro. */
-  async assertMembership(
+  /**
+   * Rol efectivo del miembro: el máximo entre su rol propio y los roles de los
+   * grupos de permisos a los que pertenece.
+   *
+   * El rol base (`WorkspaceMember.role`) sigue mandando sobre las capacidades
+   * generales; los grupos solo pueden *ampliar* (un MEMBER dentro de un grupo
+   * ADMIN actúa como ADMIN). Nunca reducen: para eso está el rol base.
+   */
+  private async effectiveRole(
+    workspaceId: string,
+    userId: string,
+    baseRole: WorkspaceRole,
+  ): Promise<WorkspaceRole> {
+    const groups = await this.prisma.permissionGroupMember.findMany({
+      where: { workspaceMember: { workspaceId, userId } },
+      select: { group: { select: { role: true } } },
+    });
+    return groups.reduce(
+      (role, membership) => maxRole(role, membership.group.role),
+      baseRole,
+    );
+  }
+
+  /**
+   * Resuelve la membresía del usuario con su **rol efectivo**, consultando la
+   * DB. Lo usa `TenantInterceptor` para poblar el contexto: así los servicios
+   * posteriores confían en el rol del contexto sin volver a consultar.
+   *
+   * Lanza 404 si el workspace no existe y 403 si el usuario no es miembro.
+   */
+  async resolveEffectiveMembership(
     workspaceId: string,
     userId: string,
   ): Promise<WorkspaceMemberWithUser> {
-    const context = this.contextFor(workspaceId);
-    if (context) return this.memberFromContext(context);
-
     const member = await this.prisma.workspaceMember.findUnique({
       where: {
         workspaceId_userId: { workspaceId, userId },
@@ -67,7 +98,26 @@ export class WorkspaceAccessService {
       throw new ForbiddenException("No eres miembro de este workspace");
     }
 
-    return member;
+    const role = await this.effectiveRole(workspaceId, userId, member.role);
+    return { ...member, role };
+  }
+
+  /**
+   * Devuelve la membresía o lanza error si el workspace no existe o no eres
+   * miembro.
+   *
+   * Dentro del contexto de tenant confía en el rol ya resuelto por
+   * `TenantInterceptor` (que llamó a `resolveEffectiveMembership`), sin tocar
+   * la DB. Fuera del contexto, resuelve el rol efectivo por DB.
+   */
+  async assertMembership(
+    workspaceId: string,
+    userId: string,
+  ): Promise<WorkspaceMemberWithUser> {
+    const context = this.contextFor(workspaceId);
+    if (context) return this.memberFromContext(context);
+
+    return this.resolveEffectiveMembership(workspaceId, userId);
   }
 
   /** Valida que el rol del usuario sea >= al mínimo requerido. */
