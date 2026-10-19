@@ -39,7 +39,7 @@ export function AddPinModal({
     sticker: "",
     linkedTaskId: "",
   });
-  const { data: tasksData } = useTasks({});
+  const { data: tasksData } = useTasks({ pageSize: 500 });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

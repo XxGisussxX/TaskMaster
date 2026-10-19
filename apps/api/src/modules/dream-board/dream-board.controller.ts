@@ -10,9 +10,11 @@ import {
 import {
   createDreamPinSchema,
   pinIdParamsSchema,
+  updateDreamBoardSchema,
   updateDreamPinSchema,
   workspaceIdParamsSchema,
   type CreateDreamPinInput,
+  type UpdateDreamBoardInput,
   type UpdateDreamPinInput,
 } from "@taskmaster/contracts";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
@@ -34,6 +36,15 @@ export class DreamBoardController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.dreamBoardService.getBoard(workspaceId, user.sub);
+  }
+
+  @Patch()
+  updateBoard(
+    @Param("workspaceId", workspaceIdPipe) workspaceId: string,
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodPipe(updateDreamBoardSchema)) dto: UpdateDreamBoardInput,
+  ) {
+    return this.dreamBoardService.updateBoard(workspaceId, user.sub, dto);
   }
 
   @Post("pins")

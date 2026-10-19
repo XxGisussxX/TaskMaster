@@ -12,6 +12,22 @@ export function useDreamBoard() {
   });
 }
 
+export function useUpdateDreamBoard() {
+  const workspaceId = useCurrentWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (title: string) =>
+      dreamBoardApi.updateBoard(workspaceId!, title),
+    onSuccess: () =>
+      void qc.invalidateQueries({ queryKey: ["dream-board", workspaceId] }),
+    onError: (error: Error) => {
+      toast.error("No se pudo renombrar el tablero", {
+        description: error.message,
+      });
+    },
+  });
+}
+
 export function useCreateDreamPin() {
   const workspaceId = useCurrentWorkspaceId();
   const qc = useQueryClient();

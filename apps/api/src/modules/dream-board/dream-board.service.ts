@@ -7,12 +7,14 @@ import type {
   CreateDreamPinInput,
   DreamBoardDto,
   DreamPinDto,
+  UpdateDreamBoardInput,
   UpdateDreamPinInput,
 } from "@taskmaster/contracts";
 import { Prisma } from "@prisma/client";
 import type { DreamBoard, DreamPin, WorkspaceRole } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { WorkspaceAccessService } from "../workspaces/workspace-access.service";
+import { UploadsService } from "../uploads/uploads.service";
 
 /** Roles que pueden tocar un pin ajeno: admins del workspace y el owner. */
 const ELEVATED_ROLES: WorkspaceRole[] = ["ADMIN", "OWNER"];
@@ -37,6 +39,7 @@ export class DreamBoardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: WorkspaceAccessService,
+    private readonly uploads: UploadsService,
   ) {}
 
   /** Devuelve el tablero del workspace creándolo si es el primer GET. */
@@ -53,6 +56,24 @@ export class DreamBoardService {
     await this.ensureBoard(workspaceId);
     const board = await this.prisma.dreamBoard.findUniqueOrThrow({
       where: { workspaceId },
+      include: BOARD_INCLUDE,
+    });
+
+    return this.toBoardDto(board);
+  }
+
+  /** Renombra el tablero. `DreamBoard.title` existía pero era inerte. */
+  async updateBoard(
+    workspaceId: string,
+    userId: string,
+    dto: UpdateDreamBoardInput,
+  ): Promise<DreamBoardDto> {
+    await this.access.assertWriteRole(workspaceId, userId);
+    await this.ensureBoard(workspaceId);
+
+    const board = await this.prisma.dreamBoard.update({
+      where: { workspaceId },
+      data: { title: dto.title },
       include: BOARD_INCLUDE,
     });
 
@@ -133,6 +154,18 @@ export class DreamBoardService {
       },
     });
 
+    // Reemplazar o quitar la imagen deja el asset anterior huérfano en
+    // Cloudinary. Se destruye solo cuando la url efectivamente cambió (y no era
+    // la misma), y sin `await` bloqueante de la respuesta: un fallo borrando el
+    // viejo no debe hacer fracasar un update que ya se persistió.
+    if (
+      dto.imageUrl !== undefined &&
+      existing.imageUrl &&
+      existing.imageUrl !== pin.imageUrl
+    ) {
+      void this.uploads.destroyImageByUrl(existing.imageUrl);
+    }
+
     await this.touchBoard(workspaceId);
 
     return this.toPinDto(pin);
@@ -148,6 +181,9 @@ export class DreamBoardService {
     this.assertCanMutate(existing, member.userId, member.role);
 
     await this.prisma.dreamPin.delete({ where: { id: pinId } });
+    if (existing.imageUrl) {
+      void this.uploads.destroyImageByUrl(existing.imageUrl);
+    }
     await this.touchBoard(workspaceId);
     return { id: pinId };
   }

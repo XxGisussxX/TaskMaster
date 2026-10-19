@@ -41,7 +41,7 @@ export function PinDetailModal({
   const [imageUrl, setImageUrl] = useState(pin?.imageUrl ?? "");
   const [sticker, setSticker] = useState(pin?.sticker ?? "");
   const [linkedTaskId, setLinkedTaskId] = useState(pin?.linkedTaskId ?? "");
-  const { data: tasksData } = useTasks({});
+  const { data: tasksData } = useTasks({ pageSize: 500 });
 
   useEffect(() => {
     if (pin) {

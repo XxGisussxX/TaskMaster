@@ -70,7 +70,7 @@ describe("loadAiCapabilities", () => {
     });
   });
 
-  it("cachea también el fallo, para no reintentar en cada montaje", async () => {
+  it("no cachea el fallo (reintenta al siguiente montaje)", async () => {
     const spy = vi
       .spyOn(aiApi, "getCapabilities")
       .mockRejectedValue(new Error("500"));
@@ -78,6 +78,6 @@ describe("loadAiCapabilities", () => {
     await loadAiCapabilities("ws1");
     await loadAiCapabilities("ws1");
 
-    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledTimes(2);
   });
 });

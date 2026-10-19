@@ -137,7 +137,7 @@ function AiAssistantPanel({
   }
 
   function handleExecute(
-    entryId: number,
+    entryId: string,
     action: AssistantActionItem["action"],
     index: number,
   ) {
@@ -146,7 +146,7 @@ function AiAssistantPanel({
   }
 
   const exhausted = usage ? usage.usedToday >= usage.dailyLimit : false;
-  let lastAssistantId = -1;
+  let lastAssistantId = "";
   for (const entry of entries) {
     if (entry.role === "assistant") lastAssistantId = entry.id;
   }

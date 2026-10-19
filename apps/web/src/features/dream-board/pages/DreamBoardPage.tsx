@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Check, Pencil, Plus } from "lucide-react";
 import { Rnd } from "react-rnd";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ErrorState } from "@/components/ui/error-state";
 import { useRef } from "react";
 import {
@@ -9,6 +10,7 @@ import {
   useCreateDreamPin,
   useUpdateDreamPin,
   useDeleteDreamPin,
+  useUpdateDreamBoard,
 } from "../hooks/useDreamBoard";
 import { DreamPin } from "../components/DreamPin";
 import { AddPinModal } from "../components/AddPinModal";
@@ -20,11 +22,25 @@ export function DreamBoardPage() {
   const createPin = useCreateDreamPin();
   const updatePin = useUpdateDreamPin();
   const deletePin = useDeleteDreamPin();
+  const renameBoard = useUpdateDreamBoard();
   const lastUpdateRef = useRef<{ pinId: string; x: number; y: number } | null>(
     null,
   );
   const [addOpen, setAddOpen] = useState(false);
   const [selectedPin, setSelectedPin] = useState<DreamPinDto | null>(null);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+
+  const startEditingTitle = () => {
+    setTitleDraft(board?.title ?? "Mi Tablero de Sueños");
+    setEditingTitle(true);
+  };
+
+  const saveTitle = () => {
+    const title = titleDraft.trim();
+    setEditingTitle(false);
+    if (title && title !== board?.title) renameBoard.mutate(title);
+  };
 
   return (
     <div className="relative h-[calc(100vh-4rem)] overflow-hidden">
@@ -38,9 +54,41 @@ export function DreamBoardPage() {
         }}
       />
       <div className="absolute top-4 left-4 z-10">
-        <h1 className="text-lg font-semibold text-white drop-shadow-md">
-          {board?.title ?? "Mi Tablero de Sueños"}
-        </h1>
+        {editingTitle ? (
+          <div className="flex items-center gap-1">
+            <Input
+              autoFocus
+              value={titleDraft}
+              maxLength={120}
+              aria-label="Título del tablero"
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveTitle();
+                if (e.key === "Escape") setEditingTitle(false);
+              }}
+              className="h-8 w-56 bg-white/95"
+            />
+            <Button
+              size="icon"
+              className="h-8 w-8"
+              aria-label="Guardar título"
+              onClick={saveTitle}
+              disabled={renameBoard.isPending}
+            >
+              <Check className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={startEditingTitle}
+            aria-label="Renombrar tablero"
+            className="group flex items-center gap-2 text-lg font-semibold text-white drop-shadow-md"
+          >
+            {board?.title ?? "Mi Tablero de Sueños"}
+            <Pencil className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
+          </button>
+        )}
       </div>
       <div className="absolute top-4 right-4 z-10">
         <Button onClick={() => setAddOpen(true)}>

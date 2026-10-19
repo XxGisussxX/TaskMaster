@@ -1,6 +1,7 @@
 import { http } from "@/services/http";
 import type {
   AiCapabilities,
+  AiChatEntry,
   AiUsage,
   AssistantMessage,
   AssistantResponse,
@@ -22,4 +23,8 @@ export const aiApi = {
     http.get<AiCapabilities>(`/workspaces/${workspaceId}/ai/capabilities`),
   getUsage: (workspaceId: string) =>
     http.get<AiUsage>(`/workspaces/${workspaceId}/ai/usage`),
+  getChatHistory: (workspaceId: string) =>
+    http.get<AiChatEntry[]>(`/workspaces/${workspaceId}/ai/chat`),
+  clearChatHistory: (workspaceId: string) =>
+    http.delete(`/workspaces/${workspaceId}/ai/chat`),
 };

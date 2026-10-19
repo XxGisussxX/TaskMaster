@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  UseGuards,
+} from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import {
   assistantRequestSchema,
@@ -66,5 +74,23 @@ export class AiController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.aiService.getUsage(workspaceId, user.sub);
+  }
+
+  @Get("chat")
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  chatHistory(
+    @Param("workspaceId", workspaceIdPipe) workspaceId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.aiService.getChatHistory(workspaceId, user.sub);
+  }
+
+  @Delete("chat")
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  clearChat(
+    @Param("workspaceId", workspaceIdPipe) workspaceId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.aiService.clearChatHistory(workspaceId, user.sub);
   }
 }

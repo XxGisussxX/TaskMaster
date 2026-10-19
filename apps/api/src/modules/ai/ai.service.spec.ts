@@ -68,6 +68,11 @@ function setup(configured = true) {
       create: vi.fn().mockResolvedValue({ id: "g1" }),
       count: vi.fn().mockResolvedValue(3),
     },
+    aiChatEntry: {
+      createMany: vi.fn().mockResolvedValue({ count: 2 }),
+      findMany: vi.fn().mockResolvedValue([]),
+      deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
   };
   const access = {
     assertWriteRole: vi.fn().mockResolvedValue(undefined),
@@ -470,6 +475,108 @@ describe("AiService.assistantStep", () => {
         priority: true,
         status: true,
       },
+    });
+  });
+
+  it("persiste el turno usuario/asistente con las acciones", async () => {
+    const { service, prisma } = setup();
+
+    await service.assistantStep("ws1", "u1", {
+      messages: baseMessages,
+      text: "recordame en 1 hora comprar pan",
+    });
+
+    expect(prisma.aiChatEntry.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          workspaceId: "ws1",
+          userId: "u1",
+          role: "user",
+          text: "recordame en 1 hora comprar pan",
+        },
+        {
+          workspaceId: "ws1",
+          userId: "u1",
+          role: "assistant",
+          text: expect.any(String),
+          actions: [
+            expect.objectContaining({ kind: "reminder", title: "comprar pan" }),
+          ],
+        },
+      ],
+    });
+  });
+
+  it("no guarda acciones cuando la respuesta no trae ninguna", async () => {
+    const { service, prisma } = setup();
+    prisma.aiChatEntry.createMany.mockClear();
+
+    await service.assistantStep("ws1", "u1", {
+      messages: baseMessages,
+      text: "ya esta listo",
+    });
+
+    const data = prisma.aiChatEntry.createMany.mock.calls[0]?.[0]?.data as {
+      actions?: unknown;
+    }[];
+    expect(data[1]?.actions).toBeUndefined();
+  });
+});
+
+describe("AiService.getChatHistory", () => {
+  it("valida membresía y devuelve los turnos en orden cronológico", async () => {
+    const { service, prisma, access } = setup();
+    prisma.aiChatEntry.findMany.mockResolvedValue([
+      {
+        id: "c2",
+        role: "assistant",
+        text: "hola",
+        actions: [{ kind: "complete", taskId: "t1", taskTitle: "T" }],
+        createdAt: new Date("2026-10-19T10:05:00Z"),
+      },
+      {
+        id: "c1",
+        role: "user",
+        text: "que hago",
+        actions: null,
+        createdAt: new Date("2026-10-19T10:00:00Z"),
+      },
+    ]);
+
+    const entries = await service.getChatHistory("ws1", "u1");
+
+    expect(access.assertMembership).toHaveBeenCalledWith("ws1", "u1");
+    expect(entries.map((e) => e.id)).toEqual(["c1", "c2"]);
+    expect(entries[1]?.actions).toHaveLength(1);
+  });
+
+  it("descarta acciones con forma inesperada", async () => {
+    const { service, prisma } = setup();
+    prisma.aiChatEntry.findMany.mockResolvedValue([
+      {
+        id: "c1",
+        role: "assistant",
+        text: "hola",
+        actions: [{ kind: "nope" }],
+        createdAt: new Date("2026-10-19T10:00:00Z"),
+      },
+    ]);
+
+    const entries = await service.getChatHistory("ws1", "u1");
+
+    expect(entries[0]?.actions).toEqual([]);
+  });
+});
+
+describe("AiService.clearChatHistory", () => {
+  it("valida membresía y borra solo los turnos del usuario", async () => {
+    const { service, prisma, access } = setup();
+
+    await service.clearChatHistory("ws1", "u1");
+
+    expect(access.assertMembership).toHaveBeenCalledWith("ws1", "u1");
+    expect(prisma.aiChatEntry.deleteMany).toHaveBeenCalledWith({
+      where: { workspaceId: "ws1", userId: "u1" },
     });
   });
 });

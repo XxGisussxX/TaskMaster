@@ -6,9 +6,11 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import {
+  assistantActionSchema,
   nlTaskDraftSchema,
   TaskStatus,
   type AiCapabilities,
+  type AiChatEntry,
   type AiUsage,
   type AssistantCompleteAction,
   type AssistantReminderAction,
@@ -16,6 +18,7 @@ import {
   type AssistantResponse,
   type NlTaskDraft,
 } from "@taskmaster/contracts";
+import type { Prisma } from "@prisma/client";
 import {
   detectAssistantIntent,
   resolveCompleteTarget,
@@ -27,6 +30,7 @@ import { z } from "zod";
 import { PrismaService } from "../../prisma/prisma.service";
 import { RedisService } from "../../redis/redis.service";
 import { aiQuotaKey } from "../../redis/redis-keys";
+import { redactPii } from "../../common/sanitize/pii";
 import { WorkspaceAccessService } from "../workspaces/workspace-access.service";
 import { ConfigService } from "@nestjs/config";
 import {
@@ -103,6 +107,14 @@ const MAX_ASSISTANT_TASKS = 300;
  */
 const MAX_DRAFT_CONTEXT_ITEMS = 200;
 
+/**
+ * Cuántos turnos del historial persistido se devuelven al frontend.
+ *
+ * Se cuentan filas (usuario + asistente), así que 40 son ~20 intercambios,
+ * en línea con `HISTORY_LIMIT` del cliente.
+ */
+const AI_CHAT_HISTORY_LIMIT = 40;
+
 interface DailyQuota {
   day: string;
   used: number;
@@ -153,7 +165,7 @@ export class AiService {
 
     try {
       const result = await this.provider.completeJson(
-        this.buildNlTaskPrompt(text, {
+        this.buildNlTaskPrompt(redactPii(text).text, {
           tags: tags.map((tag) => tag.name),
           channels: channels.map((channel) => channel.name),
         }),
@@ -235,92 +247,180 @@ export class AiService {
 
     const intent = detectAssistantIntent(text);
 
+    let response: AssistantResponse;
+
     if (intent?.kind === "reminder") {
       const resolved = resolveReminderPayload(text, suggestions);
       if (!resolved) {
-        return {
+        response = {
           reply:
             "¿Para cuándo? Decime un momento, por ejemplo: en 1 hora, mañana, en 3 días.",
           actions: [],
         };
+      } else {
+        const linked = suggestions.find((s) => s.taskId === resolved.taskId);
+        const action: AssistantReminderAction = {
+          kind: "reminder",
+          title: resolved.title,
+          triggerAt: resolved.triggerAt.toISOString(),
+          taskId: resolved.taskId ?? undefined,
+          taskTitle: linked?.title,
+        };
+        response = {
+          reply: `Listo, te recuerdo: "${resolved.title}".`,
+          actions: [action],
+        };
       }
-      const linked = suggestions.find((s) => s.taskId === resolved.taskId);
-      const action: AssistantReminderAction = {
-        kind: "reminder",
-        title: resolved.title,
-        triggerAt: resolved.triggerAt.toISOString(),
-        taskId: resolved.taskId ?? undefined,
-        taskTitle: linked?.title,
-      };
-      return {
-        reply: `Listo, te recuerdo: "${resolved.title}".`,
-        actions: [action],
-      };
-    }
-
-    if (intent?.kind === "complete") {
+    } else if (intent?.kind === "complete") {
       const target = resolveCompleteTarget(
         text,
         suggestions,
         lastAssistantText,
       );
       if (!target) {
-        return {
+        response = {
           reply: this.pendingListReply(suggestions),
           actions: [],
         };
+      } else {
+        const action: AssistantCompleteAction = {
+          kind: "complete",
+          taskId: target.taskId,
+          taskTitle: target.title,
+        };
+        response = {
+          reply: `¿Marco "${target.title}" como completada?`,
+          actions: [action],
+        };
       }
-      const action: AssistantCompleteAction = {
-        kind: "complete",
-        taskId: target.taskId,
-        taskTitle: target.title,
-      };
-      return {
-        reply: `¿Marco "${target.title}" como completada?`,
-        actions: [action],
-      };
-    }
+    } else {
+      if (!this.provider.isConfigured) {
+        throw new ServiceUnavailableException(
+          "La IA no está configurada. Agregá GEMINI_API_KEY en el entorno.",
+        );
+      }
 
-    if (!this.provider.isConfigured) {
-      throw new ServiceUnavailableException(
-        "La IA no está configurada. Agregá GEMINI_API_KEY en el entorno.",
+      await this.assertDailyQuota(userId);
+
+      const prompt = this.buildAssistantAdvicePrompt(
+        text,
+        messages,
+        suggestions,
       );
-    }
 
-    await this.assertDailyQuota(userId);
-
-    const prompt = this.buildAssistantAdvicePrompt(text, messages, suggestions);
-
-    try {
-      const result = await this.provider.completeJson(
-        prompt,
-        ASSISTANT_ADVICE_SPEC,
-      );
-      await this.logGeneration(
-        workspaceId,
-        userId,
-        "assistant-advice",
-        result,
-        "success",
-      );
-      return { reply: result.data.reply, actions: [] };
-    } catch (error) {
-      if (error instanceof AiProviderError) {
+      try {
+        const result = await this.provider.completeJson(
+          prompt,
+          ASSISTANT_ADVICE_SPEC,
+        );
         await this.logGeneration(
           workspaceId,
           userId,
           "assistant-advice",
-          { latencyMs: 0, inputChars: text.length, outputChars: 0 },
-          "error",
-          error.message,
+          result,
+          "success",
         );
-        return {
-          reply: `La IA no estuvo disponible ahora. Igual, tus pendientes:\n${this.pendingList(suggestions)}`,
-          actions: [],
-        };
+        response = { reply: result.data.reply, actions: [] };
+      } catch (error) {
+        if (error instanceof AiProviderError) {
+          await this.logGeneration(
+            workspaceId,
+            userId,
+            "assistant-advice",
+            { latencyMs: 0, inputChars: text.length, outputChars: 0 },
+            "error",
+            error.message,
+          );
+          response = {
+            reply: `La IA no estuvo disponible ahora. Igual, tus pendientes:\n${this.pendingList(suggestions)}`,
+            actions: [],
+          };
+        } else {
+          throw error;
+        }
       }
-      throw error;
     }
+
+    await this.persistChatExchange(workspaceId, userId, text, response);
+    return response;
+  }
+
+  /**
+   * Historial persistido del asistente para el usuario en el workspace.
+   *
+   * Devuelve los últimos `AI_CHAT_HISTORY_LIMIT` turnos en orden cronológico.
+   * El frontend se solía perder todo esto al recargar (vivía en `useState`).
+   */
+  async getChatHistory(
+    workspaceId: string,
+    userId: string,
+  ): Promise<AiChatEntry[]> {
+    await this.access.assertMembership(workspaceId, userId);
+
+    const rows = await this.prisma.aiChatEntry.findMany({
+      where: { workspaceId, userId },
+      orderBy: { createdAt: "desc" },
+      take: AI_CHAT_HISTORY_LIMIT,
+    });
+
+    return rows.reverse().map((row) => this.toChatEntryDto(row));
+  }
+
+  async clearChatHistory(workspaceId: string, userId: string): Promise<void> {
+    await this.access.assertMembership(workspaceId, userId);
+    await this.prisma.aiChatEntry.deleteMany({
+      where: { workspaceId, userId },
+    });
+  }
+
+  /**
+   * Guarda el par usuario/asistente de un turno.
+   *
+   * Solo persiste el `user` que llegó y la respuesta; el historial que envía el
+   * cliente no se re-escribe (ya está en la base). `actions` se serializa para
+   * reconstruir los botones al remontar.
+   */
+  private async persistChatExchange(
+    workspaceId: string,
+    userId: string,
+    userText: string,
+    response: AssistantResponse,
+  ): Promise<void> {
+    await this.prisma.aiChatEntry.createMany({
+      data: [
+        { workspaceId, userId, role: "user", text: userText },
+        {
+          workspaceId,
+          userId,
+          role: "assistant",
+          text: response.reply,
+          actions:
+            response.actions.length > 0
+              ? (response.actions as unknown as Prisma.InputJsonValue)
+              : undefined,
+        },
+      ],
+    });
+  }
+
+  private toChatEntryDto(row: {
+    id: string;
+    role: string;
+    text: string;
+    actions: unknown;
+    createdAt: Date;
+  }): AiChatEntry {
+    const parsedActions = Array.isArray(row.actions)
+      ? z.array(assistantActionSchema).safeParse(row.actions)
+      : null;
+
+    return {
+      id: row.id,
+      role: row.role === "assistant" ? "assistant" : "user",
+      text: row.text,
+      actions: parsedActions?.success ? parsedActions.data : [],
+      createdAt: row.createdAt.toISOString(),
+    };
   }
 
   private pendingList(suggestions: Suggestion[]): string {
@@ -346,7 +446,7 @@ export class AiService {
         : "(no hay tareas abiertas en el workspace)";
     const history =
       messages.length > 0
-        ? messages.map((m) => `${m.role}: ${m.text}`).join("\n")
+        ? messages.map((m) => `${m.role}: ${redactPii(m.text).text}`).join("\n")
         : "(sin historial)";
 
     return [
@@ -363,7 +463,7 @@ export class AiService {
       "Historial del chat:",
       history,
       "",
-      `Último mensaje del usuario: "${text}"`,
+      `Último mensaje del usuario: "${redactPii(text).text}"`,
     ].join("\n");
   }
 

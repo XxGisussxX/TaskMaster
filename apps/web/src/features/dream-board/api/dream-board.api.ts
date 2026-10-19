@@ -5,6 +5,11 @@ export const dreamBoardApi = {
   get: (workspaceId: string) =>
     http.get<DreamBoardDto>(`/workspaces/${workspaceId}/dream-board`),
 
+  updateBoard: (workspaceId: string, title: string) =>
+    http.patch<DreamBoardDto>(`/workspaces/${workspaceId}/dream-board`, {
+      title,
+    }),
+
   createPin: (workspaceId: string, input: Record<string, unknown>) =>
     http.post(`/workspaces/${workspaceId}/dream-board/pins`, input),
 

@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { AssistantAction } from "@taskmaster/contracts";
 import { aiApi } from "../api/ai.api";
@@ -16,7 +16,7 @@ export interface AssistantActionItem {
 }
 
 export interface AssistantChatEntry {
-  id: number;
+  id: string;
   role: "user" | "assistant";
   text: string;
   actions?: AssistantActionItem[];
@@ -28,7 +28,7 @@ export interface AssistantController {
   error: string | null;
   send: (text: string) => Promise<void>;
   execute: (
-    entryId: number,
+    entryId: string,
     action: AssistantAction,
     actionIndex: number,
   ) => Promise<void>;
@@ -47,9 +47,39 @@ export function useAiAssistant(): AssistantController {
   const entriesRef = useRef(entries);
   entriesRef.current = entries;
   const idRef = useRef(0);
+  const seededRef = useRef(false);
   const qc = useQueryClient();
 
-  const nextId = () => ++idRef.current;
+  // El historial ahora vive en el servidor; al montar se siembra una vez. Las
+  // respuestas proactivas y los turnos recién enviados viven solo en memoria
+  // hasta el próximo montaje, pero los turnos de `send` ya quedan persistidos.
+  const { data: history } = useQuery({
+    queryKey: ["ai-chat", workspaceId],
+    queryFn: () => aiApi.getChatHistory(workspaceId!),
+    enabled: !!workspaceId && !local,
+    staleTime: Infinity,
+  });
+
+  useEffect(() => {
+    if (!history || seededRef.current) return;
+    seededRef.current = true;
+    setEntries(
+      history.map((entry) => ({
+        id: entry.id,
+        role: entry.role,
+        text: entry.text,
+        actions:
+          entry.actions.length > 0
+            ? entry.actions.map((action) => ({
+                action,
+                status: "pending" as const,
+              }))
+            : undefined,
+      })),
+    );
+  }, [history]);
+
+  const nextId = () => `local-${++idRef.current}`;
 
   const send = useCallback(
     async (raw: string) => {
@@ -96,7 +126,7 @@ export function useAiAssistant(): AssistantController {
   );
 
   const execute = useCallback(
-    async (entryId: number, action: AssistantAction, actionIndex: number) => {
+    async (entryId: string, action: AssistantAction, actionIndex: number) => {
       if (!workspaceId) return;
 
       setEntries((prev) =>
@@ -179,7 +209,15 @@ export function useAiAssistant(): AssistantController {
   const reset = useCallback(() => {
     setEntries([]);
     setError(null);
-  }, []);
+    if (workspaceId && !local) {
+      void aiApi
+        .clearChatHistory(workspaceId)
+        .then(() =>
+          qc.invalidateQueries({ queryKey: ["ai-chat", workspaceId] }),
+        )
+        .catch(() => toast.error("No se pudo borrar el historial"));
+    }
+  }, [workspaceId, local, qc]);
 
   return { entries, sending, error, send, execute, pushProactive, reset };
 }

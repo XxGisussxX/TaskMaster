@@ -134,6 +134,12 @@ export const pinIdParamsSchema = z.object({
   id: namedIdSchema("ID de pin inválido"),
 });
 
+export const updateDreamBoardSchema = z.object({
+  title: z.string().trim().min(1, "El título es requerido").max(120),
+});
+
+export type UpdateDreamBoardInput = z.infer<typeof updateDreamBoardSchema>;
+
 export type CreatePinInput = z.infer<typeof createPinSchema>;
 export type UpdatePinInput = z.infer<typeof updatePinSchema>;
 

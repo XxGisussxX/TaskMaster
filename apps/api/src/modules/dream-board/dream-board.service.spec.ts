@@ -14,6 +14,7 @@ const PIN = {
   color: "AMBER",
   x: 10,
   y: 20,
+  imageUrl: null as string | null,
   createdById: "u1",
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
   updatedAt: new Date("2026-01-02T00:00:00.000Z"),
@@ -72,8 +73,16 @@ function setup(options?: {
     assertWriteRole: vi.fn().mockResolvedValue(member),
   };
 
-  const service = new DreamBoardService(prisma as never, access as never);
-  return { service, prisma, access, member };
+  const uploads = {
+    destroyImageByUrl: vi.fn().mockResolvedValue(undefined),
+  };
+
+  const service = new DreamBoardService(
+    prisma as never,
+    access as never,
+    uploads as never,
+  );
+  return { service, prisma, access, uploads, member };
 }
 
 describe("DreamBoardService.getBoard", () => {
@@ -137,6 +146,26 @@ describe("DreamBoardService.getBoard", () => {
 
     await expect(service.getBoard("ws1", "u1")).rejects.toThrow("boom");
     expect(prisma.dreamBoard.findUniqueOrThrow).not.toHaveBeenCalled();
+  });
+});
+
+describe("DreamBoardService.updateBoard", () => {
+  it("renombra el tablero y devuelve el DTO", async () => {
+    const { service, prisma } = setup();
+    prisma.dreamBoard.update.mockResolvedValueOnce({
+      ...BOARD,
+      title: "Nuevo",
+      pins: [],
+    });
+
+    const board = await service.updateBoard("ws1", "u1", { title: "Nuevo" });
+
+    expect(prisma.dreamBoard.update).toHaveBeenCalledWith({
+      where: { workspaceId: "ws1" },
+      data: { title: "Nuevo" },
+      include: expect.any(Object),
+    });
+    expect(board.title).toBe("Nuevo");
   });
 });
 
@@ -393,6 +422,39 @@ describe("DreamBoardService.updatePin", () => {
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(prisma.dreamPin.update).not.toHaveBeenCalled();
   });
+
+  it("destruye el asset anterior al reemplazar la imagen", async () => {
+    const { service, prisma, uploads } = setup({
+      pin: {
+        ...PIN,
+        imageUrl: "https://res.cloudinary.com/c/image/upload/v1/a.jpg",
+      },
+    });
+    prisma.dreamPin.update.mockResolvedValueOnce({
+      ...PIN,
+      imageUrl: "https://res.cloudinary.com/c/image/upload/v1/b.jpg",
+    });
+
+    await service.updatePin("ws1", "pin1", "u1", {
+      imageUrl: "https://res.cloudinary.com/c/image/upload/v1/b.jpg",
+    });
+
+    expect(uploads.destroyImageByUrl).toHaveBeenCalledWith(
+      "https://res.cloudinary.com/c/image/upload/v1/a.jpg",
+    );
+  });
+
+  it("no destruye el asset si la imagen no cambia", async () => {
+    const url = "https://res.cloudinary.com/c/image/upload/v1/a.jpg";
+    const { service, prisma, uploads } = setup({
+      pin: { ...PIN, imageUrl: url },
+    });
+    prisma.dreamPin.update.mockResolvedValueOnce({ ...PIN, imageUrl: url });
+
+    await service.updatePin("ws1", "pin1", "u1", { imageUrl: url });
+
+    expect(uploads.destroyImageByUrl).not.toHaveBeenCalled();
+  });
 });
 
 describe("DreamBoardService.removePin", () => {
@@ -405,6 +467,15 @@ describe("DreamBoardService.removePin", () => {
     expect(prisma.dreamPin.delete).toHaveBeenCalledWith({
       where: { id: "pin1" },
     });
+  });
+
+  it("destruye el asset del pin al borrarlo", async () => {
+    const url = "https://res.cloudinary.com/c/image/upload/v1/a.jpg";
+    const { service, uploads } = setup({ pin: { ...PIN, imageUrl: url } });
+
+    await service.removePin("ws1", "pin1", "u1");
+
+    expect(uploads.destroyImageByUrl).toHaveBeenCalledWith(url);
   });
 
   it("no borra el pin de otro miembro", async () => {

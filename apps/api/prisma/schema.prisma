@@ -150,6 +150,7 @@ model User {
   timeEntries     TimeEntry[]
   invitedMembers  Invite[]           @relation("InvitedBy")
   aiGenerations   AiGeneration[]
+  aiChatEntries   AiChatEntry[]
   dreamPins       DreamPin[]         @relation("DreamPinAuthor")
 }
 
@@ -258,6 +259,7 @@ model Workspace {
   customFieldDefs   CustomFieldDefinition[]
   customFieldValues CustomFieldValue[]
   aiGenerations     AiGeneration[]
+  aiChatEntries     AiChatEntry[]
   dreamBoard        DreamBoard?
   dreamPins         DreamPin[]
 
@@ -704,7 +706,7 @@ model DreamPin {
   linkedTask Task?      @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId])
-  @@index([boardId])
+  @@index([boardId, createdAt])
   @@index([createdById])
   @@index([linkedTaskId])
 }
@@ -730,6 +732,26 @@ model AiGeneration {
 
   @@index([workspaceId, createdAt])
   @@index([userId, createdAt])
+}
+
+// ── AI assistant chat persistence ───────────────────────────────────
+
+/// Historial del asistente IA. Antes vivía solo en `useState` del frontend y
+/// se perdía al recargar. `actions` guarda las acciones locales que el guion
+/// del asistente aplicó (p. ej. crear tarea), para poder reconstruir la UI.
+model AiChatEntry {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        String
+  text        String
+  actions     Json?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, userId, createdAt])
 }
 
 model Team {

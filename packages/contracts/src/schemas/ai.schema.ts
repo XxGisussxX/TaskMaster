@@ -104,3 +104,26 @@ export type AssistantReminderAction = z.infer<
   typeof assistantReminderActionSchema
 >;
 export type AssistantResponse = z.infer<typeof assistantResponseSchema>;
+
+/**
+ * Un turno del historial del asistente persistido en el servidor.
+ *
+ * `actions` replica lo que devolvió `AssistantResponse.actions`, para que al
+ * recargar la página se puedan reconstruir los botones de acción en su estado
+ * inicial (`pending`). El estado "ejecutada" no se persiste: se resuelve contra
+ * el estado real de la tarea/recordatorio al volver a montar.
+ */
+export const aiChatEntrySchema = z.object({
+  id: z.string(),
+  role: z.enum(["user", "assistant"]),
+  text: z.string(),
+  actions: z.array(assistantActionSchema).default([]),
+  createdAt: z.string().datetime({ offset: true }),
+});
+
+export const aiChatHistorySchema = z.object({
+  entries: z.array(aiChatEntrySchema),
+});
+
+export type AiChatEntry = z.infer<typeof aiChatEntrySchema>;
+export type AiChatHistory = z.infer<typeof aiChatHistorySchema>;

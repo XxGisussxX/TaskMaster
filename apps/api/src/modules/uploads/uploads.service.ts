@@ -381,4 +381,29 @@ export class UploadsService {
     await this.prisma.attachment.delete({ where: { id } });
     return { id };
   }
+
+  /**
+   * Destruye un asset de Cloudinary a partir de su URL pública.
+   *
+   * A diferencia de `remove`, acá no hay fila `Attachment` de la que sacar el
+   * `publicId`: el DreamBoard guarda solo la `url` en el pin. Se deriva el
+   * `public_id` de la URL (`.../upload/v<ts>/<folder>/<id>.<ext>` → `<folder>/<id>`)
+   * y se ignora en silencio lo que no sea una URL de Cloudinary: las imágenes en
+   * `data:` base64 (fallback sin Cloudinary) y las externas no se pueden borrar
+   * del origen y no deben romper la operación.
+   */
+  async destroyImageByUrl(url: string | null | undefined): Promise<void> {
+    if (!this.cloudinary || !url) return;
+    if (!/res\.cloudinary\.com/.test(url)) return;
+
+    const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[a-z0-9]+)?$/i);
+    if (!match?.[1]) return;
+
+    try {
+      const cld = this.cloudinary as typeof import("cloudinary").v2;
+      await cld.uploader.destroy(match[1], { resource_type: "image" });
+    } catch (err) {
+      this.logger.warn("Error eliminando imagen de Cloudinary", err);
+    }
+  }
 }
