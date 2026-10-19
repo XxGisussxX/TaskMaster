@@ -3,6 +3,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { ImageUploader } from "@/components/ImageUploader";
 import type { DreamPinDto } from "@taskmaster/contracts";
 import { useTasks } from "@/features/tasks/hooks/useTasks";
@@ -142,24 +143,33 @@ export function PinDetailModal({
         ) : (
           <>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Título</label>
-              <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+              <Label htmlFor="pin-detail-title">Título</Label>
+              <Input
+                id="pin-detail-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Descripción</label>
+              <Label htmlFor="pin-detail-description">Descripción</Label>
               <Textarea
+                id="pin-detail-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Imagen</label>
+              <Label htmlFor="image-url-input">Imagen</Label>
               <ImageUploader value={imageUrl} onChange={setImageUrl} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Sticker</label>
-              <div className="flex flex-wrap gap-2">
+              <span className="text-sm font-medium">Sticker</span>
+              <div
+                role="group"
+                aria-label="Sticker"
+                className="flex flex-wrap gap-2"
+              >
                 {STICKERS.map((s) => (
                   <Button
                     key={s}
@@ -182,8 +192,9 @@ export function PinDetailModal({
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Vincular a tarea</label>
+              <Label htmlFor="pin-detail-task">Vincular a tarea</Label>
               <select
+                id="pin-detail-task"
                 value={linkedTaskId}
                 onChange={(e) => setLinkedTaskId(e.target.value)}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"

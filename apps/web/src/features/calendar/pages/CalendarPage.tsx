@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageLoader } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
 import {
   useTasks,
   useCreateTask,
@@ -41,7 +42,7 @@ export function CalendarPage() {
   const [editing, setEditing] = useState<Task | null>(null);
   const [prefilledDate, setPrefilledDate] = useState<string | null>(null);
 
-  const { data, isLoading } = useTasks({ pageSize: 500 });
+  const { data, isLoading, isError, refetch } = useTasks({ pageSize: 500 });
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const { canWrite } = useCurrentMembership();
@@ -197,8 +198,19 @@ export function CalendarPage() {
         }
       />
 
+      {!isLoading && !isError && data && data.total > tasks.length && (
+        <p className="text-xs text-muted-foreground">
+          Mostrando {tasks.length} de {data.total} tareas en el calendario.
+        </p>
+      )}
+
       {isLoading ? (
         <PageLoader />
+      ) : isError ? (
+        <ErrorState
+          title="No se pudo cargar el calendario"
+          onRetry={() => void refetch()}
+        />
       ) : (
         <Card className="p-4">
           {viewMode === "month" && (
@@ -234,7 +246,7 @@ export function CalendarPage() {
         </Card>
       )}
 
-      {!isLoading && tasks.length === 0 && (
+      {!isLoading && !isError && tasks.length === 0 && (
         <EmptyState
           title="Sin tareas con fecha"
           description="Asigna fechas a tus tareas para verlas aquí"

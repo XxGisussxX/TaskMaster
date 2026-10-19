@@ -17,6 +17,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { sanitizeRichText } from "../../common/sanitize/html";
 import { WorkspaceAccessService } from "../workspaces/workspace-access.service";
 import { ActivityService } from "../activity/activity.service";
+import { EventsService } from "../websocket/events.service";
 
 const NOTE_INCLUDE = {
   tags: true,
@@ -38,6 +39,7 @@ export class NotesService {
     private readonly prisma: PrismaService,
     private readonly access: WorkspaceAccessService,
     private readonly activity: ActivityService,
+    private readonly events: EventsService,
   ) {}
 
   async list(
@@ -144,7 +146,9 @@ export class NotesService {
       Action.CREATED,
     );
 
-    return this.toNoteDto(note);
+    const noteDto = this.toNoteDto(note);
+    this.events.emit("note.created", { workspaceId, note: noteDto });
+    return noteDto;
   }
 
   async update(
@@ -266,7 +270,9 @@ export class NotesService {
       Action.UPDATED,
     );
 
-    return this.toNoteDto(note);
+    const noteDto = this.toNoteDto(note);
+    this.events.emit("note.updated", { workspaceId, note: noteDto });
+    return noteDto;
   }
 
   async togglePin(
@@ -286,7 +292,9 @@ export class NotesService {
       data: { pinned },
       include: NOTE_INCLUDE,
     });
-    return this.toNoteDto(updated);
+    const pinDto = this.toNoteDto(updated);
+    this.events.emit("note.updated", { workspaceId, note: pinDto });
+    return pinDto;
   }
 
   async addChecklistItem(
@@ -368,6 +376,7 @@ export class NotesService {
       id,
       Action.DELETED,
     );
+    this.events.emit("note.deleted", { workspaceId, noteId: id });
     return { id };
   }
 

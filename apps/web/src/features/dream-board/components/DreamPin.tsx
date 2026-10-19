@@ -47,9 +47,17 @@ export function DreamPin({ pin, onOpen }: DreamPinProps) {
     return (
       <button
         type="button"
+        aria-label={`Abrir pin ${pin.title}`}
         onDoubleClick={(e) => {
           e.stopPropagation();
           onOpen();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            e.stopPropagation();
+            onOpen();
+          }
         }}
         className="relative flex flex-col items-center rounded-lg bg-white p-1 shadow-md transition-transform hover:scale-105"
         style={{ userSelect: "none" }}
@@ -82,9 +90,17 @@ export function DreamPin({ pin, onOpen }: DreamPinProps) {
   return (
     <button
       type="button"
+      aria-label={`Abrir pin ${pin.title}`}
       onDoubleClick={(e) => {
         e.stopPropagation();
         onOpen();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          e.stopPropagation();
+          onOpen();
+        }
       }}
       className={cn(
         "relative flex flex-col items-center gap-1 rounded-full px-3 py-2 shadow-md ring-2 ring-white/80 transition-transform hover:scale-105",

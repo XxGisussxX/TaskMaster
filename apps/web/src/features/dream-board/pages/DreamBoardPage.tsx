@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Rnd } from "react-rnd";
 import { Button } from "@/components/ui/button";
+import { ErrorState } from "@/components/ui/error-state";
+import { useRef } from "react";
 import {
   useDreamBoard,
   useCreateDreamPin,
@@ -14,10 +16,13 @@ import { PinDetailModal } from "../components/PinDetailModal";
 import type { DreamPinDto } from "@taskmaster/contracts";
 
 export function DreamBoardPage() {
-  const { data: board, isLoading } = useDreamBoard();
+  const { data: board, isLoading, isError, refetch } = useDreamBoard();
   const createPin = useCreateDreamPin();
   const updatePin = useUpdateDreamPin();
   const deletePin = useDeleteDreamPin();
+  const lastUpdateRef = useRef<{ pinId: string; x: number; y: number } | null>(
+    null,
+  );
   const [addOpen, setAddOpen] = useState(false);
   const [selectedPin, setSelectedPin] = useState<DreamPinDto | null>(null);
 
@@ -32,6 +37,11 @@ export function DreamBoardPage() {
           backgroundSize: "20px 20px",
         }}
       />
+      <div className="absolute top-4 left-4 z-10">
+        <h1 className="text-lg font-semibold text-white drop-shadow-md">
+          {board?.title ?? "Mi Tablero de Sueños"}
+        </h1>
+      </div>
       <div className="absolute top-4 right-4 z-10">
         <Button onClick={() => setAddOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
@@ -43,30 +53,51 @@ export function DreamBoardPage() {
           Cargando...
         </div>
       )}
-      {board?.pins?.map((pin: DreamPinDto) => (
-        <Rnd
-          key={pin.id}
-          default={{
-            x: pin.x,
-            y: pin.y,
-            width: "auto",
-            height: "auto",
-          }}
-          bounds="parent"
-          enableResizing={false}
-          dragHandleClassName="handle"
-          onDragStop={(_e, d) => {
-            updatePin.mutate({
-              pinId: pin.id,
-              input: { positionX: d.x, positionY: d.y },
-            });
-          }}
-        >
-          <div className="handle">
-            <DreamPin pin={pin} onOpen={() => setSelectedPin(pin)} />
+      {isError && !isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-lg bg-card p-2 shadow-md">
+            <ErrorState
+              title="No se pudo cargar el tablero"
+              onRetry={() => void refetch()}
+            />
           </div>
-        </Rnd>
-      ))}
+        </div>
+      )}
+      {!isError &&
+        board?.pins?.map((pin: DreamPinDto) => (
+          <Rnd
+            key={pin.id}
+            default={{
+              x: pin.x,
+              y: pin.y,
+              width: "auto",
+              height: "auto",
+            }}
+            bounds="parent"
+            enableResizing={false}
+            dragHandleClassName="handle"
+            onDragStop={(_e, d) => {
+              const key = { pinId: pin.id, x: d.x, y: d.y };
+              if (
+                lastUpdateRef.current &&
+                lastUpdateRef.current.pinId === key.pinId &&
+                lastUpdateRef.current.x === key.x &&
+                lastUpdateRef.current.y === key.y
+              ) {
+                return;
+              }
+              lastUpdateRef.current = key;
+              updatePin.mutate({
+                pinId: pin.id,
+                input: { positionX: d.x, positionY: d.y },
+              });
+            }}
+          >
+            <div className="handle">
+              <DreamPin pin={pin} onOpen={() => setSelectedPin(pin)} />
+            </div>
+          </Rnd>
+        ))}
       <AddPinModal
         open={addOpen}
         onOpenChange={setAddOpen}

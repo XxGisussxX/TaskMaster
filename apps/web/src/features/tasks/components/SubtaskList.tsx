@@ -68,6 +68,7 @@ export function SubtaskList({
           <button
             type="button"
             className="text-muted-foreground hover:text-destructive"
+            aria-label={`Eliminar subtarea ${st.title}`}
             onClick={() => removeSubtask(st.id)}
           >
             <Trash2 className="h-3.5 w-3.5" />

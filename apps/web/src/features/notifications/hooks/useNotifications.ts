@@ -1,13 +1,29 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { toast } from "sonner";
 import { notificationsApi } from "../api/notifications.api";
 import { useAuthStore } from "@/store/auth.store";
 
+const NOTIFICATIONS_PAGE_SIZE = 20;
+
 export function useNotifications() {
   const user = useAuthStore((s) => s.user);
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ["notifications"],
-    queryFn: () => notificationsApi.list({ pageSize: 20 }),
+    queryFn: ({ pageParam }) =>
+      notificationsApi.list({
+        page: pageParam,
+        pageSize: NOTIFICATIONS_PAGE_SIZE,
+      }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) => {
+      const loaded = allPages.reduce((n, p) => n + p.items.length, 0);
+      return loaded < lastPage.total ? allPages.length + 1 : undefined;
+    },
     enabled: !!user,
   });
 }

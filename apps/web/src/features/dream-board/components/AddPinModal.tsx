@@ -3,6 +3,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { ImageUploader } from "@/components/ImageUploader";
 import {
   createDreamPinSchema,
@@ -77,8 +78,9 @@ export function AddPinModal({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium">Título</label>
+          <Label htmlFor="pin-title">Título</Label>
           <Input
+            id="pin-title"
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
             placeholder="Mi meta..."
@@ -87,8 +89,9 @@ export function AddPinModal({
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Tipo</label>
+            <Label htmlFor="pin-type">Tipo</Label>
             <select
+              id="pin-type"
               value={form.type}
               onChange={(e) =>
                 setForm({ ...form, type: e.target.value as typeof form.type })
@@ -103,8 +106,9 @@ export function AddPinModal({
             </select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Color</label>
+            <Label htmlFor="pin-color">Color</Label>
             <select
+              id="pin-color"
               value={form.color}
               onChange={(e) =>
                 setForm({ ...form, color: e.target.value as typeof form.color })
@@ -120,8 +124,9 @@ export function AddPinModal({
           </div>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium">Descripción</label>
+          <Label htmlFor="pin-description">Descripción</Label>
           <Textarea
+            id="pin-description"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             placeholder="Descripción opcional..."
@@ -129,15 +134,19 @@ export function AddPinModal({
           />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium">Imagen</label>
+          <Label htmlFor="image-url-input">Imagen</Label>
           <ImageUploader
             value={form.imageUrl}
             onChange={(url) => setForm({ ...form, imageUrl: url })}
           />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium">Sticker</label>
-          <div className="flex flex-wrap gap-2">
+          <span className="text-sm font-medium">Sticker</span>
+          <div
+            role="group"
+            aria-label="Sticker"
+            className="flex flex-wrap gap-2"
+          >
             {STICKERS.map((s) => (
               <Button
                 key={s}
@@ -160,8 +169,9 @@ export function AddPinModal({
           </div>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium">Vincular a tarea</label>
+          <Label htmlFor="pin-task">Vincular a tarea</Label>
           <select
+            id="pin-task"
             value={form.linkedTaskId}
             onChange={(e) => setForm({ ...form, linkedTaskId: e.target.value })}
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"

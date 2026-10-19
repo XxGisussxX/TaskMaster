@@ -64,6 +64,7 @@ export function CommentItem({
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6"
+                aria-label="Editar comentario"
                 onClick={() => onEdit(comment)}
               >
                 <Pencil className="h-3 w-3" />
@@ -72,6 +73,7 @@ export function CommentItem({
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6"
+                aria-label="Eliminar comentario"
                 onClick={() => onDelete(comment.id)}
               >
                 <Trash2 className="h-3 w-3 text-destructive" />

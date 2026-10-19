@@ -49,6 +49,7 @@ export function DependencyList({
           <button
             type="button"
             className="text-muted-foreground hover:text-destructive"
+            aria-label={`Quitar dependencia ${taskData.title}`}
             onClick={() => deleteMut.mutate(dep.id)}
           >
             <X className="h-3.5 w-3.5" />

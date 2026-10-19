@@ -24,11 +24,12 @@ vi.mock("socket.io-client", () => ({
 
 import { useSocket } from "./useSocket";
 
+let queryClient: QueryClient;
+
 function wrapper({ children }: { children: ReactNode }) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
 }
 
 function setSession() {
@@ -57,6 +58,9 @@ describe("useSocket — salas de workspace", () => {
     off.mockClear();
     disconnect.mockClear();
     connect.mockClear();
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
     setSession();
     useWorkspaceStore.setState({ currentWorkspaceId: "ws-1" });
   });
@@ -96,5 +100,44 @@ describe("useSocket — salas de workspace", () => {
       workspaceId: "ws-1",
     });
     expect(emit).not.toHaveBeenCalledWith("workspace:join", expect.anything());
+  });
+});
+
+describe("useSocket — suscripciones de notas", () => {
+  beforeEach(() => {
+    emit.mockClear();
+    on.mockClear();
+    off.mockClear();
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    setSession();
+    useWorkspaceStore.setState({ currentWorkspaceId: "ws-1" });
+  });
+
+  it("escucha note:created/updated/deleted y limpia al desmontar", () => {
+    const { unmount } = renderHook(() => useSocket(), { wrapper });
+
+    expect(on).toHaveBeenCalledWith("note:created", expect.any(Function));
+    expect(on).toHaveBeenCalledWith("note:updated", expect.any(Function));
+    expect(on).toHaveBeenCalledWith("note:deleted", expect.any(Function));
+
+    unmount();
+
+    expect(off).toHaveBeenCalledWith("note:created", expect.any(Function));
+    expect(off).toHaveBeenCalledWith("note:updated", expect.any(Function));
+    expect(off).toHaveBeenCalledWith("note:deleted", expect.any(Function));
+  });
+
+  it("invalida las queries de notas al recibir un evento", () => {
+    renderHook(() => useSocket(), { wrapper });
+    const spy = vi.spyOn(queryClient, "invalidateQueries");
+
+    const handler = on.mock.calls.find(
+      ([event]) => event === "note:created",
+    )?.[1] as () => void;
+    act(() => handler());
+
+    expect(spy).toHaveBeenCalledWith({ queryKey: ["notes"] });
   });
 });

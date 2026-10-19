@@ -223,4 +223,30 @@ export function useSocket() {
       socket.off("comment:deleted", onCommentChange);
     };
   }, [socket, queryClient]);
+
+  // ── Note events ─────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const onNoteChange = () => {
+      void queryClient.invalidateQueries({ queryKey: ["notes"] });
+      // Los campos personalizados se piden por lote de ids de nota: si otra
+      // persona borra una nota, hay que volver a resolverlos.
+      void queryClient.invalidateQueries({
+        queryKey: ["customFieldValuesMany"],
+      });
+      void queryClient.invalidateQueries({ queryKey: ["customFieldValues"] });
+    };
+
+    socket.on("note:created", onNoteChange);
+    socket.on("note:updated", onNoteChange);
+    socket.on("note:deleted", onNoteChange);
+
+    return () => {
+      socket.off("note:created", onNoteChange);
+      socket.off("note:updated", onNoteChange);
+      socket.off("note:deleted", onNoteChange);
+    };
+  }, [socket, queryClient]);
 }

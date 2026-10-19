@@ -49,6 +49,16 @@ interface TaskStatusPayload {
   newStatus: string;
 }
 
+interface NotePayload {
+  workspaceId: string;
+  note: unknown;
+}
+
+interface NoteDeletedPayload {
+  workspaceId: string;
+  noteId: string;
+}
+
 @WsGateway({
   cors: resolveCorsOptions(process.env.API_ORIGINS, process.env.NODE_ENV),
   transports: ["websocket", "polling"],
@@ -256,5 +266,26 @@ export class AppWebSocketGateway
     this.server
       .to(`workspace:${payload.workspaceId}`)
       .emit("task:status-changed", payload);
+  }
+
+  @OnEvent("note.created")
+  handleNoteCreated(payload: NotePayload): void {
+    this.server
+      .to(`workspace:${payload.workspaceId}`)
+      .emit("note:created", payload);
+  }
+
+  @OnEvent("note.updated")
+  handleNoteUpdated(payload: NotePayload): void {
+    this.server
+      .to(`workspace:${payload.workspaceId}`)
+      .emit("note:updated", payload);
+  }
+
+  @OnEvent("note.deleted")
+  handleNoteDeleted(payload: NoteDeletedPayload): void {
+    this.server
+      .to(`workspace:${payload.workspaceId}`)
+      .emit("note:deleted", payload);
   }
 }

@@ -53,12 +53,14 @@ function setup() {
     assertMembership: vi.fn().mockResolvedValue(undefined),
   };
   const activity = { log: vi.fn().mockResolvedValue(undefined) };
+  const events = { emit: vi.fn() };
   const service = new NotesService(
     prisma as never,
     access as never,
     activity as never,
+    events as never,
   );
-  return { service, prisma };
+  return { service, prisma, events };
 }
 
 function makeNote() {
@@ -267,6 +269,60 @@ describe("NotesService — update sin delete+recreate (N6)", () => {
     expect(prisma.noteCollaborator.createMany).toHaveBeenCalledWith({
       data: [{ noteId: "n1", userId: "u3" }],
       skipDuplicates: true,
+    });
+  });
+});
+
+describe("NotesService — eventos en tiempo real", () => {
+  it("emite note.created al crear", async () => {
+    const { service, events } = setup();
+
+    await service.create(WORKSPACE_ID, USER_ID, {
+      type: NoteType.STANDARD,
+      title: "nota",
+      content: "<p>hola</p>",
+      tags: [],
+      items: [],
+      collaborators: [],
+      pinned: false,
+    } as never);
+
+    expect(events.emit).toHaveBeenCalledWith(
+      "note.created",
+      expect.objectContaining({
+        workspaceId: WORKSPACE_ID,
+        note: expect.objectContaining({ id: "n1" }),
+      }),
+    );
+  });
+
+  it("emite note.updated al actualizar y al fijar", async () => {
+    const { service, events } = setup();
+
+    await service.update(WORKSPACE_ID, "n1", USER_ID, {
+      title: "otra",
+    } as never);
+    await service.togglePin(WORKSPACE_ID, "n1", USER_ID, true);
+
+    expect(events.emit).toHaveBeenCalledTimes(2);
+    expect(events.emit).toHaveBeenNthCalledWith(1, "note.updated", {
+      workspaceId: WORKSPACE_ID,
+      note: expect.objectContaining({ id: "n1" }),
+    });
+    expect(events.emit).toHaveBeenNthCalledWith(2, "note.updated", {
+      workspaceId: WORKSPACE_ID,
+      note: expect.objectContaining({ id: "n1" }),
+    });
+  });
+
+  it("emite note.deleted al eliminar", async () => {
+    const { service, events } = setup();
+
+    await service.remove(WORKSPACE_ID, "n1", USER_ID);
+
+    expect(events.emit).toHaveBeenCalledWith("note.deleted", {
+      workspaceId: WORKSPACE_ID,
+      noteId: "n1",
     });
   });
 });

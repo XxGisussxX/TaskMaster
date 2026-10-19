@@ -204,3 +204,47 @@ describe("AppWebSocketGateway presencia y ciclo de vida", () => {
     );
   });
 });
+
+describe("AppWebSocketGateway eventos de notas", () => {
+  function withServer() {
+    const { gateway } = setup(true);
+    const emit = vi.fn();
+    const to = vi.fn().mockReturnValue({ emit });
+    (gateway as unknown as { server: { to: unknown } }).server = { to };
+    return { gateway, to, emit };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("reenvía note.created a la sala del workspace", () => {
+    const { gateway, to, emit } = withServer();
+    const payload = { workspaceId: "ws1", note: { id: "n1" } };
+
+    gateway.handleNoteCreated(payload);
+
+    expect(to).toHaveBeenCalledWith("workspace:ws1");
+    expect(emit).toHaveBeenCalledWith("note:created", payload);
+  });
+
+  it("reenvía note.updated a la sala del workspace", () => {
+    const { gateway, to, emit } = withServer();
+    const payload = { workspaceId: "ws1", note: { id: "n1" } };
+
+    gateway.handleNoteUpdated(payload);
+
+    expect(to).toHaveBeenCalledWith("workspace:ws1");
+    expect(emit).toHaveBeenCalledWith("note:updated", payload);
+  });
+
+  it("reenvía note.deleted a la sala del workspace", () => {
+    const { gateway, to, emit } = withServer();
+    const payload = { workspaceId: "ws1", noteId: "n1" };
+
+    gateway.handleNoteDeleted(payload);
+
+    expect(to).toHaveBeenCalledWith("workspace:ws1");
+    expect(emit).toHaveBeenCalledWith("note:deleted", payload);
+  });
+});

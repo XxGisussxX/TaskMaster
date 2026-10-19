@@ -90,7 +90,7 @@ export function listLocalNotes(
   query: Record<string, string | boolean | number | undefined> = {},
 ): Paginated<Note> {
   const store = readStore();
-  const items = ensureWorkspaceNotes(store, workspaceId)
+  const filtered = ensureWorkspaceNotes(store, workspaceId)
     .map(cloneNote)
     .filter((note) => matchesQuery(note, query))
     .sort(
@@ -98,12 +98,20 @@ export function listLocalNotes(
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     );
 
+  const page = Number(query.page ?? 1) || 1;
+  const pageSize = Number(query.pageSize ?? 24) || 24;
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const start = (safePage - 1) * pageSize;
+  const items = filtered.slice(start, start + pageSize);
+
   return {
     items,
-    total: items.length,
-    page: 1,
-    pageSize: items.length || 10,
-    totalPages: 1,
+    total,
+    page: safePage,
+    pageSize,
+    totalPages,
   };
 }
 

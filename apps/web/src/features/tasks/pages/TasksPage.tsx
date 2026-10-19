@@ -11,6 +11,7 @@ import type { Task, TaskStatus, NlTaskDraft } from "@taskmaster/contracts";
 import { Button } from "@/components/ui/button";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
 import { useFiltersStore } from "@/store/filters.store";
 import { useSelectionStore } from "@/store/selection.store";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -49,7 +50,7 @@ export function TasksPage() {
   const taskModalRequest = useUiStore((s) => s.taskModalRequest);
   const consumeTaskModalRequest = useUiStore((s) => s.consumeTaskModalRequest);
 
-  const { data, isLoading, isError } = useTasks({
+  const { data, isLoading, isError, refetch } = useTasks({
     status: filters.status === "ALL" ? undefined : filters.status,
     priority: filters.priority === "ALL" ? undefined : filters.priority,
     search,
@@ -214,12 +215,19 @@ export function TasksPage() {
         ))}
       </div>
 
+      {!isLoading && !isError && data && data.total > tasks.length && (
+        <p className="text-xs text-muted-foreground">
+          Mostrando {tasks.length} de {data.total} tareas. Ajusta los filtros
+          para ver el resto.
+        </p>
+      )}
+
       {isLoading && <PageLoader />}
 
       {isError && (
-        <EmptyState
+        <ErrorState
           title="No se pudieron cargar las tareas"
-          description="Revisa tu conexión e inténtalo de nuevo"
+          onRetry={() => void refetch()}
         />
       )}
 

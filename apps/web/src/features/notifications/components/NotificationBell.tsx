@@ -52,11 +52,20 @@ function NotificationItem({
 }
 
 function NotificationPanel({ onClose }: { onClose: () => void }) {
-  const { data, isLoading } = useNotifications();
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useNotifications();
   const markAsRead = useMarkAsRead();
   const markAllAsRead = useMarkAllAsRead();
 
-  const notifications = data?.items ?? [];
+  const notifications = data?.pages.flatMap((page) => page.items) ?? [];
+  const total = data?.pages[0]?.total ?? 0;
 
   return (
     <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-md border bg-card shadow-md">
@@ -80,7 +89,17 @@ function NotificationPanel({ onClose }: { onClose: () => void }) {
             Cargando...
           </p>
         )}
-        {!isLoading && notifications.length === 0 && (
+        {isError && !isLoading && (
+          <div className="space-y-2 px-3 py-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              No se pudieron cargar las notificaciones
+            </p>
+            <Button variant="outline" size="sm" onClick={() => void refetch()}>
+              Reintentar
+            </Button>
+          </div>
+        )}
+        {!isLoading && !isError && notifications.length === 0 && (
           <p className="px-3 py-4 text-center text-sm text-muted-foreground">
             Sin notificaciones
           </p>
@@ -92,6 +111,19 @@ function NotificationPanel({ onClose }: { onClose: () => void }) {
             onRead={(id) => markAsRead.mutate(id)}
           />
         ))}
+        {!isLoading && !isError && hasNextPage && (
+          <div className="border-t px-3 py-2 text-center">
+            <button
+              className="text-xs text-primary hover:underline disabled:opacity-50"
+              disabled={isFetchingNextPage}
+              onClick={() => void fetchNextPage()}
+            >
+              {isFetchingNextPage
+                ? "Cargando…"
+                : `Cargar más (${notifications.length} de ${total})`}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

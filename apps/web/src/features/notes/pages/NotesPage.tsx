@@ -9,6 +9,8 @@ import { Select } from "@/components/ui/select";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageLoader } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
+import { Pagination } from "@/components/ui/pagination";
 import { useUiStore } from "@/store/ui.store";
 import { NoteCard } from "../components/NoteCard";
 import { NoteForm, type NoteFormValues } from "../components/NoteForm";
@@ -21,9 +23,12 @@ import {
   useDeleteNote,
 } from "../hooks/useNotes";
 
+const NOTES_PAGE_SIZE = 24;
+
 export function NotesPage() {
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Note | null>(null);
   const { canWrite } = useCurrentMembership();
@@ -32,9 +37,11 @@ export function NotesPage() {
   const noteOpenRequest = useUiStore((s) => s.noteOpenRequest);
   const consumeNoteOpen = useUiStore((s) => s.consumeNoteOpen);
 
-  const { data, isLoading } = useNotes({
+  const { data, isLoading, isError, refetch } = useNotes({
     type: typeFilter === "ALL" ? undefined : typeFilter,
     search,
+    page,
+    pageSize: NOTES_PAGE_SIZE,
   });
 
   const createNote = useCreateNote();
@@ -82,6 +89,16 @@ export function NotesPage() {
     consumeNoteOpen();
   }, [noteOpenRequest, consumeNoteOpen]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [typeFilter, search]);
+
+  useEffect(() => {
+    if (data && data.totalPages > 0 && page > data.totalPages) {
+      setPage(data.totalPages);
+    }
+  }, [data, page]);
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -125,7 +142,14 @@ export function NotesPage() {
 
       {isLoading && <PageLoader />}
 
-      {!isLoading && notes.length === 0 && (
+      {isError && !isLoading && (
+        <ErrorState
+          title="No se pudieron cargar las notas"
+          onRetry={() => void refetch()}
+        />
+      )}
+
+      {!isLoading && !isError && notes.length === 0 && (
         <EmptyState
           title="Sin notas"
           description="Crea una nota estándar, lista, idea, reunión o pegatina"
@@ -165,6 +189,15 @@ export function NotesPage() {
           </div>
         ))}
       </div>
+
+      {!isLoading && !isError && (
+        <Pagination
+          page={page}
+          totalPages={data?.totalPages ?? 1}
+          total={data?.total}
+          onPageChange={setPage}
+        />
+      )}
 
       <Dialog
         open={modalOpen}
