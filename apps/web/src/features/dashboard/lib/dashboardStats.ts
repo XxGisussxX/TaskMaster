@@ -1,5 +1,4 @@
 import {
-  Priority,
   TaskStatus,
   type Task,
   type WorkspaceMember,
@@ -88,11 +87,6 @@ export function isOpen(task: Pick<Task, "status">): boolean {
   return task.status !== TaskStatus.DONE && task.status !== TaskStatus.ARCHIVED;
 }
 
-export function isCritical(priority: Priority): boolean {
-  return priority === Priority.URGENT || priority === Priority.HIGH;
-}
-
-/** Tareas abiertas con fecha límite igual o posterior a hoy, ordenadas por vencimiento. */
 export function upcomingDeadlines(
   tasks: Task[],
   now = new Date(),
