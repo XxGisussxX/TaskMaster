@@ -45,11 +45,15 @@ export function lockoutBlockKey(prefix: string, emailHash: string): string {
 }
 
 /**
- * Cuota diaria de IA por usuario.
+ * Cuota diaria de IA por usuario y workspace.
  *
  * Sin hash tag: el script solo toca esta key, así que no hay nada que agrupar.
  * El `userId` es un cuid, no PII, y mantenerlo legible facilita operar con
  * `GET` cuando hay que auditar por qué un usuario quedó sin cuota.
+ *
+ * El `workspaceId` acota la cuota al workspace donde se consume el asistente:
+ * un mismo usuario puede ser miembro de varios workspaces y cada uno lleva su
+ * propio contador, coherente con `/workspaces/:id/ai/usage`.
  *
  * `day` va en la key (y no como TTL) para que el día local sea explícito y no
  * dependa de la zona horaria del servidor de Redis.
@@ -57,7 +61,8 @@ export function lockoutBlockKey(prefix: string, emailHash: string): string {
 export function aiQuotaKey(
   prefix: string,
   userId: string,
+  workspaceId: string,
   day: string,
 ): string {
-  return `${prefix}:ai:quota:${userId}:${day}`;
+  return `${prefix}:ai:quota:${userId}:${workspaceId}:${day}`;
 }

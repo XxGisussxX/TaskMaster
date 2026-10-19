@@ -33,6 +33,17 @@ está implementado; es una lista de deuda técnica para priorizar.
 >   en `AiChatEntry`) e I6 (caché de capacidades con TTL de 5 min) están hechos.
 > - Permisos: grupos de permisos (`PermissionGroup`) y UI de equipos, con rol
 >   efectivo = máximo del rol propio y los roles de sus grupos.
+>
+> Resueltos después (fase de pendientes, sobre este PR):
+>
+> - IA: I2 (cuota diaria por `usuario:workspace`, y `/usage` filtra por
+>   `workspaceId`) e I10 (hay `Logger`: cada generación y cada intent determinístico
+>   dejan una línea operativa) están hechos.
+> - Escalabilidad: T1 (`/dashboard` agrega en SQL con `$queryRaw`, sin materializar
+>   las tareas), T2 (el heatmap anual se computa en el backend y el front lo usa),
+>   T3 (`agenda-review` con tope `MAX_AGENDA_TASKS` y `truncated`), T4 (time-entries
+>   con paginación, rango acotado e índice `[workspaceId, startedAt]`) y T5 (índices
+>   `[workspaceId, completedAt]` / `[workspaceId, createdAt]`) están hechos.
 
 ## Notas
 
@@ -54,19 +65,12 @@ está implementado; es una lista de deuda técnica para priorizar.
 
 ## IA
 
-| #   | Hallazgo                                                                                                          | Severidad | Ubicación                                                                                               | Esfuerzo |
-| --- | ----------------------------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------- | -------- |
-| I2  | Cuota/uso por usuario, no por workspace: `getUsage` no filtra por `workspaceId` en un endpoint workspace-scoped   | Media     | `apps/api/src/modules/ai/ai.service.ts:492-503`                                                         | S        |
-| I9  | Sin streaming: POST bloqueante (hasta 30 s) con typewriter cosmético                                              | Media     | `apps/api/src/modules/ai/gemini.provider.ts:61-133` · `apps/web/src/features/ai/hooks/useTypewriter.ts` | L        |
-| I10 | Sin observabilidad: no hay `Logger`; solo la fila de `AiGeneration` (los intents determinísticos no loguean nada) | Baja      | `apps/api/src/modules/ai/ai.service.ts:696-721`                                                         | S        |
+| #   | Hallazgo                                                             | Severidad | Ubicación                                                                                               | Esfuerzo |
+| --- | -------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------- | -------- |
+| I9  | Sin streaming: POST bloqueante (hasta 30 s) con typewriter cosmético | Media     | `apps/api/src/modules/ai/gemini.provider.ts:61-133` · `apps/web/src/features/ai/hooks/useTypewriter.ts` | L        |
 
 ## Dashboard / time-entries / agenda
 
-| #   | Hallazgo                                                                                                                       | Severidad | Ubicación                                                                                                                      | Esfuerzo |
-| --- | ------------------------------------------------------------------------------------------------------------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------ | -------- |
-| T1  | `/dashboard` carga todas las tareas no archivadas y computa KPIs/charts en memoria por request (sin `take` ni rango de fechas) | Alta      | `apps/api/src/modules/dashboard/dashboard.service.ts:28-41,67-87`                                                              | M        |
-| T2  | Heatmap "anual" derivado de la serie de 30 días: `buildHeatmapData` existe pero no se usa                                      | Media     | `apps/web/src/features/dashboard/pages/DashboardPage.tsx:275-285` · `packages/domain/src/dashboard.ts:155-182`                 | S        |
-| T3  | `agenda-review` sin cota: carga todas las tareas abiertas                                                                      | Media     | `apps/api/src/modules/agenda/agenda.service.ts:32-46`                                                                          | S        |
-| T4  | `time-entries` sin paginación y sin índice por `startedAt` (`orderBy` sobre el set completo)                                   | Media     | `apps/api/src/modules/time-entries/time-entries.service.ts:89-95` · `apps/api/prisma/schema.prisma:625-626`                    | S        |
-| T5  | Índices faltantes para los KPIs si se bajan a SQL: no hay `[workspaceId, completedAt]` ni `[workspaceId, createdAt]`           | Baja      | `apps/api/prisma/schema.prisma:339-343`                                                                                        | S        |
-| T6  | `useDashboardStats` montado en 5 componentes distintos (misma query key); cualquier invalidación refetchea a todos             | Baja      | `apps/web/.../DashboardPage.tsx:46` · `WorkspacePage.tsx:56` · `ActivityTab.tsx:8` · `SidePanel.tsx:92` · `AiAssistant.tsx:92` | S        |
+| #   | Hallazgo                                                                                                           | Severidad | Ubicación                                                                                                                      | Esfuerzo |
+| --- | ------------------------------------------------------------------------------------------------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------ | -------- |
+| T6  | `useDashboardStats` montado en 5 componentes distintos (misma query key); cualquier invalidación refetchea a todos | Baja      | `apps/web/.../DashboardPage.tsx:46` · `WorkspacePage.tsx:56` · `ActivityTab.tsx:8` · `SidePanel.tsx:92` · `AiAssistant.tsx:92` | S        |

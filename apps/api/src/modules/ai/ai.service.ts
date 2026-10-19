@@ -3,6 +3,7 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  Logger,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import {
@@ -124,6 +125,7 @@ interface DailyQuota {
 export class AiService {
   private readonly quotaGate = new Map<string, DailyQuota>();
   private readonly quotaSeeds = new Map<string, Promise<void>>();
+  private readonly logger = new Logger(AiService.name);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -146,7 +148,7 @@ export class AiService {
       );
     }
 
-    await this.assertDailyQuota(userId);
+    await this.assertDailyQuota(workspaceId, userId);
 
     const [tags, channels] = await Promise.all([
       this.prisma.tag.findMany({
@@ -184,6 +186,7 @@ export class AiService {
         result,
         "success",
       );
+      this.logEvent("nl-task", workspaceId, userId, "success");
       return draft;
     } catch (error) {
       if (error instanceof AiProviderError) {
@@ -199,6 +202,7 @@ export class AiService {
           "error",
           error.message,
         );
+        this.logEvent("nl-task", workspaceId, userId, "error", error.message);
         throw new BadGatewayException(
           isQuotaError(error.message)
             ? "Se agotó la cuota de IA (Gemini). Volvé a intentar más tarde o aumentá GEMINI_DAILY_LIMIT."
@@ -252,6 +256,13 @@ export class AiService {
     if (intent?.kind === "reminder") {
       const resolved = resolveReminderPayload(text, suggestions);
       if (!resolved) {
+        this.logEvent(
+          "assistant-reminder",
+          workspaceId,
+          userId,
+          "error",
+          "unresolved",
+        );
         response = {
           reply:
             "¿Para cuándo? Decime un momento, por ejemplo: en 1 hora, mañana, en 3 días.",
@@ -266,6 +277,7 @@ export class AiService {
           taskId: resolved.taskId ?? undefined,
           taskTitle: linked?.title,
         };
+        this.logEvent("assistant-reminder", workspaceId, userId, "success");
         response = {
           reply: `Listo, te recuerdo: "${resolved.title}".`,
           actions: [action],
@@ -278,6 +290,13 @@ export class AiService {
         lastAssistantText,
       );
       if (!target) {
+        this.logEvent(
+          "assistant-complete",
+          workspaceId,
+          userId,
+          "error",
+          "unresolved",
+        );
         response = {
           reply: this.pendingListReply(suggestions),
           actions: [],
@@ -288,6 +307,7 @@ export class AiService {
           taskId: target.taskId,
           taskTitle: target.title,
         };
+        this.logEvent("assistant-complete", workspaceId, userId, "success");
         response = {
           reply: `¿Marco "${target.title}" como completada?`,
           actions: [action],
@@ -300,7 +320,7 @@ export class AiService {
         );
       }
 
-      await this.assertDailyQuota(userId);
+      await this.assertDailyQuota(workspaceId, userId);
 
       const prompt = this.buildAssistantAdvicePrompt(
         text,
@@ -320,6 +340,7 @@ export class AiService {
           result,
           "success",
         );
+        this.logEvent("assistant-advice", workspaceId, userId, "success");
         response = { reply: result.data.reply, actions: [] };
       } catch (error) {
         if (error instanceof AiProviderError) {
@@ -328,6 +349,13 @@ export class AiService {
             userId,
             "assistant-advice",
             { latencyMs: 0, inputChars: text.length, outputChars: 0 },
+            "error",
+            error.message,
+          );
+          this.logEvent(
+            "assistant-advice",
+            workspaceId,
+            userId,
             "error",
             error.message,
           );
@@ -497,6 +525,7 @@ export class AiService {
 
     const usedToday = await this.prisma.aiGeneration.count({
       where: {
+        workspaceId,
         userId,
         createdAt: { gte: startOfDay },
       },
@@ -518,9 +547,10 @@ export class AiService {
     return `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
   }
 
-  private todayCount(userId: string): Promise<number> {
+  private todayCount(workspaceId: string, userId: string): Promise<number> {
     return this.prisma.aiGeneration.count({
       where: {
+        workspaceId,
         userId,
         createdAt: { gte: this.startOfLocalDay() },
       },
@@ -537,13 +567,16 @@ export class AiService {
    * límite), y en memoria por una lectura-escritura síncrona sin `await` en el
    * medio.
    */
-  private async assertDailyQuota(userId: string): Promise<void> {
+  private async assertDailyQuota(
+    workspaceId: string,
+    userId: string,
+  ): Promise<void> {
     const limit = this.config.get<number>("GEMINI_DAILY_LIMIT") ?? 15;
     const today = this.localDayKey();
 
     const used = await this.redis.withFallback(
-      () => this.consumeQuotaRedis(userId, today, limit),
-      () => this.consumeQuotaMemory(userId, today),
+      () => this.consumeQuotaRedis(workspaceId, userId, today, limit),
+      () => this.consumeQuotaMemory(workspaceId, userId, today),
       "ai-quota",
     );
 
@@ -565,15 +598,16 @@ export class AiService {
    * con `DECR` para no dejar contabilizada una reserva rechazada.
    */
   private async consumeQuotaRedis(
+    workspaceId: string,
     userId: string,
     day: string,
     limit: number,
   ): Promise<number> {
-    const key = aiQuotaKey(this.redis.keyPrefix, userId, day);
+    const key = aiQuotaKey(this.redis.keyPrefix, userId, workspaceId, day);
     const client = this.redis.client;
 
     if ((await client.exists(key)) === 0) {
-      const seeded = await this.todayCount(userId);
+      const seeded = await this.todayCount(workspaceId, userId);
       // `NX` deja ganar a la réplica que llegue primero: las demás no pisan el
       // valor y el `INCR` posterior reparte igual.
       await client.set(
@@ -602,31 +636,38 @@ export class AiService {
    * proceso.
    */
   private async consumeQuotaMemory(
+    workspaceId: string,
     userId: string,
     day: string,
   ): Promise<number> {
-    await this.seedDailyQuota(userId, day);
+    const scope = `${workspaceId}:${userId}`;
+    await this.seedDailyQuota(workspaceId, userId, scope, day);
 
-    const current = this.quotaGate.get(userId);
+    const current = this.quotaGate.get(scope);
     const used = current && current.day === day ? current.used : 0;
-    this.quotaGate.set(userId, { day, used: used + 1 });
+    this.quotaGate.set(scope, { day, used: used + 1 });
     return used + 1;
   }
 
-  private async seedDailyQuota(userId: string, day: string): Promise<void> {
-    const existing = this.quotaGate.get(userId);
+  private async seedDailyQuota(
+    workspaceId: string,
+    userId: string,
+    scope: string,
+    day: string,
+  ): Promise<void> {
+    const existing = this.quotaGate.get(scope);
     if (existing && existing.day === day) return;
 
-    let seeding = this.quotaSeeds.get(userId);
+    let seeding = this.quotaSeeds.get(scope);
     if (!seeding) {
-      seeding = this.todayCount(userId)
+      seeding = this.todayCount(workspaceId, userId)
         .then((count) => {
-          this.quotaGate.set(userId, { day, used: count });
+          this.quotaGate.set(scope, { day, used: count });
         })
         .finally(() => {
-          this.quotaSeeds.delete(userId);
+          this.quotaSeeds.delete(scope);
         });
-      this.quotaSeeds.set(userId, seeding);
+      this.quotaSeeds.set(scope, seeding);
     }
     await seeding;
   }
@@ -690,6 +731,29 @@ export class AiService {
     ).slice(0, 20);
 
     return { ...draft, channelId, tagIds, subtasks };
+  }
+
+  /**
+   * Emite una línea de log operativa por cada paso del asistente.
+   *
+   * La fila de `AiGeneration` es la fuente de verdad de consumo (y solo cubre
+   * los pasos que llegan al proveedor); esto da trazabilidad también de los
+   * intents determinísticos (recordatorio/completar) y de los fallos de cuota,
+   * que no dejan fila. No registra texto del usuario: solo ids y el resultado.
+   */
+  private logEvent(
+    feature: string,
+    workspaceId: string,
+    userId: string,
+    outcome: "success" | "error",
+    detail?: string,
+  ): void {
+    const message = `${feature} ws=${workspaceId} user=${userId} -> ${outcome}`;
+    if (outcome === "error") {
+      this.logger.warn(detail ? `${message}: ${detail}` : message);
+    } else {
+      this.logger.log(message);
+    }
   }
 
   private async logGeneration(

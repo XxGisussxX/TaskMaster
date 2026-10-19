@@ -38,7 +38,9 @@ describe("redis-keys", () => {
       expect(throttlerHitsKey("staging", "abc123", "default")).toMatch(
         /^staging:rl:/,
       );
-      expect(aiQuotaKey("staging", "u1", "2026-01-01")).toMatch(/^staging:ai:/);
+      expect(aiQuotaKey("staging", "u1", "ws1", "2026-01-01")).toMatch(
+        /^staging:ai:/,
+      );
     });
   });
 
@@ -65,20 +67,28 @@ describe("redis-keys", () => {
   });
 
   describe("cuota diaria de IA", () => {
-    it("incluye usuario y día local en la key", () => {
-      expect(aiQuotaKey("taskmaster", "u1", "2026-01-31")).toBe(
-        "taskmaster:ai:quota:u1:2026-01-31",
+    it("incluye usuario, workspace y día local en la key", () => {
+      expect(aiQuotaKey("taskmaster", "u1", "ws1", "2026-01-31")).toBe(
+        "taskmaster:ai:quota:u1:ws1:2026-01-31",
       );
     });
 
     it("distingue días distintos del mismo usuario", () => {
-      expect(aiQuotaKey("taskmaster", "u1", "2026-01-31")).not.toBe(
-        aiQuotaKey("taskmaster", "u1", "2026-02-01"),
+      expect(aiQuotaKey("taskmaster", "u1", "ws1", "2026-01-31")).not.toBe(
+        aiQuotaKey("taskmaster", "u1", "ws1", "2026-02-01"),
+      );
+    });
+
+    it("aísla el mismo usuario en workspaces distintos", () => {
+      expect(aiQuotaKey("taskmaster", "u1", "ws1", "2026-01-31")).not.toBe(
+        aiQuotaKey("taskmaster", "u1", "ws2", "2026-01-31"),
       );
     });
 
     it("no lleva hash tag: el script solo toca una key", () => {
-      expect(aiQuotaKey("taskmaster", "u1", "2026-01-31")).not.toContain("{");
+      expect(aiQuotaKey("taskmaster", "u1", "ws1", "2026-01-31")).not.toContain(
+        "{",
+      );
     });
   });
 });

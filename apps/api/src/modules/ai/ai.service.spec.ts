@@ -689,13 +689,30 @@ describe("AiService.límite diario (Redis con fallback en memoria)", () => {
 
     const keys = [...client.store.keys()];
     expect(keys).toHaveLength(1);
-    expect(keys[0]).toMatch(/^taskmaster:ai:quota:u1:\d{4}-\d{1,2}-\d{1,2}$/);
+    expect(keys[0]).toMatch(
+      /^taskmaster:ai:quota:u1:ws1:\d{4}-\d{1,2}-\d{1,2}$/,
+    );
     expect(client.store.get(keys[0]!)).toBe(4);
     expect(redis.withFallback).toHaveBeenCalledWith(
       expect.any(Function),
       expect.any(Function),
       "ai-quota",
     );
+  });
+
+  it("aísla la cuota por workspace: el mismo usuario en dos workspaces no comparte contador", async () => {
+    const { service, prisma, provider, client } = setup();
+    provider.completeJson.mockResolvedValue(okResult);
+    prisma.aiGeneration.count.mockResolvedValue(0);
+
+    await service.generateTaskDraft("ws1", "u1", "Tarea A");
+    await service.generateTaskDraft("ws2", "u1", "Tarea B");
+
+    const keys = [...client.store.keys()].sort();
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toMatch(/^taskmaster:ai:quota:u1:ws1:/);
+    expect(keys[1]).toMatch(/^taskmaster:ai:quota:u1:ws2:/);
+    expect([...client.store.values()]).toEqual([1, 1]);
   });
 
   it("deshace con DECR la reserva rechazada para no dejar la cuota arriba del límite", async () => {
@@ -740,6 +757,7 @@ describe("AiService.getUsage", () => {
     expect(usage).toEqual({ usedToday: 4, dailyLimit: 15 });
     expect(prisma.aiGeneration.count).toHaveBeenCalledWith({
       where: {
+        workspaceId: "ws1",
         userId: "u1",
         createdAt: { gte: expect.any(Date) },
       },
@@ -750,6 +768,75 @@ describe("AiService.getUsage", () => {
     const { service, access } = setup();
     await service.getUsage("ws1", "u1");
     expect(access.assertMembership).toHaveBeenCalledWith("ws1", "u1");
+  });
+});
+
+describe("AiService observabilidad (Logger)", () => {
+  it("loguea los intents determinísticos, que no dejan fila en AiGeneration", async () => {
+    const { service, prisma } = setup();
+    const log = vi
+      .spyOn(
+        (service as never as { logger: { log: () => void } }).logger,
+        "log",
+      )
+      .mockImplementation(() => undefined);
+    const warn = vi
+      .spyOn(
+        (service as never as { logger: { warn: () => void } }).logger,
+        "warn",
+      )
+      .mockImplementation(() => undefined);
+
+    const res = await service.assistantStep("ws1", "u1", {
+      messages: [],
+      text: "recordame en 1 hora revisar los mails",
+    });
+
+    expect(res.actions).toHaveLength(1);
+    expect(prisma.aiGeneration.create).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining("assistant-reminder"),
+    );
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("loguea como warning un intent de completar sin destinatario", async () => {
+    const { service } = setup();
+    const warn = vi
+      .spyOn(
+        (service as never as { logger: { warn: () => void } }).logger,
+        "warn",
+      )
+      .mockImplementation(() => undefined);
+
+    await service.assistantStep("ws1", "u1", {
+      messages: [],
+      text: "ya está hecho",
+    });
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("assistant-complete"),
+    );
+  });
+
+  it("loguea la generación con el proveedor", async () => {
+    const { service, provider } = setup();
+    provider.completeJson.mockResolvedValue({
+      data: { title: "Tarea", description: "", tagIds: [], subtasks: [] },
+      latencyMs: 10,
+      inputChars: 5,
+      outputChars: 5,
+    });
+    const log = vi
+      .spyOn(
+        (service as never as { logger: { log: () => void } }).logger,
+        "log",
+      )
+      .mockImplementation(() => undefined);
+
+    await service.generateTaskDraft("ws1", "u1", "Tarea");
+
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("nl-task"));
   });
 });
 
