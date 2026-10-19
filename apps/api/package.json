@@ -12,13 +12,13 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:deploy": "prisma migrate deploy",
-    "prisma:status": "prisma migrate status",
+    "prisma:migrate": "node scripts/run-with-env.mjs prisma migrate dev",
+    "prisma:deploy": "node scripts/run-with-env.mjs prisma migrate deploy",
+    "prisma:status": "node scripts/run-with-env.mjs prisma migrate status",
     "prisma:migrate:check": "node scripts/migrate-check.mjs",
-    "prisma:seed": "ts-node prisma/seed.dev.ts",
-    "prisma:seed:bench": "ts-node prisma/seed.bench.ts",
-    "prisma:seed:sql": "prisma db execute --file prisma/seeds/seed-demo.sql --schema prisma/schema.prisma"
+    "prisma:seed": "node scripts/run-with-env.mjs ts-node prisma/seed.dev.ts",
+    "prisma:seed:bench": "node scripts/run-with-env.mjs ts-node prisma/seed.bench.ts",
+    "prisma:seed:sql": "node scripts/run-with-env.mjs prisma db execute --file prisma/seeds/seed-demo.sql --schema prisma/schema.prisma"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.dev.ts"

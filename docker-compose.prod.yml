@@ -91,8 +91,6 @@ services:
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.6-flash}
       GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-text-embedding-004}
       GEMINI_DAILY_LIMIT: ${GEMINI_DAILY_LIMIT:-15}
-      # Observabilidad (Fase 4). Vacío = desactivado.
-      SENTRY_DSN: ${SENTRY_DSN:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       redis:

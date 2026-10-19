@@ -23,7 +23,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,json,css,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,css,md}\"",
     "prepare": "husky",
-    "postinstall": "pnpm --filter @taskmaster/api prisma:generate",
+    "postinstall": "node scripts/postinstall-generate-prisma.mjs",
     "db:migrate": "pnpm --filter @taskmaster/api prisma:migrate",
     "db:seed": "pnpm --filter @taskmaster/api prisma:seed && pnpm --filter @taskmaster/api prisma:seed:sql",
     "db:seed:sql": "pnpm --filter @taskmaster/api prisma:seed:sql"

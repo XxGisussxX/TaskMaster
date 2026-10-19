@@ -27,6 +27,19 @@ export function useCurrentMembership() {
   const currentUserId = useAuthStore((s) => s.user?.id);
   const { data: members = [] } = useMembers();
 
+  // En el workspace demo local no hay backend ni lista de miembros: el usuario
+  // es dueño de sus propios datos (localStorage), así que se le concede
+  // escritura. Sin esto todo el modo demo quedaba en solo lectura.
+  if (workspaceId && isLocalWorkspace(workspaceId)) {
+    return {
+      membership: null,
+      role: "OWNER" as WorkspaceRole,
+      canWrite: true,
+      isOwnerOrAdmin: true,
+      hasWorkspace: true,
+    };
+  }
+
   const membership = members.find((m) => m.userId === currentUserId) ?? null;
   const role = membership?.role ?? null;
   const canWrite = !!role && WRITE_ROLES.includes(role);

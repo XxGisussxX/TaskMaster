@@ -8,7 +8,7 @@ import {
   type DocumentTemplateProps,
   type TemplateId,
 } from "@taskmaster/templates";
-import { buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";

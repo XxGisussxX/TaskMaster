@@ -24,8 +24,15 @@ WORKDIR /app
 # Solo los manifiestos: si el código cambia pero el lockfile no, esta capa se
 # reutiliza del cache y no reinstala nada.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+# pnpm-workspace.yaml declara `patchedDependencies`; sin el .patch real, el
+# install falla con ENOENT antes de resolver nada.
+COPY patches ./patches
+# El `postinstall` de la raíz apunta a este script; sin él el install falla.
+COPY scripts/postinstall-generate-prisma.mjs ./scripts/
+COPY packages/config/package.json ./packages/config/
 COPY packages/contracts/package.json ./packages/contracts/
 COPY packages/domain/package.json ./packages/domain/
+COPY packages/templates/package.json ./packages/templates/
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 
@@ -49,16 +56,25 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=deps /app/packages/contracts/node_modules ./packages/contracts/node_modules
 COPY --from=deps /app/packages/domain/node_modules ./packages/domain/node_modules
+COPY --from=deps /app/packages/templates/node_modules ./packages/templates/node_modules
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc tsconfig.json* ./
+# Los node_modules vienen de `deps` (instalados con `--filter`), así que para
+# pnpm el workspace está "desincronizado" y dispararía un `pnpm install`
+# automático antes de cada script. Acá no queremos reinstalar: desactivamos el
+# chequeo solo dentro de la imagen.
+RUN printf 'verifyDepsBeforeRun: false\n' >> pnpm-workspace.yaml \
+    && printf 'verify-deps-before-run=false\n' >> .npmrc
 COPY packages/config ./packages/config
 COPY packages/contracts ./packages/contracts
 COPY packages/domain ./packages/domain
+COPY packages/templates ./packages/templates
 COPY apps/api ./apps/api
 
-# @taskmaster/contracts y @taskmaster/domain se resuelven en runtime a su dist/,
-# así que hay que compilarlos antes que la API (que los importa).
-RUN pnpm --filter @taskmaster/contracts --filter @taskmaster/domain build
+# @taskmaster/contracts, @taskmaster/domain y @taskmaster/templates se resuelven
+# en runtime a su dist/, así que hay que compilarlos antes que la API (que los
+# importa). Sin el dist de templates, la API muere al arrancar por MODULE_NOT_FOUND.
+RUN pnpm --filter @taskmaster/contracts --filter @taskmaster/domain --filter @taskmaster/templates build
 RUN pnpm --filter @taskmaster/api exec prisma generate
 RUN pnpm --filter @taskmaster/api build
 
@@ -95,6 +111,9 @@ COPY --from=build --chown=api:nodejs /app/packages/contracts/dist ./packages/con
 COPY --from=build --chown=api:nodejs /app/packages/domain/package.json ./packages/domain/
 COPY --from=build --chown=api:nodejs /app/packages/domain/node_modules ./packages/domain/node_modules
 COPY --from=build --chown=api:nodejs /app/packages/domain/dist ./packages/domain/dist
+COPY --from=build --chown=api:nodejs /app/packages/templates/package.json ./packages/templates/
+COPY --from=build --chown=api:nodejs /app/packages/templates/node_modules ./packages/templates/node_modules
+COPY --from=build --chown=api:nodejs /app/packages/templates/dist ./packages/templates/dist
 
 COPY --from=build --chown=api:nodejs /app/apps/api/dist ./apps/api/dist
 COPY --from=build --chown=api:nodejs /app/apps/api/prisma ./apps/api/prisma

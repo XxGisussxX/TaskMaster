@@ -69,10 +69,30 @@ export function useSocket() {
 
   // Unirse al workspace activo sin recrear la conexión.
   useEffect(() => {
-    if (!socket || !currentWorkspaceId) return;
+    if (!socket) return;
+
+    const leaveCurrent = () => {
+      if (!joinedWorkspace.current) return;
+      socket.emit("workspace:leave", { workspaceId: joinedWorkspace.current });
+      joinedWorkspace.current = null;
+      setJoinedWorkspaceId(null);
+    };
+
+    if (!currentWorkspaceId) {
+      leaveCurrent();
+      return;
+    }
 
     const join = () => {
       if (joinedWorkspace.current === currentWorkspaceId) return;
+      // El servidor no sabe que cambiamos de workspace por su cuenta: si no
+      // salimos de la sala anterior, quedaríamos en las dos y recibiríamos
+      // tareas/notificaciones/comentarios de un workspace que ya no es el activo.
+      if (joinedWorkspace.current) {
+        socket.emit("workspace:leave", {
+          workspaceId: joinedWorkspace.current,
+        });
+      }
       socket.emit("workspace:join", { workspaceId: currentWorkspaceId });
       joinedWorkspace.current = currentWorkspaceId;
       setJoinedWorkspaceId(currentWorkspaceId);

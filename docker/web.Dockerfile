@@ -17,8 +17,19 @@ RUN corepack enable && corepack prepare pnpm@11.20.0 --activate
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+# pnpm cree que el workspace está "desincronizado" (instalamos con `--filter`)
+# y dispararía un `pnpm install` automático antes de cada script. Lo desactivamos.
+RUN printf 'verifyDepsBeforeRun: false\n' >> pnpm-workspace.yaml \
+    && printf 'verify-deps-before-run=false\n' >> .npmrc
+# pnpm-workspace.yaml declara `patchedDependencies`; sin el .patch real, el
+# install falla con ENOENT antes de resolver nada.
+COPY patches ./patches
+# El `postinstall` de la raíz apunta a este script; sin él el install falla.
+COPY scripts/postinstall-generate-prisma.mjs ./scripts/
+COPY packages/config/package.json ./packages/config/
 COPY packages/contracts/package.json ./packages/contracts/
 COPY packages/domain/package.json ./packages/domain/
+COPY packages/templates/package.json ./packages/templates/
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 
@@ -28,8 +39,11 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 COPY packages/config ./packages/config
 COPY packages/contracts ./packages/contracts
 COPY packages/domain ./packages/domain
+COPY packages/templates ./packages/templates
 COPY apps/web ./apps/web
 
+# La web consume @taskmaster/templates por su código fuente (exports.import ->
+# src/index.ts), así que no hace falta compilar su dist, pero sí tenerlo presente.
 RUN pnpm --filter @taskmaster/contracts --filter @taskmaster/domain build
 RUN pnpm --filter @taskmaster/web build
 
