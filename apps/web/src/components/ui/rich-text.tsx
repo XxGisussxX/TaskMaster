@@ -60,6 +60,9 @@ const HAS_MARKUP = /<[a-z][\s\S]*>/i;
 
 function isSafeUrl(value: string) {
   const url = value.trim().toLowerCase();
+  // `//host` es protocol-relative: el server lo descarta (`allowProtocolRelative:
+  // false`), así que acá también para que cliente y servidor coincidan.
+  if (url.startsWith("//")) return false;
   return (
     url.startsWith("http://") ||
     url.startsWith("https://") ||

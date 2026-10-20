@@ -11,6 +11,7 @@ import { PageLoader } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { Pagination } from "@/components/ui/pagination";
+import { useDebounce } from "@/hooks/useDebounce";
 import { useUiStore } from "@/store/ui.store";
 import { NoteCard } from "../components/NoteCard";
 import { NoteForm, type NoteFormValues } from "../components/NoteForm";
@@ -28,6 +29,7 @@ const NOTES_PAGE_SIZE = 24;
 export function NotesPage() {
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Note | null>(null);
@@ -39,7 +41,7 @@ export function NotesPage() {
 
   const { data, isLoading, isError, refetch } = useNotes({
     type: typeFilter === "ALL" ? undefined : typeFilter,
-    search,
+    search: debouncedSearch,
     page,
     pageSize: NOTES_PAGE_SIZE,
   });
@@ -91,7 +93,7 @@ export function NotesPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [typeFilter, search]);
+  }, [typeFilter, debouncedSearch]);
 
   useEffect(() => {
     if (data && data.totalPages > 0 && page > data.totalPages) {

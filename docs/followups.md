@@ -44,23 +44,27 @@ está implementado; es una lista de deuda técnica para priorizar.
 >   T3 (`agenda-review` con tope `MAX_AGENDA_TASKS` y `truncated`), T4 (time-entries
 >   con paginación, rango acotado e índice `[workspaceId, startedAt]`) y T5 (índices
 >   `[workspaceId, completedAt]` / `[workspaceId, createdAt]`) están hechos.
+> - Notas/UI: N3 (la búsqueda va con `useDebounce`) y N5 (el form importa
+>   `MAX_NOTE_CONTENT_CHARS` de los contracts, la misma cota que valida el server)
+>   están hechos.
+> - UI: N9 (el cliente también descarta `//host` protocol-relative, como el server)
+>   y N10 (la paleta usa los hooks `useTasks`/`useNotes`, así comparte la query key
+>   canónica y se refresca con las invalidaciones de las páginas) están hechos.
+> - DreamBoard: D1 (el arrastre actualiza el cache de forma optimista y no refetchea
+>   el tablero entero en cada movimiento; los cambios de contenido sí invalidan)
+>   está hecho.
 
 ## Notas
 
-| #   | Hallazgo                                                                                            | Severidad | Ubicación                                                                                                               | Esfuerzo |
-| --- | --------------------------------------------------------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------- | -------- |
-| N3  | Búsqueda sin debounce: una request por tecla (`query key` reconstruida en cada keystroke)           | Baja      | `apps/web/src/features/notes/pages/NotesPage.tsx:105-109` · `hooks/useNotes.ts:11`                                      | S        |
-| N4  | Endpoints de pin/unpin y checklist sin uso: la UI hace pin vía `update` y no tiene editor de items  | Media     | `apps/api/src/modules/notes/notes.controller.ts:85-148` · `apps/web/.../NoteForm.tsx` (sin editor) · `NotesPage.tsx:54` | M        |
-| N5  | Límite de contenido divergente: el form permite 20 000 chars, el servidor rechaza >10 000           | Baja      | `apps/web/.../NoteForm.tsx:18` · `note.schema.ts:15`                                                                    | S        |
-| N8  | Modo local (workspace demo) guarda HTML sin sanitizar y no respeta orden por pinned                 | Media     | `apps/web/.../localNotes.ts:128-129,92-95`                                                                              | S        |
-| N9  | Asimetría de sanitización cliente vs servidor (href relativos `libre/`/`#` y tags `label/div/span`) | Baja      | `apps/web/src/components/ui/rich-text.tsx:61-71` · `apps/api/src/common/sanitize/html.ts:66`                            | S        |
-| N10 | Fetch duplicado de notas desde la paleta (query key distinta, `["palette-notes", ...]`)             | Baja      | `apps/web/src/features/palette/search.ts:27-35`                                                                         | S        |
+| #   | Hallazgo                                                                                           | Severidad | Ubicación                                                                                                               | Esfuerzo |
+| --- | -------------------------------------------------------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------- | -------- |
+| N4  | Endpoints de pin/unpin y checklist sin uso: la UI hace pin vía `update` y no tiene editor de items | Media     | `apps/api/src/modules/notes/notes.controller.ts:85-148` · `apps/web/.../NoteForm.tsx` (sin editor) · `NotesPage.tsx:54` | M        |
+| N8  | Modo local (workspace demo) guarda HTML sin sanitizar y no respeta orden por pinned                | Media     | `apps/web/.../localNotes.ts:128-129,92-95`                                                                              | S        |
 
 ## DreamBoard
 
 | #   | Hallazgo                                                                                                                                                                                                   | Severidad | Ubicación                                                                                                                 | Esfuerzo |
 | --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------- | -------- |
-| D1  | Drag & drop sin debounce/throttle: 1 `PATCH` por `dragstop` + refetch completo del board                                                                                                                   | Media     | `apps/web/src/features/dream-board/pages/DreamBoardPage.tsx:58-63` · `hooks/useDreamBoard.ts:40-41`                       | S        |
 | D3  | Imágenes huérfanas: los pins guardan solo la `url` de Cloudinary (sin `publicId`), así que el borrado del asset depende de derivar el `publicId` desde la URL; sin Cloudinary cae a `data:` base64 gigante | Media     | `apps/api/src/modules/dream-board/dream-board.service.ts` · `apps/api/src/modules/uploads/uploads.service.ts:227,232-234` | M        |
 
 ## IA

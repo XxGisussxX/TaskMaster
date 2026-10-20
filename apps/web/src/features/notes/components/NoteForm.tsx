@@ -1,7 +1,11 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { NoteType, StickyColor } from "@taskmaster/contracts";
+import {
+  NoteType,
+  StickyColor,
+  MAX_NOTE_CONTENT_CHARS,
+} from "@taskmaster/contracts";
 import type { Note } from "@taskmaster/contracts";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -15,7 +19,7 @@ import { CustomFieldForm } from "@/features/custom-fields/components/CustomField
 const formSchema = z.object({
   type: z.nativeEnum(NoteType),
   title: z.string().trim().max(200).optional().or(z.literal("")),
-  content: z.string().max(20000).optional().or(z.literal("")),
+  content: z.string().max(MAX_NOTE_CONTENT_CHARS).optional().or(z.literal("")),
   color: z.nativeEnum(StickyColor).optional(),
   pinned: z.boolean().optional(),
 });

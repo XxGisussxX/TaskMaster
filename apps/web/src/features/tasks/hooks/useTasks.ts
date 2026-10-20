@@ -8,12 +8,15 @@ export function useCurrentWorkspaceId(): string | null {
   return useWorkspaceStore((s) => s.currentWorkspaceId);
 }
 
-export function useTasks(query: Omit<TaskQuery, "workspaceId">) {
+export function useTasks(
+  query: Omit<TaskQuery, "workspaceId">,
+  enabled = true,
+) {
   const workspaceId = useCurrentWorkspaceId();
   return useQuery({
     queryKey: ["tasks", workspaceId, query],
     queryFn: () => tasksApi.list(workspaceId!, query),
-    enabled: !!workspaceId,
+    enabled: !!workspaceId && enabled,
   });
 }
 

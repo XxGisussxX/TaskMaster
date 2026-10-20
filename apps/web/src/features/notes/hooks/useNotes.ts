@@ -5,12 +5,13 @@ import { useCurrentWorkspaceId } from "@/features/tasks/hooks/useTasks";
 
 export function useNotes(
   query: Record<string, string | boolean | number | undefined> = {},
+  enabled = true,
 ) {
   const workspaceId = useCurrentWorkspaceId();
   return useQuery({
     queryKey: ["notes", workspaceId, query],
     queryFn: () => notesApi.list(workspaceId!, query),
-    enabled: !!workspaceId,
+    enabled: !!workspaceId && enabled,
   });
 }
 

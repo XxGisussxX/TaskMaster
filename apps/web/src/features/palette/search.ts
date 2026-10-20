@@ -1,42 +1,35 @@
-import { useQuery } from "@tanstack/react-query";
-import { tasksApi } from "@/features/tasks/api/tasks.api";
-import { notesApi } from "@/features/notes/api/notes.api";
-import { useCurrentWorkspaceId } from "@/features/tasks/hooks/useTasks";
+import { useTasks } from "@/features/tasks/hooks/useTasks";
+import { useNotes } from "@/features/notes/hooks/useNotes";
 import { useDebounce } from "@/hooks/useDebounce";
 
 const MIN_QUERY_LENGTH = 2;
 const SEARCH_PAGE_SIZE = 5;
 
-/** Búsqueda de contenido (tareas + notas) para la paleta, con debounce. */
+/**
+ * Búsqueda de contenido (tareas + notas) para la paleta, con debounce.
+ *
+ * Usa los hooks `useTasks`/`useNotes` en vez de `useQuery` sueltos: así comparte
+ * la query key canónica (`["tasks"|"notes", workspaceId, …]`) con las páginas, y
+ * una invalidación por crear/editar una nota o tarea refresca también la paleta
+ * (antes vivía en `["palette-notes", …]` y quedaba desactualizada).
+ */
 export function usePaletteSearch(rawQuery: string) {
-  const workspaceId = useCurrentWorkspaceId();
   const query = useDebounce(rawQuery.trim(), 250);
   const hasQuery = query.length >= MIN_QUERY_LENGTH;
-  const enabled = !!workspaceId && hasQuery;
 
-  const tasks = useQuery({
-    queryKey: ["palette-tasks", workspaceId, query],
-    queryFn: () =>
-      tasksApi.list(workspaceId!, {
-        search: query,
-        pageSize: SEARCH_PAGE_SIZE,
-      }),
-    enabled,
-  });
+  const tasks = useTasks(
+    { search: query, pageSize: SEARCH_PAGE_SIZE },
+    hasQuery,
+  );
 
-  const notes = useQuery({
-    queryKey: ["palette-notes", workspaceId, query],
-    queryFn: () =>
-      notesApi.list(workspaceId!, {
-        search: query,
-        pageSize: SEARCH_PAGE_SIZE,
-      }),
-    enabled,
-  });
+  const notes = useNotes(
+    { search: query, pageSize: SEARCH_PAGE_SIZE },
+    hasQuery,
+  );
 
   return {
     hasQuery,
-    searching: enabled && (tasks.isFetching || notes.isFetching),
+    searching: hasQuery && (tasks.isFetching || notes.isFetching),
     tasks: tasks.data?.items ?? [],
     notes: notes.data?.items ?? [],
   };

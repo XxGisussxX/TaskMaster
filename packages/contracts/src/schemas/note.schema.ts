@@ -9,10 +9,19 @@ export const checklistItemSchema = z.object({
   order: z.number().int().min(0).default(0),
 });
 
+/**
+ * Máximo de caracteres del contenido de una nota.
+ *
+ * Es la única fuente de verdad: el schema del servidor y el form del cliente lo
+ * importan para que no vuelvan a divergir (el form permitía 20 000 y el server
+ * rechazaba >10 000).
+ */
+export const MAX_NOTE_CONTENT_CHARS = 10_000;
+
 export const createNoteSchema = z.object({
   type: z.nativeEnum(NoteType),
   title: z.string().trim().max(200).optional(),
-  content: z.string().max(10000).optional(),
+  content: z.string().max(MAX_NOTE_CONTENT_CHARS).optional(),
   color: z.nativeEnum(StickyColor).optional(),
   pinned: z.boolean().default(false),
   tags: z.array(z.string().trim().min(1).max(40)).default([]),
