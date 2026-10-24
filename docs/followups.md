@@ -56,10 +56,10 @@ está implementado; es una lista de deuda técnica para priorizar.
 
 ## Notas
 
-| #   | Hallazgo                                                                                           | Severidad | Ubicación                                                                                                               | Esfuerzo |
-| --- | -------------------------------------------------------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------- | -------- |
-| N4  | Endpoints de pin/unpin y checklist sin uso: la UI hace pin vía `update` y no tiene editor de items | Media     | `apps/api/src/modules/notes/notes.controller.ts:85-148` · `apps/web/.../NoteForm.tsx` (sin editor) · `NotesPage.tsx:54` | M        |
-| N8  | Modo local (workspace demo) guarda HTML sin sanitizar y no respeta orden por pinned                | Media     | `apps/web/.../localNotes.ts:128-129,92-95`                                                                              | S        |
+| #   | Hallazgo                                                                                           | Severidad | Ubicación                                                                                                               | Esfuerzo       |
+| --- | -------------------------------------------------------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------- | -------------- |
+| N4  | Endpoints de pin/unpin y checklist sin uso: la UI hace pin vía `update` y no tiene editor de items | Media     | `apps/api/src/modules/notes/notes.controller.ts:85-148` · `apps/web/.../NoteForm.tsx` (sin editor) · `NotesPage.tsx:54` | M              |
+| N8  | Modo local (workspace demo) guarda HTML sin sanitizar y no respeta orden por pinned                | Media     | `apps/web/.../localNotes.ts:128-129,92-95`                                                                              | S _(resuelto)_ |
 
 ## DreamBoard
 

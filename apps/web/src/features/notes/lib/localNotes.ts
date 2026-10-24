@@ -1,6 +1,7 @@
 import type { Note, Paginated } from "@taskmaster/contracts";
 import { NoteType, StickyColor } from "@taskmaster/contracts";
 import { getLocalWorkspaceId } from "@/features/tasks/lib/localTasks";
+import { sanitizeHtml } from "@/lib/sanitize-html";
 
 const STORAGE_KEY = "taskmaster.local.notes";
 
@@ -93,10 +94,12 @@ export function listLocalNotes(
   const filtered = ensureWorkspaceNotes(store, workspaceId)
     .map(cloneNote)
     .filter((note) => matchesQuery(note, query))
-    .sort(
-      (a, b) =>
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-    );
+    .sort((a, b) => {
+      if (a.pinned !== b.pinned) {
+        return a.pinned ? -1 : 1;
+      }
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
 
   const page = Number(query.page ?? 1) || 1;
   const pageSize = Number(query.pageSize ?? 24) || 24;
@@ -132,13 +135,14 @@ export function createLocalNote(
   const notes = ensureWorkspaceNotes(store, workspaceId);
   const now = new Date().toISOString();
 
+  const contentInput = input.content as string | null | undefined;
   const note: Note = {
     id: crypto.randomUUID(),
     workspaceId,
     authorId: "local-demo-user",
     type: (input.type ?? NoteType.STANDARD) as NoteType,
     title: (input.title as string | null | undefined) ?? null,
-    content: (input.content as string | null | undefined) ?? null,
+    content: contentInput == null ? null : sanitizeHtml(contentInput),
     color:
       (input.color as StickyColor | null | undefined) ?? StickyColor.YELLOW,
     pinned: Boolean(input.pinned ?? false),
@@ -168,11 +172,17 @@ export function updateLocalNote(
   }
 
   const current = notes[index]!;
+  const contentInput = input.content as string | null | undefined;
   const updated: Note = {
     ...current,
     type: (input.type as NoteType | undefined) ?? current.type,
     title: (input.title as string | null | undefined) ?? current.title,
-    content: (input.content as string | null | undefined) ?? current.content,
+    content:
+      contentInput === undefined
+        ? current.content
+        : contentInput == null
+          ? null
+          : sanitizeHtml(contentInput),
     color: (input.color as StickyColor | null | undefined) ?? current.color,
     pinned: typeof input.pinned === "boolean" ? input.pinned : current.pinned,
     items: Array.isArray(input.items)

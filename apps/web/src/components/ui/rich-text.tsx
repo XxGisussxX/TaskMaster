@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 
-const ALLOWED_TAGS = new Set([
+export const ALLOWED_TAGS = new Set([
   "p",
   "br",
   "strong",
@@ -29,14 +29,14 @@ const ALLOWED_TAGS = new Set([
   "span",
 ]);
 
-const ALLOWED_ATTRS: Record<string, string[]> = {
+export const ALLOWED_ATTRS: Record<string, string[]> = {
   a: ["href"],
   ul: ["data-type"],
   li: ["data-type", "data-checked"],
   input: ["type", "checked", "disabled"],
 };
 
-const BLOCKED_TAGS = new Set([
+export const BLOCKED_TAGS = new Set([
   "script",
   "style",
   "iframe",
@@ -73,7 +73,7 @@ function isSafeUrl(value: string) {
   );
 }
 
-function sanitizeHtml(raw: string): string {
+export function sanitizeHtml(raw: string): string {
   if (typeof window === "undefined" || !raw) return "";
   const cleaned = raw.replace(/<!--[\s\S]*?-->/g, "");
   const doc = new DOMParser().parseFromString(cleaned, "text/html");
