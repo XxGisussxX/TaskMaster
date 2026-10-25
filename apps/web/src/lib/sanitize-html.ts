@@ -1,13 +1,67 @@
-import {
-  ALLOWED_ATTRS,
-  ALLOWED_TAGS,
-  BLOCKED_TAGS,
-} from "@/components/ui/rich-text";
+export const ALLOWED_TAGS = new Set([
+  "p",
+  "br",
+  "strong",
+  "b",
+  "em",
+  "i",
+  "u",
+  "s",
+  "strike",
+  "del",
+  "code",
+  "pre",
+  "h1",
+  "h2",
+  "h3",
+  "ul",
+  "ol",
+  "li",
+  "blockquote",
+  "hr",
+  "a",
+  "div",
+  "label",
+  "input",
+  "span",
+]);
+
+export const ALLOWED_ATTRS: Record<string, string[]> = {
+  a: ["href"],
+  ul: ["data-type"],
+  li: ["data-type", "data-checked"],
+  input: ["type", "checked", "disabled"],
+};
+
+export const BLOCKED_TAGS = new Set([
+  "script",
+  "style",
+  "iframe",
+  "object",
+  "embed",
+  "link",
+  "meta",
+  "base",
+  "form",
+  "button",
+  "textarea",
+  "select",
+  "option",
+  "svg",
+  "math",
+  "template",
+  "noscript",
+]);
 
 const HAS_MARKUP = /<[a-z][\s\S]*>/i;
 
+export function hasMarkup(raw: string): boolean {
+  return HAS_MARKUP.test(raw);
+}
+
 function isSafeUrl(value: string) {
   const url = value.trim().toLowerCase();
+  // `//host` es protocol-relative: descartado.
   if (url.startsWith("//")) return false;
   return (
     url.startsWith("http://") ||
