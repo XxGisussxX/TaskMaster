@@ -6,12 +6,16 @@ export const createCommentSchema = z.object({
     .string()
     .trim()
     .min(1, "El comentario no puede estar vacío")
-    .max(5000),
+    .max(1000, "El comentario no puede superar los 1000 caracteres"),
   mentionedUserIds: z.array(idSchema).optional(),
 });
 
 export const updateCommentSchema = z.object({
-  body: z.string().trim().min(1).max(5000),
+  body: z
+    .string()
+    .trim()
+    .min(1, "El comentario no puede estar vacío")
+    .max(1000, "El comentario no puede superar los 1000 caracteres"),
   mentionedUserIds: z.array(idSchema).optional(),
 });
 

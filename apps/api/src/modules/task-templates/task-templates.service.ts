@@ -11,6 +11,7 @@ import type {
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { WorkspaceAccessService } from "../workspaces/workspace-access.service";
+import { sanitizeRichText } from "../../common/sanitize/html";
 
 @Injectable()
 export class TaskTemplatesService {
@@ -39,13 +40,30 @@ export class TaskTemplatesService {
       throw new ConflictException("Ya existe una plantilla con ese nombre");
     }
 
+    const sanitizedDescription =
+      sanitizeRichText(dto.description ?? "", "task-templates.description") ??
+      "";
+    const data =
+      dto.data && typeof dto.data === "object" && !Array.isArray(dto.data)
+        ? { ...(dto.data as Record<string, unknown>) }
+        : (dto.data as Prisma.InputJsonValue);
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      const desc = (data as Record<string, unknown>).description;
+      if (typeof desc === "string") {
+        (data as Record<string, unknown>).description = sanitizeRichText(
+          desc,
+          "task-templates.data.description",
+        );
+      }
+    }
+
     const template = await this.prisma.taskTemplate.create({
       data: {
         workspaceId,
         userId,
         name: dto.name,
-        description: dto.description ?? "",
-        data: dto.data as Prisma.InputJsonValue,
+        description: sanitizedDescription,
+        data: data as Prisma.InputJsonValue,
       },
     });
 
@@ -89,13 +107,33 @@ export class TaskTemplatesService {
       }
     }
 
+    const updateData: Prisma.TaskTemplateUpdateInput = {
+      name: dto.name,
+    };
+    if (dto.description !== undefined) {
+      updateData.description =
+        sanitizeRichText(dto.description, "task-templates.description") ?? "";
+    }
+    if (dto.data !== undefined) {
+      const data =
+        typeof dto.data === "object" && !Array.isArray(dto.data)
+          ? { ...(dto.data as Record<string, unknown>) }
+          : (dto.data as Prisma.InputJsonValue);
+      if (data && typeof data === "object" && !Array.isArray(data)) {
+        const desc = (data as Record<string, unknown>).description;
+        if (typeof desc === "string") {
+          (data as Record<string, unknown>).description = sanitizeRichText(
+            desc,
+            "task-templates.data.description",
+          );
+        }
+      }
+      updateData.data = data as Prisma.InputJsonValue;
+    }
+
     const template = await this.prisma.taskTemplate.update({
       where: { id },
-      data: {
-        name: dto.name,
-        description: dto.description,
-        data: dto.data as Prisma.InputJsonValue | undefined,
-      },
+      data: updateData,
     });
 
     return this.toDto(template);
