@@ -20,10 +20,12 @@ import { AdminPage } from "@/features/admin/pages/AdminPage";
 import { AcceptInvitePage } from "@/features/invite/pages/AcceptInvitePage";
 import { NotFoundPage } from "@/features/misc/NotFoundPage";
 import { SystemRole } from "@taskmaster/contracts";
+import { LandingPage } from "@/features/landing/pages/LandingPage";
 
 export const router = createBrowserRouter([
   { path: "/invite/:token", element: <AcceptInvitePage /> },
   { path: "/verify-email", element: <VerifyEmailPage /> },
+  { path: "/", element: <LandingPage /> },
   {
     element: <RedirectIfAuthed />,
     children: [
@@ -38,7 +40,6 @@ export const router = createBrowserRouter([
           },
           { path: "/forgot-password", element: <ForgotPasswordPage /> },
           { path: "/reset-password", element: <ResetPasswordPage /> },
-          { path: "*", element: <NotFoundPage /> },
         ],
       },
     ],
@@ -50,6 +51,7 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { path: "/", element: <DashboardPage /> },
+          { path: "/dashboard", element: <DashboardPage /> },
           { path: "/tasks", element: <TasksPage /> },
           { path: "/notes", element: <NotesPage /> },
           { path: "/dream-board", element: <DreamBoardPage /> },

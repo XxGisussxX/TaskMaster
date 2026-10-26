@@ -8,7 +8,7 @@ import { useAuthStore } from "@/store/auth.store";
  * se valida la cookie de refresh; renderizar antes de eso dibujaría el shell de
  * la app sobre una sesión que puede no existir.
  */
-function useResolvedSession() {
+export function useResolvedSession() {
   const status = useAuthStore((s) => s.status);
   return status !== "unknown" && status !== "checking";
 }
@@ -21,7 +21,7 @@ export function RequireAuth() {
   if (!resolved) return null;
 
   if (!user) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
+    return <Navigate to="/" replace state={{ from: location }} />;
   }
   return <Outlet />;
 }
