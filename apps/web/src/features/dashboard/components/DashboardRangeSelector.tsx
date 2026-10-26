@@ -35,7 +35,7 @@ export function DashboardRangeSelector({
           type="date"
           value={value.from}
           disabled={disabled}
-          className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           onChange={(event) => onChange({ ...value, from: event.target.value })}
         />
       </div>
@@ -48,7 +48,7 @@ export function DashboardRangeSelector({
           type="date"
           value={value.to}
           disabled={disabled}
-          className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           onChange={(event) => onChange({ ...value, to: event.target.value })}
         />
       </div>
