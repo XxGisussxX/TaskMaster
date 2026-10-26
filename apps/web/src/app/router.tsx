@@ -25,7 +25,6 @@ import { LandingPage } from "@/features/landing/pages/LandingPage";
 export const router = createBrowserRouter([
   { path: "/invite/:token", element: <AcceptInvitePage /> },
   { path: "/verify-email", element: <VerifyEmailPage /> },
-  { path: "/", element: <LandingPage /> },
   {
     element: <RedirectIfAuthed />,
     children: [
@@ -44,13 +43,13 @@ export const router = createBrowserRouter([
       },
     ],
   },
+  { path: "/", element: <LandingPage /> },
   {
     element: <RequireAuth />,
     children: [
       {
         element: <AppShell />,
         children: [
-          { path: "/", element: <DashboardPage /> },
           { path: "/dashboard", element: <DashboardPage /> },
           { path: "/tasks", element: <TasksPage /> },
           { path: "/notes", element: <NotesPage /> },

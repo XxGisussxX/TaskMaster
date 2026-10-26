@@ -15,7 +15,7 @@ export function LandingPage() {
   if (!resolved) return null;
 
   if (user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (
