@@ -63,6 +63,11 @@ export function DashboardRangeSelector({
               size="sm"
               variant={isActive ? "default" : "outline"}
               disabled={disabled}
+              className={
+                isActive
+                  ? "focus-visible:ring-0 focus-visible:ring-offset-0"
+                  : undefined
+              }
               onClick={() => onChange(rangeFromPreset(preset.days))}
             >
               {preset.label}
