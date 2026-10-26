@@ -43,3 +43,5 @@ playwright-report/
 /schema.prisma
 *.prisma.test
 *_patch.txt
+
+.vercel
