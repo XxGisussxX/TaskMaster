@@ -34,6 +34,10 @@ export class RemindersService {
         triggerAt: { lte: now },
         sentAt: null,
       },
+      orderBy: { triggerAt: "asc" },
+      // Un tick no puede barrer una tabla sin tope: si hay una avalancha, el
+      // resto queda para el próximo (30 s después) en vez de bloquear el cron.
+      take: 500,
     });
 
     if (pending.length === 0) return;
@@ -42,12 +46,16 @@ export class RemindersService {
 
     for (const reminder of pending) {
       try {
-        await this.unscoped.$transaction(async (tx) => {
-          await tx.reminder.update({
-            where: { id: reminder.id },
-            data: { sentAt: now },
-          });
+        // Claim atómico: dos réplicas pueden leer el mismo recordatorio, pero
+        // solo una gana el update condicionado a `sentAt: null`. Es el lock
+        // distribuido sin depender de Redis para una tarea que ya vive en la DB.
+        const claim = await this.unscoped.reminder.updateMany({
+          where: { id: reminder.id, sentAt: null },
+          data: { sentAt: now },
+        });
+        if (claim.count === 0) continue;
 
+        try {
           await this.notifications.create({
             userId: reminder.userId,
             workspaceId: reminder.workspaceId,
@@ -60,7 +68,15 @@ export class RemindersService {
               noteId: reminder.noteId,
             },
           });
-        });
+        } catch (error) {
+          // Si la notificación no se creó, se libera el claim para que el
+          // próximo tick reintente en vez de perder el recordatorio.
+          await this.unscoped.reminder.updateMany({
+            where: { id: reminder.id, sentAt: now },
+            data: { sentAt: null },
+          });
+          throw error;
+        }
 
         if (reminder.repeat && reminder.repeat !== "NONE") {
           await this.createNextOccurrence(reminder);

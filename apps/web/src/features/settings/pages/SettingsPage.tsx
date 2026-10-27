@@ -12,6 +12,7 @@ import { WorkspaceManagement } from "@/features/workspace/components/WorkspaceMa
 import { CustomFieldDefinitionManager } from "@/features/custom-fields/components/CustomFieldDefinitionManager";
 import { ProfileForm } from "../components/ProfileForm";
 import { ChangePasswordForm } from "../components/ChangePasswordForm";
+import { NotificationSettings } from "../components/NotificationSettings";
 
 const THEMES: { value: Theme; label: string; icon: typeof Sun }[] = [
   { value: "light", label: "Claro", icon: Sun },
@@ -94,6 +95,15 @@ export function SettingsPage() {
               {t.label}
             </Button>
           ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Notificaciones</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <NotificationSettings />
         </CardContent>
       </Card>
 

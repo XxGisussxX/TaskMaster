@@ -3,17 +3,15 @@ import { TaskStatus } from "@taskmaster/contracts";
 import { DueSoonService } from "./due-soon.service";
 
 function setup(tasks: unknown[] = []) {
-  const txUpdate = vi.fn().mockResolvedValue({ id: "t1" });
+  const updateMany = vi.fn().mockResolvedValue({ count: 1 });
   const notifications = {
     create: vi.fn().mockResolvedValue({ id: "n1" }),
   };
   const prisma = {
     task: {
       findMany: vi.fn().mockResolvedValue(tasks),
+      updateMany,
     },
-    $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
-      fn({ task: { update: txUpdate } }),
-    ),
   };
   const config = {
     get: vi.fn((key: string) =>
@@ -25,7 +23,7 @@ function setup(tasks: unknown[] = []) {
     notifications as never,
     config as never,
   );
-  return { service, prisma, notifications, txUpdate };
+  return { service, prisma, notifications, updateMany };
 }
 
 function task(overrides: Partial<Record<string, unknown>> = {}) {
@@ -53,16 +51,22 @@ describe("DueSoonService.handleDueSoon", () => {
         dueSoNotifiedAt: null,
       },
       select: expect.objectContaining({ id: true, title: true, dueDate: true }),
+      orderBy: { dueDate: "asc" },
+      take: 500,
     });
   });
 
-  it("notifica a cada asignado con DUE_SOON y marca la tarea como notificada", async () => {
-    const { service, notifications, txUpdate } = setup([
+  it("reclama la tarea y notifica a cada asignado con DUE_SOON", async () => {
+    const { service, notifications, updateMany } = setup([
       task({ assignees: [{ userId: "u1" }, { userId: "u2" }] }),
     ]);
 
     await service.handleDueSoon();
 
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: "t1", dueSoNotifiedAt: null },
+      data: { dueSoNotifiedAt: expect.any(Date) },
+    });
     expect(notifications.create).toHaveBeenCalledTimes(2);
     expect(notifications.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -76,10 +80,15 @@ describe("DueSoonService.handleDueSoon", () => {
     expect(notifications.create).toHaveBeenCalledWith(
       expect.objectContaining({ userId: "u2", type: "DUE_SOON" }),
     );
-    expect(txUpdate).toHaveBeenCalledWith({
-      where: { id: "t1" },
-      data: { dueSoNotifiedAt: expect.any(Date) },
-    });
+  });
+
+  it("no notifica si otra réplica ya reclamó la tarea", async () => {
+    const { service, notifications, updateMany } = setup([task()]);
+    updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await service.handleDueSoon();
+
+    expect(notifications.create).not.toHaveBeenCalled();
   });
 
   it("deduplica asignados repetidos (una notificación por usuario)", async () => {
@@ -108,6 +117,19 @@ describe("DueSoonService.handleDueSoon", () => {
     );
   });
 
+  it("libera el claim si falla la notificación, para reintentar", async () => {
+    const { service, notifications, updateMany } = setup([task()]);
+    notifications.create.mockRejectedValueOnce(new Error("boom"));
+
+    await service.handleDueSoon();
+
+    expect(updateMany).toHaveBeenCalledTimes(2);
+    expect(updateMany).toHaveBeenLastCalledWith({
+      where: { id: "t1", dueSoNotifiedAt: expect.any(Date) },
+      data: { dueSoNotifiedAt: null },
+    });
+  });
+
   it("no hace nada si no hay tareas en la ventana", async () => {
     const { service, notifications } = setup([]);
 
@@ -117,19 +139,14 @@ describe("DueSoonService.handleDueSoon", () => {
   });
 
   it("aísla el error de una tarea sin cortar el resto", async () => {
-    const { service, prisma, notifications } = setup([
+    const { service, notifications, updateMany } = setup([
       task({ id: "t1", assignees: [{ userId: "u1" }] }),
       task({ id: "t2", title: "Otra", assignees: [{ userId: "u2" }] }),
     ]);
 
-    prisma.$transaction = vi
-      .fn()
-      .mockImplementationOnce(async () => {
-        throw new Error("boom");
-      })
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn({ task: { update: vi.fn() } }),
-      );
+    updateMany
+      .mockRejectedValueOnce(new Error("boom"))
+      .mockResolvedValue({ count: 1 });
 
     await service.handleDueSoon();
 

@@ -1,13 +1,33 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import type { Notification, NotificationFilters } from "@taskmaster/contracts";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import {
+  NotificationType,
+  type Notification,
+  type NotificationFilters,
+} from "@taskmaster/contracts";
 import { PrismaService } from "../../prisma/prisma.service";
 import { EventsService } from "../websocket/events.service";
+import { MailService } from "../mail/mail.service";
+
+/**
+ * Tipos de notificación que también salen por email y la preferencia que los
+ * habilita. Todo lo que no esté acá queda solo in-app: comentarios y menciones
+ * son ruidosos por email y se resuelven dentro de la app.
+ */
+const EMAIL_PREF_BY_TYPE: Record<string, string> = {
+  [NotificationType.REMINDER]: "reminders",
+  [NotificationType.DUE_SOON]: "dueSoon",
+};
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly events: EventsService,
+    private readonly mail: MailService,
+    private readonly config: ConfigService,
   ) {}
 
   async list(
@@ -112,6 +132,57 @@ export class NotificationsService {
       notification: result,
     });
 
+    // El email no puede bloquear la creación de la notificación ni tirar el
+    // request que la originó: si Resend falla, el usuario igual ve la campanita.
+    if (EMAIL_PREF_BY_TYPE[input.type]) {
+      void this.sendEmailNotification(input, result);
+    }
+
     return result;
+  }
+
+  private async sendEmailNotification(
+    input: {
+      userId: string;
+      type: string;
+      title: string;
+      body?: string;
+    },
+    notification: Notification,
+  ): Promise<void> {
+    try {
+      const prefKey = EMAIL_PREF_BY_TYPE[input.type];
+      if (!prefKey) return;
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: input.userId },
+        select: {
+          email: true,
+          settings: { select: { emailPrefs: true } },
+        },
+      });
+      if (!user) return;
+
+      const prefs = (user.settings?.emailPrefs ?? {}) as Record<
+        string,
+        unknown
+      >;
+      // Sin preferencia guardada se manda: el default es recibir recordatorios
+      // y vencimientos, que es lo que el usuario espera al crearlos.
+      if (prefs[prefKey] === false) return;
+
+      const webUrl =
+        this.config.get<string>("WEB_URL") ?? "http://localhost:5173";
+      await this.mail.sendNotification({
+        to: user.email,
+        title: notification.title,
+        body: notification.body ?? input.body,
+        actionUrl: new URL("/tasks", webUrl).toString(),
+      });
+    } catch (error) {
+      this.logger.error(
+        `No se pudo enviar el email de la notificación ${input.type} a user=${input.userId}: ${String(error)}`,
+      );
+    }
   }
 }

@@ -6,6 +6,11 @@ import {
   buildPasswordResetEmail,
   buildVerificationEmail,
 } from "./auth-email.template";
+import { buildNotificationEmail } from "./notification-email.template";
+import {
+  buildWeeklyDigestEmail,
+  type WeeklyDigestEmailData,
+} from "./weekly-digest.template";
 
 export interface SendInviteInput {
   to: string;
@@ -97,6 +102,25 @@ export class MailService {
     input: SendAuthEmailInput,
   ): Promise<{ sent: boolean }> {
     const { subject, html } = buildPasswordResetEmail(input);
+    return this.sendHtml(input.to, subject, html, input.actionUrl);
+  }
+
+  /** Email de una notificación in-app (recordatorio, vencimiento). */
+  async sendNotification(input: {
+    to: string;
+    title: string;
+    body?: string;
+    actionUrl: string;
+  }): Promise<{ sent: boolean }> {
+    const { subject, html } = buildNotificationEmail(input);
+    return this.sendHtml(input.to, subject, html, input.actionUrl);
+  }
+
+  /** Resumen semanal con los números reales de la cuenta. */
+  async sendWeeklyDigest(
+    input: WeeklyDigestEmailData & { to: string },
+  ): Promise<{ sent: boolean }> {
+    const { subject, html } = buildWeeklyDigestEmail(input);
     return this.sendHtml(input.to, subject, html, input.actionUrl);
   }
 

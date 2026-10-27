@@ -11,6 +11,18 @@ export interface UserSettings {
   timezone: string;
 }
 
+export type UpdateUserSettingsInput = Partial<
+  Pick<
+    UserSettings,
+    | "theme"
+    | "language"
+    | "defaultView"
+    | "weeklyDigest"
+    | "timezone"
+    | "emailPrefs"
+  >
+>;
+
 export const usersApi = {
   getProfile: () => http.get<User>("/users/me"),
 
@@ -19,6 +31,6 @@ export const usersApi = {
 
   getSettings: () => http.get<UserSettings>("/users/me/settings"),
 
-  updateSettings: (input: Record<string, unknown>) =>
+  updateSettings: (input: UpdateUserSettingsInput) =>
     http.put<UserSettings>("/users/me/settings", input),
 };

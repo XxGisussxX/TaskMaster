@@ -42,6 +42,8 @@ export class DueSoonService {
         creatorId: true,
         assignees: { select: { userId: true } },
       },
+      orderBy: { dueDate: "asc" },
+      take: 500,
     });
 
     if (tasks.length === 0) return;
@@ -50,6 +52,14 @@ export class DueSoonService {
 
     for (const task of tasks) {
       try {
+        // Mismo claim atómico que los recordatorios: con dos réplicas, la
+        // segunda encuentra `count = 0` y no vuelve a notificar la tarea.
+        const claim = await this.unscoped.task.updateMany({
+          where: { id: task.id, dueSoNotifiedAt: null },
+          data: { dueSoNotifiedAt: now },
+        });
+        if (claim.count === 0) continue;
+
         const recipients = [
           ...new Set(
             (task.assignees.length > 0
@@ -59,7 +69,7 @@ export class DueSoonService {
           ),
         ];
 
-        await this.unscoped.$transaction(async (tx) => {
+        try {
           for (const userId of recipients) {
             await this.notifications.create({
               userId,
@@ -73,12 +83,13 @@ export class DueSoonService {
               },
             });
           }
-
-          await tx.task.update({
-            where: { id: task.id },
-            data: { dueSoNotifiedAt: now },
+        } catch (error) {
+          await this.unscoped.task.updateMany({
+            where: { id: task.id, dueSoNotifiedAt: now },
+            data: { dueSoNotifiedAt: null },
           });
-        });
+          throw error;
+        }
       } catch (error) {
         this.logger.error(
           `Failed to process due-soon for task ${task.id}: ${error}`,

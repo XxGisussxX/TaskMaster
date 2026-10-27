@@ -66,10 +66,12 @@ function setup(options: {
         Promise.resolve(makeReminder({ ...(options.existing ?? {}), ...data })),
       ),
       findUnique: vi.fn().mockResolvedValue(options.existing ?? null),
+      findMany: vi.fn().mockResolvedValue([]),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
   };
   const access = { assertWriteRole: vi.fn().mockResolvedValue({ id: "m1" }) };
-  const notifications = { create: vi.fn() };
+  const notifications = { create: vi.fn().mockResolvedValue({ id: "n1" }) };
   const unscoped = {
     reminder: prisma.reminder,
     $transaction: vi.fn((fn: (tx: unknown) => unknown) => fn(unscoped)),
@@ -80,7 +82,7 @@ function setup(options: {
     access as never,
     notifications as never,
   );
-  return { service, prisma, access };
+  return { service, prisma, access, notifications };
 }
 
 describe("RemindersService", () => {
@@ -149,5 +151,51 @@ describe("RemindersService", () => {
 
     expect(reminder.title).toBe("actualizado");
     expect(reminder.taskId).toBe("task1");
+  });
+
+  describe("handlePendingReminders", () => {
+    it("reclama el recordatorio de forma atómica y crea la notificación", async () => {
+      const { service, prisma, notifications } = setup({});
+      prisma.reminder.findMany.mockResolvedValue([makeReminder()]);
+
+      await service.handlePendingReminders();
+
+      expect(prisma.reminder.updateMany).toHaveBeenCalledWith({
+        where: { id: "r1", sentAt: null },
+        data: { sentAt: expect.any(Date) },
+      });
+      expect(notifications.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: USER_ID,
+          workspaceId: WORKSPACE_ID,
+          type: "REMINDER",
+          title: "Recordatorio",
+        }),
+      );
+    });
+
+    it("no notifica si otra réplica ya reclamó el recordatorio", async () => {
+      const { service, prisma, notifications } = setup({});
+      prisma.reminder.findMany.mockResolvedValue([makeReminder()]);
+      prisma.reminder.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      await service.handlePendingReminders();
+
+      expect(notifications.create).not.toHaveBeenCalled();
+    });
+
+    it("libera el claim si falla la notificación, para reintentar", async () => {
+      const { service, prisma, notifications } = setup({});
+      prisma.reminder.findMany.mockResolvedValue([makeReminder()]);
+      notifications.create.mockRejectedValueOnce(new Error("boom"));
+
+      await service.handlePendingReminders();
+
+      expect(prisma.reminder.updateMany).toHaveBeenCalledTimes(2);
+      expect(prisma.reminder.updateMany).toHaveBeenLastCalledWith({
+        where: { id: "r1", sentAt: expect.any(Date) },
+        data: { sentAt: null },
+      });
+    });
   });
 });
