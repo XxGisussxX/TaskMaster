@@ -238,6 +238,7 @@ jobs:
             -e API_ORIGINS="https://app.taskmaster.app" \
             -e WEB_URL="https://app.taskmaster.app" \
             -e JWT_ACCESS_SECRET="ciSmokeTest9xQw2mZ" \
+            -e TRUST_PROXY=1 \
             -e REDIS_HOST=redis \
             taskmaster-api:ci
 
@@ -334,6 +335,7 @@ jobs:
             -e API_ORIGINS="https://app.taskmaster.app" \
             -e WEB_URL="https://app.taskmaster.app" \
             -e JWT_ACCESS_SECRET="ciSmokeTest9xQw2mZ" \
+            -e TRUST_PROXY=1 \
             -e REDIS_HOST=redis \
             taskmaster-api:e2e
           docker run -d --name web-e2e --network taskmaster_taskmaster -p 3080:80 taskmaster-web:e2e
