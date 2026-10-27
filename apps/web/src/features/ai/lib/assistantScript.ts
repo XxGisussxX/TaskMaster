@@ -14,9 +14,9 @@ const SCRIPT: Record<ProactiveTopic, string[]> = {
     "Sin tareas abiertas por ahora. Si querés, te propongo una para arrancar y después la ajustamos.",
   ],
   overdue: [
-    "Tenés {n} tarea vencida. ¿La cerramos de una y seguimos con lo que viene?",
-    "Tenés {n} tareas vencidas. Mi sugerencia: arrancar por la más urgente y despacharlas de a una.",
-    "Hay {n} tareas vencidas esperándote. Dale, que hoy es un buen día para poner el tablero al día.",
+    "Tenés {n} {tareaVencida}. ¿Empezamos por la más urgente y seguimos con el resto?",
+    "Tenés {n} {tareaVencida}. Mi sugerencia: arrancar por la más urgente y despachar de a una.",
+    "Hay {n} {tareaVencida} esperándote. Dale, que hoy es un buen día para poner el tablero al día.",
   ],
   idle: [
     "¿En qué querés avanzar ahora? Preguntame qué hacer o decime alguna tarea nueva y la anoto.",
@@ -25,9 +25,9 @@ const SCRIPT: Record<ProactiveTopic, string[]> = {
     "Si te quedaste sin ideas, decime 'qué hago primero' y te propongo el siguiente paso.",
   ],
   morale: [
-    "Buen ritmo: {n} tarea completada hoy. Seguí así y vas cerrando la semana antes de lo pensado.",
-    "Van {n} tareas completadas hoy. Cada una cuenta; seguimos con la próxima.",
-    "{n} tareas hechas en el día. Lindo avance. ¿Agarramos la siguiente con el mismo envión?",
+    "Buen ritmo: {n} {tareaCompletada} hoy. Seguí así y vas cerrando la semana antes de lo pensado.",
+    "Van {n} {tareaCompletada} hoy. Cada una cuenta; seguimos con la próxima.",
+    "{n} {tareaCompletada} en el día. Lindo avance. ¿Agarramos la siguiente con el mismo envión?",
   ],
 };
 
@@ -46,13 +46,28 @@ export interface ProactiveContext {
   completedToday: number;
 }
 
+/**
+ * Rellena los placeholders de la frase con el número real y el plural correcto.
+ * El script se elige al azar, así que todas las variantes usan los mismos
+ * tokens: con n=1 no puede salir "1 tareas vencidas".
+ */
+function fillPhrase(template: string, n: number): string {
+  return template
+    .replace(/\{n\}/g, String(n))
+    .replace(/\{tareaVencida\}/g, n === 1 ? "tarea vencida" : "tareas vencidas")
+    .replace(
+      /\{tareaCompletada\}/g,
+      n === 1 ? "tarea completada" : "tareas completadas",
+    );
+}
+
 export function buildProactiveMessage(ctx: ProactiveContext): string {
   if (ctx.activeTasks <= 0) return pickPhrase("empty");
   if (ctx.overdueTasks > 0) {
-    return pickPhrase("overdue").replace("{n}", String(ctx.overdueTasks));
+    return fillPhrase(pickPhrase("overdue"), ctx.overdueTasks);
   }
   if (ctx.completedToday > 0) {
-    return pickPhrase("morale").replace("{n}", String(ctx.completedToday));
+    return fillPhrase(pickPhrase("morale"), ctx.completedToday);
   }
   return pickPhrase("idle");
 }

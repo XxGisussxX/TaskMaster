@@ -3,6 +3,9 @@ import { Priority, TaskStatus } from "@taskmaster/contracts";
 import {
   detectAssistantIntent,
   detectTaskScope,
+  extractTaskRefs,
+  isConfirmation,
+  isTaskCountQuestion,
   parseTaskCount,
   resolveCompleteTarget,
   resolveRelativeTime,
@@ -137,6 +140,50 @@ describe("detectAssistantIntent", () => {
     });
   });
 
+  it("reconoce verbos con pronombre pegado y 'cerrar'", () => {
+    expect(detectAssistantIntent("completame 5 tareas")).toEqual({
+      kind: "complete",
+    });
+    expect(detectAssistantIntent("cierra 5 y marcalas como completas")).toEqual(
+      {
+        kind: "complete",
+      },
+    );
+    expect(detectAssistantIntent("marcalas como completadas")).toEqual({
+      kind: "complete",
+    });
+    expect(detectAssistantIntent("cerralas")).toEqual({ kind: "complete" });
+  });
+
+  it("trata 'dale', 'hazlo tú' y 'esas 5 están bien' como confirmación del pendiente", () => {
+    const pendingComplete =
+      "¿Marco estas 5 tareas como completadas?\n\n- Preparar demo";
+    expect(detectAssistantIntent("dale", pendingComplete)).toEqual({
+      kind: "complete",
+    });
+    expect(detectAssistantIntent("hazlo tu", pendingComplete)).toEqual({
+      kind: "complete",
+    });
+    expect(detectAssistantIntent("esas 5 estan bien", pendingComplete)).toEqual(
+      {
+        kind: "complete",
+      },
+    );
+
+    const pendingDelete =
+      "¿Elimino estas 3 tareas? Esta acción no se puede deshacer.";
+    expect(detectAssistantIntent("dale", pendingDelete)).toEqual({
+      kind: "delete",
+    });
+    expect(detectAssistantIntent("dale")).toBeNull();
+  });
+
+  it("no confunde un 'dale' seguido de una orden con una confirmación", () => {
+    expect(detectAssistantIntent("dale, completá las vencidas")).toEqual({
+      kind: "complete",
+    });
+  });
+
   it("devuelve null para preguntas genéricas", () => {
     expect(detectAssistantIntent("¿qué tengo pendiente?")).toBeNull();
   });
@@ -175,6 +222,16 @@ describe("parseTaskCount", () => {
     expect(parseTaskCount("completá las 3 primeras")).toBe(3);
     expect(parseTaskCount("terminá cinco pendientes")).toBe(5);
     expect(parseTaskCount("borrá un par de tareas")).toBe(2);
+  });
+
+  it("reconoce determinantes, 'más' y cantidades pegadas al verbo", () => {
+    expect(parseTaskCount("marca esas 5 como completadas")).toBe(5);
+    expect(parseTaskCount("completa otras 4")).toBe(4);
+    expect(parseTaskCount("completá estas cinco")).toBe(5);
+    expect(parseTaskCount("completá 5 más")).toBe(5);
+    expect(parseTaskCount("dame un par más")).toBe(2);
+    expect(parseTaskCount("cerrá 5")).toBe(5);
+    expect(parseTaskCount("completame 5")).toBe(5);
   });
 
   it("reconoce 'todas' y devuelve null cuando no hay cantidad", () => {
@@ -261,6 +318,108 @@ describe("resolveTaskTargets", () => {
 
   it("devuelve vacío sin señales: el servicio pide aclaración", () => {
     expect(resolveTaskTargets("ya está listo", suggestions)).toEqual([]);
+  });
+});
+
+describe("resolveTaskTargets con el lote del mensaje anterior", () => {
+  const ranked = Array.from({ length: 13 }, (_, index) => ({
+    taskId: `t${index + 1}`,
+    title: `Tarea ${index + 1}`,
+    dueDate: "2026-10-01",
+    priority: Priority.HIGH,
+    status: TaskStatus.TODO,
+    reason: "Vencida",
+  }));
+  const previous = ranked.slice(0, 5);
+
+  it("'esas 5' toma exactamente las tareas que el asistente listó", () => {
+    const targets = resolveTaskTargets(
+      "marca esas 5 como completadas",
+      ranked,
+      { previous },
+    );
+    expect(targets.map((task) => task.taskId)).toEqual([
+      "t1",
+      "t2",
+      "t3",
+      "t4",
+      "t5",
+    ]);
+  });
+
+  it("'otras 4' excluye las ya propuestas y toma las siguientes", () => {
+    const targets = resolveTaskTargets("completa otras 4", ranked, {
+      previous,
+    });
+    expect(targets.map((task) => task.taskId)).toEqual([
+      "t6",
+      "t7",
+      "t8",
+      "t9",
+    ]);
+  });
+
+  it("completa el lote con el ranking si el asistente nombró menos tareas", () => {
+    const targets = resolveTaskTargets(
+      "marca esas 5 como completadas",
+      ranked,
+      { previous: ranked.slice(0, 2) },
+    );
+    expect(targets.map((task) => task.taskId)).toEqual([
+      "t1",
+      "t2",
+      "t3",
+      "t4",
+      "t5",
+    ]);
+  });
+
+  it("'esas' sin cantidad usa solo lo que el asistente listó", () => {
+    const targets = resolveTaskTargets("marcá esas", ranked, {
+      previous: ranked.slice(0, 3),
+    });
+    expect(targets.map((task) => task.taskId)).toEqual(["t1", "t2", "t3"]);
+  });
+
+  it("'otras' sin cantidad no adivina un lote", () => {
+    expect(resolveTaskTargets("completá otras", ranked, { previous })).toEqual(
+      [],
+    );
+  });
+
+  it("extrae los títulos que el asistente listó en su último mensaje", () => {
+    const reply =
+      "¿Marco estas 5 tareas como completadas?\n\n- Tarea 1\n- Tarea 2\n- Tarea 3\n- Tarea 4\n- Tarea 5";
+    expect(extractTaskRefs(reply, ranked).map((task) => task.taskId)).toEqual([
+      "t1",
+      "t2",
+      "t3",
+      "t4",
+      "t5",
+    ]);
+  });
+
+  it("no confunde 'Tarea 1' con 'Tarea 10'", () => {
+    expect(
+      extractTaskRefs("- Tarea 10", ranked).map((task) => task.taskId),
+    ).toEqual(["t10"]);
+  });
+});
+
+describe("isTaskCountQuestion", () => {
+  it("detecta preguntas por el total y no confunde pedidos de acción", () => {
+    expect(isTaskCountQuestion("cuantas tareas tengo en total")).toBe(true);
+    expect(isTaskCountQuestion("¿cuántas pendientes hay?")).toBe(true);
+    expect(isTaskCountQuestion("marcá 5 tareas")).toBe(false);
+  });
+});
+
+describe("isConfirmation", () => {
+  it("solo acepta confirmaciones que ocupan todo el mensaje", () => {
+    expect(isConfirmation("dale")).toBe(true);
+    expect(isConfirmation("hazlo tú")).toBe(true);
+    expect(isConfirmation("esas 5 están bien")).toBe(true);
+    expect(isConfirmation("dale, completá las vencidas")).toBe(false);
   });
 });
 

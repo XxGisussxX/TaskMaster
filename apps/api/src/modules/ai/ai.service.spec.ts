@@ -63,6 +63,7 @@ function setup(configured = true) {
     },
     task: {
       findMany: vi.fn().mockResolvedValue([]),
+      count: vi.fn().mockResolvedValue(0),
     },
     aiGeneration: {
       create: vi.fn().mockResolvedValue({ id: "g1" }),
@@ -387,6 +388,172 @@ describe("AiService.assistantStep", () => {
     ]);
     expect(res.reply).toContain("5 tareas");
     expect(provider.completeJson).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Tareas abiertas sintéticas, ordenadas de la más vencida a la menos.
+   * Reproducen el workspace real de la conversación: 13 abiertas y el asistente
+   * mostrando solo 5.
+   */
+  const makeOpenTasks = (count: number) =>
+    Array.from({ length: count }, (_, index) => ({
+      id: `t-${index + 1}`,
+      title: `Tarea ${index + 1}`,
+      dueDate: new Date(Date.now() - (count - index) * 86_400_000),
+      priority: "LOW",
+      status: "TODO",
+    }));
+
+  const mockTasks = (service: AiService, rows: unknown[]) => {
+    (
+      service as unknown as {
+        prisma: { task: { findMany: ReturnType<typeof vi.fn> } };
+      }
+    ).prisma.task.findMany.mockResolvedValue(rows);
+  };
+
+  it("propone completar 5 tareas aunque el verbo venga con pronombre", async () => {
+    const { service, provider } = setup();
+    const tasks = makeOpenTasks(6);
+    mockTasks(service, tasks);
+
+    const res = await service.assistantStep("ws1", "u1", {
+      messages: baseMessages,
+      text: "completame 5 tareas",
+    });
+
+    expect(res.actions[0]).toMatchObject({ kind: "complete-many" });
+    expect((res.actions[0] as { tasks: unknown[] }).tasks).toHaveLength(5);
+    expect(provider.completeJson).not.toHaveBeenCalled();
+  });
+
+  it("resuelve 'esas 5' contra las tareas del mensaje anterior, no contra una sola", async () => {
+    const { service } = setup();
+    mockTasks(service, makeOpenTasks(13));
+
+    const res = await service.assistantStep("ws1", "u1", {
+      messages: [
+        {
+          role: "assistant",
+          text: "No puedo marcar las tareas por vos. Te sugiero priorizar 'Tarea 1' y luego 'Tarea 2'.",
+        },
+      ],
+      text: "marca esas 5 como completadas",
+    });
+
+    expect(res.actions[0]).toMatchObject({ kind: "complete-many" });
+    expect(
+      (res.actions[0] as { tasks: { taskId: string }[] }).tasks.map(
+        (task) => task.taskId,
+      ),
+    ).toEqual(["t-1", "t-2", "t-3", "t-4", "t-5"]);
+  });
+
+  it("'otras 4' propone 4 tareas distintas de las ya listadas", async () => {
+    const { service } = setup();
+    mockTasks(service, makeOpenTasks(13));
+
+    const res = await service.assistantStep("ws1", "u1", {
+      messages: [
+        {
+          role: "assistant",
+          text: "¿Marco estas 5 tareas como completadas?\n\n- Tarea 1\n- Tarea 2\n- Tarea 3\n- Tarea 4\n- Tarea 5",
+        },
+      ],
+      text: "completa otras 4",
+    });
+
+    expect(
+      (res.actions[0] as { tasks: { taskId: string }[] }).tasks.map(
+        (task) => task.taskId,
+      ),
+    ).toEqual(["t-6", "t-7", "t-8", "t-9"]);
+  });
+
+  it("re-propone el mismo lote al escribir 'esas 5 están bien' o 'hazlo tú'", async () => {
+    const { service } = setup();
+    mockTasks(service, makeOpenTasks(13));
+    const pending = [
+      {
+        role: "assistant" as const,
+        text: "¿Marco estas 5 tareas como completadas?\n\n- Tarea 1\n- Tarea 2\n- Tarea 3\n- Tarea 4\n- Tarea 5",
+      },
+    ];
+
+    for (const text of ["esas 5 estan bien", "hazlo tu"]) {
+      const res = await service.assistantStep("ws1", "u1", {
+        messages: pending,
+        text,
+      });
+      expect(res.reply).toContain("¿Marco estas 5 tareas");
+      expect(
+        (res.actions[0] as { tasks: { taskId: string }[] }).tasks.map(
+          (task) => task.taskId,
+        ),
+      ).toEqual(["t-1", "t-2", "t-3", "t-4", "t-5"]);
+    }
+  });
+
+  it("no degrada a una sola tarea cuando el pedido traía cantidad", async () => {
+    const { service } = setup();
+    mockTasks(service, makeOpenTasks(1));
+
+    const res = await service.assistantStep("ws1", "u1", {
+      messages: baseMessages,
+      text: "completame 5 tareas",
+    });
+
+    expect(res.actions).toEqual([]);
+    expect(res.reply).toContain("Pediste 5 tareas");
+  });
+
+  it("responde el total real de tareas abiertas sin gastar cuota de IA", async () => {
+    const { service, provider, prisma } = setup();
+    prisma.task.count.mockResolvedValue(13);
+
+    const res = await service.assistantStep("ws1", "u1", {
+      messages: baseMessages,
+      text: "cuantas tareas tengo en total",
+    });
+
+    expect(res.reply).toBe("Tenés 13 tareas abiertas.");
+    expect(res.actions).toEqual([]);
+    expect(provider.completeJson).not.toHaveBeenCalled();
+  });
+
+  it("no inventa una acción al confirmar sin nada pendiente", async () => {
+    const { service, provider } = setup();
+    mockTasks(service, makeOpenTasks(3));
+
+    const res = await service.assistantStep("ws1", "u1", {
+      messages: baseMessages,
+      text: "dale",
+    });
+
+    expect(res.actions).toEqual([]);
+    expect(res.reply).toContain("No tengo una acción pendiente");
+    expect(provider.completeJson).not.toHaveBeenCalled();
+  });
+
+  it("le pasa al modelo el total real y prohíbe 'no puedo'", async () => {
+    const { service, provider, prisma } = setup();
+    prisma.task.count.mockResolvedValue(13);
+    mockTasks(service, makeOpenTasks(13));
+    provider.completeJson.mockResolvedValue({
+      data: { reply: "Arrancá por la Tarea 1." },
+      latencyMs: 10,
+      inputChars: 10,
+      outputChars: 20,
+    });
+
+    await service.assistantStep("ws1", "u1", {
+      messages: baseMessages,
+      text: "que hago primero?",
+    });
+
+    const prompt = provider.completeJson.mock.calls[0]![0] as string;
+    expect(prompt).toContain("13 tareas abiertas en total");
+    expect(prompt).toContain("Nunca digas que no podés completar");
   });
 
   it("propone eliminar todas las vencidas sin gastar cuota de IA", async () => {

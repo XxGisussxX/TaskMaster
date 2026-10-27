@@ -94,6 +94,69 @@ function normalize(value: string): string {
 }
 
 /**
+ * Verbos que el usuario puede escribir con el pronombre pegado.
+ *
+ * "completame", "marcalas" o "cerralas" son la forma natural de pedir la acción
+ * en español rioplatense, y el regex de intención espera el verbo suelto. Antes
+ * de analizar partimos verbo y pronombre, así el resto del detector no necesita
+ * conocer las variantes enclíticas.
+ */
+const COMMAND_VERBS =
+  "completa|completar|marca|marcar|cierra|cerrar|cerra|termina|terminar|finaliza|finalizar|elimina|eliminar|borra|borrar|quita|quitar|saca|sacar|remueve|remover|agrega|agregar|crea|crear|anade|anadir|carga|cargar";
+
+const ENCLITIC_PRONOUNS =
+  "melas|melos|meles|mela|melo|me|te|se|nos|las|los|les|la|lo|le";
+
+const ENCLITIC = new RegExp(
+  `\\b(${COMMAND_VERBS})(?:${ENCLITIC_PRONOUNS})\\b`,
+  "g",
+);
+
+/**
+ * Normaliza un mensaje de comando: minúsculas, sin acentos, sin puntuación y
+ * sin el pronombre enclítico. No se usa para títulos de tareas, solo para
+ * interpretar lo que pide el usuario.
+ */
+function normalizeCommand(value: string): string {
+  return fold(value).replace(ENCLITIC, "$1").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Confirmaciones cortas ("dale", "hazlo", "esas 5 están bien").
+ *
+ * Se exige que ocupen todo el mensaje: "dale, completá las vencidas" es una
+ * orden nueva y tiene que resolverse como tal, no como confirmación.
+ */
+const CONFIRMATION =
+  /^(?:si|dale|dele|hazlo|hacelo|hazlo tu|hacelo tu|ok|okey|vale|confirmo|confirmado|adelante|perfecto|de una|claro|obvio|correcto|esta bien)(?:\s+por favor)?$/;
+
+const DEMONSTRATIVE_FINE =
+  /^(?:esas?|estas?|esos?|estos?)\s+(?:(?:\d{1,2}|un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s+)?(?:estan|esta)\s+bien$/;
+
+export function isConfirmation(text: string): boolean {
+  const value = normalizeCommand(text);
+  return CONFIRMATION.test(value) || DEMONSTRATIVE_FINE.test(value);
+}
+
+/**
+ * Qué acción dejó pendiente el asistente en su último mensaje.
+ *
+ * Solo se re-proponen acciones que ya tenían botón de confirmación; el click
+ * sigue siendo obligatorio. Las propuestas de creación no se re-ejecutan porque
+ * volver a llamar al modelo por un "dale" suelto generaría un borrador distinto.
+ */
+function detectPendingIntent(lastAssistantText: string): AssistantIntent {
+  const raw = lastAssistantText.toLowerCase();
+  if (raw.includes("¿elimino") || raw.includes("elimino estas")) {
+    return { kind: "delete" };
+  }
+  if (raw.includes("¿marco") || raw.includes("marco estas")) {
+    return { kind: "complete" };
+  }
+  return null;
+}
+
+/**
  * Convierte expresiones relativas de tiempo a un Date absoluto.
  * Reglas soportadas (deterministas y tested): "en N {min|minutos|h|hs|horas|días}",
  * "mañana", "pasado mañana", "semana que viene".
@@ -175,9 +238,18 @@ const NON_TASK_OBJECT =
  * también contiene una palabra de completado, y una creación ("creá una tarea y
  * marcala completada") también. Recordatorio va primero porque es excluyente.
  */
-export function detectAssistantIntent(text: string): AssistantIntent {
-  const value = fold(text);
+export function detectAssistantIntent(
+  text: string,
+  lastAssistantText = "",
+): AssistantIntent {
+  const value = normalizeCommand(text);
   if (value.length === 0) return null;
+
+  // "dale"/"hazlo tú" confirman lo que el asistente acaba de proponer. La
+  // acción se vuelve a proponer con su botón; nunca se ejecuta sola.
+  if (isConfirmation(value)) {
+    return detectPendingIntent(lastAssistantText);
+  }
 
   if (
     /\brec[oó]rd\w*\b|\bav[ií]s(ame|am|e|a|á)?\b|\brecordatorio\b/.test(value)
@@ -204,11 +276,11 @@ export function detectAssistantIntent(text: string): AssistantIntent {
   if (create && !isQuestion) return { kind: "create" };
 
   const completeVerb =
-    /\b(marca|marquen|marcar|completa|completen|completar|termina|terminen|terminar|finaliza|finalicen|finalizar)\b/.test(
+    /\b(marca|marquen|marcar|completa|completen|completar|termina|terminen|terminar|finaliza|finalicen|finalizar|cierra|cierren|cierre|cerrar|cerra)\b/.test(
       value,
     );
   const completionWord =
-    /\b(hech[oa]s?|completad[oa]s?|terminad[oa]s?|list[oa]s?|resuelt[oa]s?)\b/.test(
+    /\b(hech[oa]s?|completad[oa]s?|complet[oa]s?|terminad[oa]s?|finalizad[oa]s?|cerrad[oa]s?|list[oa]s?|resuelt[oa]s?)\b/.test(
       value,
     );
   const complete =
@@ -237,6 +309,27 @@ export function findTaskMention(
   return findTaskMentions(text, suggestions)[0] ?? null;
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * ¿El texto menciona este título como palabra/frase completa?
+ *
+ * Un `includes` simple hacía que "Tarea 1" matcheara dentro de "Tarea 10" y
+ * metiera tareas de más en el lote. Los bordes excluyen letras y números, no
+ * espacios: los títulos pueden tener puntuación alrededor.
+ */
+function mentionsTitleIn(normText: string, title: string): boolean {
+  const normTitle = normalize(title);
+  if (normTitle.length === 0) return false;
+  const pattern = new RegExp(
+    `(^|[^\\p{L}\\p{N}])${escapeRegExp(normTitle)}($|[^\\p{L}\\p{N}])`,
+    "u",
+  );
+  return pattern.test(normText);
+}
+
 /**
  * Todas las tareas de la lista cuyo título aparece en el texto.
  *
@@ -248,9 +341,9 @@ export function findTaskMentions(
   text: string,
   suggestions: Suggestion[],
 ): Suggestion[] {
-  const norm = normalize(text);
-  if (norm.length === 0) return [];
-  return suggestions.filter((s) => norm.includes(normalize(s.title)));
+  const normText = normalize(text);
+  if (normText.length === 0) return [];
+  return suggestions.filter((s) => mentionsTitleIn(normText, s.title));
 }
 
 /** Números escritos con palabras que el asistente reconoce en un pedido. */
@@ -284,21 +377,42 @@ const WORD_COUNT = new RegExp(
   `\\b(${WORD_NUMBER_PATTERN})\\s+(?:tareas?|pendientes?|cosas?)\\b`,
 );
 
+/**
+ * Determinantes que acompañan una cantidad sin repetir "tareas": "esas 5",
+ * "otras 4", "las 3 primeras". Es la forma más común de referirse al lote que
+ * el asistente acaba de proponer.
+ */
+const DETERMINERS =
+  "(?:esas|estas|esos|estos|otras|otros|las|los|primeras|primeros|ultimas|ultimos)";
+const DETERMINER_DIGIT = new RegExp(`\\b${DETERMINERS}\\s+(\\d{1,2})\\b`);
+const DETERMINER_WORD = new RegExp(
+  `\\b${DETERMINERS}\\s+(${WORD_NUMBER_PATTERN})\\b`,
+);
+
+/**
+ * "cerrá 5", "completame 3": cantidad pegada al verbo, sin la palabra "tareas".
+ * El pronombre ya se partió en `normalizeCommand`, por eso se acepta separado.
+ */
+const COMMAND_DIGIT =
+  /\b(?:completa|marca|cierra|cierre|cerra|termina|finaliza|borra|elimina|quita|saca|remueve|agrega|crea|anade|carga)(?:\s+(?:me|te|se|nos|las|los|les|la|lo|le))?\s+(\d{1,2})\b/;
+
 function clampCount(value: number): number {
   return Math.max(1, Math.min(ASSISTANT_BATCH_LIMIT, value));
 }
 
 /**
  * Cantidad de tareas pedidas explícitamente ("5 tareas", "las 3 primeras",
- * "cinco pendientes", "todas las vencidas").
+ * "esas 5", "otras 4", "5 más", "cinco pendientes", "todas las vencidas").
  *
  * Devuelve `null` si el pedido no trae cantidad y `Infinity` para "todas", que
  * el seleccionador recorta al tope de lote.
  */
 export function parseTaskCount(text: string): number | null {
-  const value = fold(text);
+  const value = normalizeCommand(text);
 
-  if (/\bun\s+par\s+de\s+(?:tareas?|pendientes?|cosas?)\b/.test(value)) {
+  if (
+    /\bun\s+par\s+(?:de\s+)?(?:tareas?|pendientes?|cosas?|mas)\b/.test(value)
+  ) {
     return 2;
   }
 
@@ -311,14 +425,14 @@ export function parseTaskCount(text: string): number | null {
 
   const digit =
     /\b(\d{1,2})\s+(?:tareas?|pendientes?|cosas?)\b/.exec(value) ??
-    /\b(?:las|los|primeras?|primeros?|ultimas?|ultimos?)\s+(\d{1,2})\b/.exec(
-      value,
-    ) ??
-    /\b(\d{1,2})\s+de\s+(?:las|los)\s+(?:tareas?|pendientes?)\b/.exec(value);
+    DETERMINER_DIGIT.exec(value) ??
+    /\b(\d{1,2})\s+de\s+(?:las|los)\s+(?:tareas?|pendientes?)\b/.exec(value) ??
+    /\b(\d{1,2})\s+mas\b/.exec(value) ??
+    COMMAND_DIGIT.exec(value);
 
   if (digit) return clampCount(Number.parseInt(digit[1]!, 10));
 
-  const word = WORD_COUNT.exec(value);
+  const word = WORD_COUNT.exec(value) ?? DETERMINER_WORD.exec(value);
   if (word) return clampCount(NUMBER_WORDS[word[1]!]!);
 
   return null;
@@ -346,6 +460,22 @@ export function detectTaskScope(text: string): AssistantTaskScope | null {
   return null;
 }
 
+/**
+ * Pregunta por el total de tareas abiertas ("¿cuántas tareas tengo?", "cuántas
+ * pendientes hay").
+ *
+ * Se responde de forma determinista con el total real de la base: el modelo
+ * solo veía las 5 más urgentes y de ahí salían totales inventados.
+ */
+export function isTaskCountQuestion(text: string): boolean {
+  const value = normalizeCommand(text);
+  return (
+    /\b(cuantas?|cuantos?)\s+(tareas?|pendientes?)\b/.test(value) ||
+    /\bcuantas?\s+(tengo|hay|quedan)\b/.test(value) ||
+    /\b(total|numero)\s+de\s+(tareas?|pendientes?)\b/.test(value)
+  );
+}
+
 function matchesScope(
   suggestion: Suggestion,
   scope: AssistantTaskScope,
@@ -364,30 +494,70 @@ function matchesScope(
   }
 }
 
+/** "esas/estas" apuntan a lo que el asistente acaba de listar. */
+const PREVIOUS_REF = /\b(?:esas?|esos?|estas?|estos?|aquellas?|aquellos?)\b/;
+/** "otras/otros" piden tareas distintas de las ya propuestas. */
+const OTHER_REF = /\b(?:otras?|otros?)\b/;
+
+export interface ResolveTaskTargetsOptions {
+  /**
+   * Tareas que el asistente propuso en su último mensaje. Permiten resolver
+   * "esas 5" (el lote mostrado) y "otras 4" (las siguientes, sin repetir).
+   */
+  previous?: Suggestion[];
+}
+
 /**
  * Elige las tareas sobre las que aplicar una acción.
  *
  * Prioridad:
  * 1) títulos mencionados explícitamente (varios permitidos);
- * 2) filtro por estado/prioridad ("las vencidas");
- * 3) cantidad pedida, tomando el ranking de urgencia que ya calcula
- *    `suggestibleTasks` (vencidas → hoy → mañana → prioridad).
+ * 2) "otras N": N tareas del ranking que no estén en el lote anterior;
+ * 3) "esas N": el lote que el asistente acaba de proponer (si el pedido pide
+ *    más de las listadas, se completa con el ranking para no quedarse corto);
+ * 4) filtro por estado/prioridad ("las vencidas");
+ * 5) cantidad pedida sobre el ranking de urgencia de `suggestibleTasks`.
  *
- * Si no hay ninguna de las tres señales devuelve `[]` y el servicio pide
- * aclaración: nunca adivina una tarea para una acción destructiva.
+ * Si no hay ninguna señal devuelve `[]` y el servicio pide aclaración: nunca
+ * adivina una tarea para una acción destructiva.
  */
 export function resolveTaskTargets(
   text: string,
   suggestions: Suggestion[],
+  options: ResolveTaskTargetsOptions = {},
 ): Suggestion[] {
+  const value = normalizeCommand(text);
   const mentioned = findTaskMentions(text, suggestions);
   const count = parseTaskCount(text);
   const scope = detectTaskScope(text);
+  const previous = options.previous ?? [];
 
   if (mentioned.length > 0) {
-    return Number.isFinite(count)
-      ? mentioned.slice(0, count ?? mentioned.length)
-      : mentioned.slice(0, ASSISTANT_BATCH_LIMIT);
+    if (count !== null && Number.isFinite(count)) {
+      return mentioned.slice(0, count);
+    }
+    return mentioned.slice(0, ASSISTANT_BATCH_LIMIT);
+  }
+
+  if (OTHER_REF.test(value) && count !== null) {
+    const excluded = new Set(previous.map((task) => task.taskId));
+    let pool = suggestions.filter((task) => !excluded.has(task.taskId));
+    if (scope) pool = pool.filter((task) => matchesScope(task, scope));
+    const limit =
+      count === Number.POSITIVE_INFINITY ? ASSISTANT_BATCH_LIMIT : count;
+    return pool.slice(0, limit);
+  }
+
+  if (PREVIOUS_REF.test(value) && previous.length > 0) {
+    if (count === null) return previous.slice(0, ASSISTANT_BATCH_LIMIT);
+    if (count === Number.POSITIVE_INFINITY) return previous;
+    if (previous.length >= count) return previous.slice(0, count);
+
+    // El asistente pudo nombrar solo algunas del lote (por ejemplo, en un
+    // consejo). Completamos con el ranking para respetar la cantidad pedida.
+    const listed = new Set(previous.map((task) => task.taskId));
+    const extra = suggestions.filter((task) => !listed.has(task.taskId));
+    return [...previous, ...extra.slice(0, count - previous.length)];
   }
 
   let pool = scope
@@ -403,6 +573,20 @@ export function resolveTaskTargets(
   }
 
   return pool;
+}
+
+/**
+ * Tareas que el asistente nombró en su último mensaje.
+ *
+ * Las propuestas de lote listan los títulos ("- Preparar demo"), así que el
+ * matcheo de menciones sirve para "esas 5" y para "hazlo tú" después de una
+ * propuesta, incluso si el cliente perdió los botones al recargar.
+ */
+export function extractTaskRefs(
+  assistantText: string,
+  suggestions: Suggestion[],
+): Suggestion[] {
+  return findTaskMentions(assistantText, suggestions);
 }
 
 /**

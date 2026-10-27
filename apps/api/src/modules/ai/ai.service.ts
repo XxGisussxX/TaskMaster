@@ -27,6 +27,9 @@ import type { Prisma } from "@prisma/client";
 import {
   ASSISTANT_BATCH_LIMIT,
   detectAssistantIntent,
+  extractTaskRefs,
+  isConfirmation,
+  isTaskCountQuestion,
   parseTaskCount,
   resolveCompleteTarget,
   resolveReminderPayload,
@@ -270,7 +273,17 @@ export class AiService {
     );
     const suggestions = ranked.slice(0, ASSISTANT_SUGGESTION_LIMIT);
 
-    const intent = detectAssistantIntent(text);
+    // Total real de tareas abiertas, no el tamaño del top que ve el modelo.
+    // Antes el prompt recibía solo 5 títulos y el LLM infería "tenés 5 en
+    // total", contradiciendo el 13 del dashboard.
+    const totalOpen = await this.prisma.task.count({
+      where: {
+        workspaceId,
+        status: { notIn: [TaskStatus.DONE, TaskStatus.ARCHIVED] },
+      },
+    });
+
+    const intent = detectAssistantIntent(text, lastAssistantText);
 
     let response: AssistantResponse;
 
@@ -304,6 +317,14 @@ export class AiService {
           actions: [action],
         };
       }
+    } else if (isTaskCountQuestion(text)) {
+      response = {
+        reply:
+          totalOpen === 0
+            ? "No tenés tareas abiertas."
+            : `Tenés ${totalOpen} ${totalOpen === 1 ? "tarea abierta" : "tareas abiertas"}.`,
+        actions: [],
+      };
     } else if (intent?.kind === "complete") {
       response = this.resolveCompleteResponse(
         workspaceId,
@@ -320,9 +341,18 @@ export class AiService {
         text,
         ranked,
         suggestions,
+        lastAssistantText,
       );
     } else if (intent?.kind === "create") {
       response = await this.createTaskResponse(workspaceId, userId, text);
+    } else if (isConfirmation(text)) {
+      // "dale" sin nada propuesto antes: no hay botón que confirmar. Mejor
+      // decirlo que mandarlo al modelo, que respondería un consejo genérico.
+      response = {
+        reply:
+          'No tengo una acción pendiente para confirmar. Decime qué querés hacer, por ejemplo: "completá 5 tareas" o "creá una tarea para llamar a Juan".',
+        actions: [],
+      };
     } else {
       if (!this.provider.isConfigured) {
         throw new ServiceUnavailableException(
@@ -336,6 +366,7 @@ export class AiService {
         text,
         messages,
         suggestions,
+        totalOpen,
       );
 
       try {
@@ -384,13 +415,14 @@ export class AiService {
   }
 
   /**
-   * Resuelve "completá X" / "marcá 5 tareas como hechas".
+   * Resuelve "completá X" / "marcá 5 tareas como hechas" / "esas 5 están bien".
    *
-   * Si el usuario nombró tareas, se usan esas. Si pidió una cantidad o un
+   * Si el usuario nombró tareas, se usan esas. Si dijo "esas N" o "otras N", se
+   * resuelve contra el lote del mensaje anterior. Si pidió una cantidad o un
    * subconjunto ("las vencidas"), se toma el ranking real de urgencia. El
    * fallback por pronombre ("ya está") sigue mirando solo la sugerencia
-   * principal del último mensaje del asistente: sin una referencia clara se
-   * pide aclaración en vez de completar algo al azar.
+   * principal del último mensaje del asistente: sin una referencia clara se pide
+   * aclaración en vez de completar algo al azar.
    */
   private resolveCompleteResponse(
     workspaceId: string,
@@ -400,9 +432,20 @@ export class AiService {
     suggestions: Suggestion[],
     lastAssistantText: string,
   ): AssistantResponse {
-    const targets = resolveTaskTargets(text, ranked);
+    const previous = extractTaskRefs(lastAssistantText, ranked);
+    const targets =
+      isConfirmation(text) && previous.length > 0
+        ? previous
+        : resolveTaskTargets(text, ranked, { previous });
+
+    const requested = parseTaskCount(text);
+    const wantsBatch =
+      requested !== null && Number.isFinite(requested) && requested > 1;
 
     if (targets.length === 0) {
+      if (wantsBatch) {
+        return this.askWhichTasks(suggestions, requested);
+      }
       const single = resolveCompleteTarget(
         text,
         suggestions,
@@ -421,12 +464,40 @@ export class AiService {
       return this.singleCompleteResponse(workspaceId, userId, single);
     }
 
+    // "marcá esas 5" no puede degradar a una sola tarea: si el pedido traía una
+    // cantidad, pedimos que aclare en vez de confirmar algo distinto.
+    if (targets.length === 1 && wantsBatch) {
+      return this.askWhichTasks(suggestions, requested);
+    }
+
     if (targets.length === 1) {
       return this.singleCompleteResponse(workspaceId, userId, targets[0]!);
     }
 
     this.logEvent("assistant-complete-batch", workspaceId, userId, "success");
     return this.batchCompleteResponse(text, targets);
+  }
+
+  /**
+   * Pide aclaración cuando el pedido era de varias tareas pero no se pudieron
+   * identificar. Evita el peor caso: proponer una acción individual con un
+   * número de por medio.
+   */
+  private askWhichTasks(
+    suggestions: Suggestion[],
+    requested: number | null,
+  ): AssistantResponse {
+    if (suggestions.length === 0) {
+      return { reply: "No tenés tareas abiertas.", actions: [] };
+    }
+    const head =
+      requested !== null && Number.isFinite(requested)
+        ? `Pediste ${requested} tareas pero no pude identificar cuáles.`
+        : "¿Cuál marco como hecha?";
+    return {
+      reply: `${head}\n\n${this.pendingList(suggestions)}\n\nDecime los títulos o volvé a pedirlo con la cantidad.`,
+      actions: [],
+    };
   }
 
   private singleCompleteResponse(
@@ -464,7 +535,7 @@ export class AiService {
       requested !== null &&
       Number.isFinite(requested) &&
       batch.length < requested
-        ? `\n\nSolo encontré ${batch.length} tarea(s) abierta(s) para ese pedido.`
+        ? `\n\nSolo encontré ${batch.length} ${batch.length === 1 ? "tarea abierta" : "tareas abiertas"} para ese pedido.`
         : "";
 
     return {
@@ -486,8 +557,17 @@ export class AiService {
     text: string,
     ranked: Suggestion[],
     suggestions: Suggestion[],
+    lastAssistantText: string,
   ): AssistantResponse {
-    const targets = resolveTaskTargets(text, ranked);
+    const previous = extractTaskRefs(lastAssistantText, ranked);
+    const targets =
+      isConfirmation(text) && previous.length > 0
+        ? previous
+        : resolveTaskTargets(text, ranked, { previous });
+
+    const requested = parseTaskCount(text);
+    const wantsBatch =
+      requested !== null && Number.isFinite(requested) && requested > 1;
 
     if (targets.length === 0) {
       this.logEvent(
@@ -497,11 +577,24 @@ export class AiService {
         "error",
         "unresolved",
       );
+      if (wantsBatch && suggestions.length > 0) {
+        return {
+          reply: `Pediste eliminar ${requested} tareas pero no pude identificar cuáles.\n\n${this.pendingList(suggestions)}\n\nDecime los títulos o volvé a pedirlo con la cantidad.`,
+          actions: [],
+        };
+      }
       const reply =
         suggestions.length === 0
           ? "No tenés tareas abiertas."
           : `¿Cuál elimino?\n\n${this.pendingList(suggestions)}`;
       return { reply, actions: [] };
+    }
+
+    if (targets.length === 1 && wantsBatch) {
+      return {
+        reply: `Pediste eliminar ${requested} tareas y solo pude identificar "${targets[0]!.title}". ¿La elimino o me decís cuáles?`,
+        actions: [],
+      };
     }
 
     if (targets.length === 1) {
@@ -724,6 +817,7 @@ export class AiService {
     text: string,
     messages: AssistantRequest["messages"],
     suggestions: Suggestion[],
+    totalOpen: number,
   ): string {
     const context =
       suggestions.length > 0
@@ -733,11 +827,21 @@ export class AiService {
       messages.length > 0
         ? messages.map((m) => `${m.role}: ${redactPii(m.text).text}`).join("\n")
         : "(sin historial)";
+    const totalLabel = `${totalOpen} ${totalOpen === 1 ? "tarea abierta" : "tareas abiertas"}`;
 
     return [
-      "Sos un copiloto de un gestor de tareas. Das consejos breves y accionables en español.",
+      "Sos el copiloto de TaskMaster. Das consejos breves y accionables en español.",
+      "",
+      "El asistente puede ejecutar estas acciones (el usuario siempre las confirma con un botón):",
+      "- completar una o varias tareas: 'completá 5 tareas', 'marcá las vencidas', 'completá otras 4'.",
+      "- crear una tarea: 'creá una tarea para llamar a Juan'.",
+      "- eliminar una o varias tareas: 'eliminá las vencidas'.",
+      "- programar recordatorios: 'recordame en 1 hora revisar el informe'.",
       "",
       "Reglas:",
+      `- El usuario tiene ${totalLabel} en total. La lista de abajo muestra solo las más urgentes, no el total.`,
+      "- Si pregunta cuántas tareas tiene, respondé con el total real de la línea anterior; nunca inventes cantidades.",
+      "- Nunca digas que no podés completar, crear o eliminar tareas. Si el pedido es ambiguo, pedile que aclare cuál o cuántas, o decile el comando exacto que podés ejecutar.",
       "- Solo podés referenciar tareas de esta lista real (nunca inventes tareas, ids ni fechas).",
       '- Respondé SOLO un objeto JSON: { "reply": "tu consejo" }. Sin markdown ni texto extra.',
       "- La respuesta es un consejo corto (máx. 300 caracteres): qué hacer o cuál tarea priorizar.",
