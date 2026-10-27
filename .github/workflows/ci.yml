@@ -221,13 +221,24 @@ jobs:
       # que las migraciones corren dentro del entrypoint y que la API levanta y
       # queda healthy con una imagen recién construida.
       - name: Levantar la app con la imagen recién construida
+        # Compose interpola y valida TODO el archivo aunque solo se levante
+        # redis: sin estas variables falla con "required variable ... is
+        # missing a value" antes de arrancar nada. La api del smoke recibe las
+        # suyas en el `docker run`.
+        env:
+          DATABASE_URL: postgresql://taskmaster:taskmaster@host.docker.internal:5432/taskmaster?schema=public
+          API_ORIGINS: https://app.taskmaster.app
+          WEB_URL: https://app.taskmaster.app
+          JWT_ACCESS_SECRET: ciSmokeTest9xQw2mZ
         run: |
           docker compose -f docker-compose.prod.yml up -d --no-deps redis
           docker run -d --name api-smoke --network taskmaster_taskmaster \
+            --add-host=host.docker.internal:host-gateway \
             -e DATABASE_URL="postgresql://taskmaster:taskmaster@host.docker.internal:5432/taskmaster?schema=public" \
             -e API_ORIGINS="https://app.taskmaster.app" \
             -e WEB_URL="https://app.taskmaster.app" \
             -e JWT_ACCESS_SECRET="ciSmokeTest9xQw2mZ" \
+            -e REDIS_HOST=redis \
             taskmaster-api:ci
 
       - name: Esperar el healthcheck
@@ -308,13 +319,22 @@ jobs:
       # El entrypoint de la API corre las migraciones al arrancar contra el
       # postgres del job (host.docker.internal:5432), igual que en producción.
       - name: Arrancar redis y las imágenes
+        # Mismo motivo que en el job docker: Compose valida las variables
+        # obligatorias de la api aunque solo levante redis.
+        env:
+          DATABASE_URL: postgresql://taskmaster:taskmaster@host.docker.internal:5432/taskmaster?schema=public
+          API_ORIGINS: https://app.taskmaster.app
+          WEB_URL: https://app.taskmaster.app
+          JWT_ACCESS_SECRET: ciSmokeTest9xQw2mZ
         run: |
           docker compose -f docker-compose.prod.yml up -d --no-deps redis
           docker run -d --name api-e2e --network taskmaster_taskmaster \
+            --add-host=host.docker.internal:host-gateway \
             -e DATABASE_URL="postgresql://taskmaster:taskmaster@host.docker.internal:5432/taskmaster?schema=public" \
             -e API_ORIGINS="https://app.taskmaster.app" \
             -e WEB_URL="https://app.taskmaster.app" \
             -e JWT_ACCESS_SECRET="ciSmokeTest9xQw2mZ" \
+            -e REDIS_HOST=redis \
             taskmaster-api:e2e
           docker run -d --name web-e2e --network taskmaster_taskmaster -p 3080:80 taskmaster-web:e2e
 
@@ -351,6 +371,11 @@ jobs:
 
       - name: Limpieza
         if: always()
+        env:
+          DATABASE_URL: postgresql://taskmaster:taskmaster@host.docker.internal:5432/taskmaster?schema=public
+          API_ORIGINS: https://app.taskmaster.app
+          WEB_URL: https://app.taskmaster.app
+          JWT_ACCESS_SECRET: ciSmokeTest9xQw2mZ
         run: |
           docker rm -f api-e2e web-e2e || true
           docker compose -f docker-compose.prod.yml down || true
