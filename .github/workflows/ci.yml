@@ -89,6 +89,14 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # Las specs de integración corren contra este Postgres: sin el esquema
+      # fallan con "The table public.User does not exist". Se aplican las
+      # mismas migraciones que en producción antes de correr la suite.
+      - name: Preparar el Postgres de test
+        run: pnpm --filter @taskmaster/api prisma:deploy
+        env:
+          DATABASE_URL: postgresql://taskmaster:taskmaster@localhost:5432/taskmaster_test?schema=public
+
       # Redis y Postgres levantados a propósito: las specs de integración se
       # saltean solas si no los encuentran, y sin ellas el script Lua del rate
       # limit y el aislamiento por tenant quedan sin probar de verdad.
