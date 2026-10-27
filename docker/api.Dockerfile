@@ -19,6 +19,14 @@ ENV PNPM_HOME=/pnpm
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable && corepack prepare pnpm@11.20.0 --activate
 
+# Prisma elige el binario del engine según la libssl que detecta al instalar.
+# Esta etapa no trae el CLI de openssl, así que cae en "openssl-1.1.x" y genera
+# un cliente que en runtime (bookworm, openssl 3.0) muere con "could not locate
+# the Query Engine for runtime debian-openssl-3.0.x". Se instala antes de
+# `pnpm install` para que la detección sea la misma que en runtime.
+RUN apt-get update && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Solo los manifiestos: si el código cambia pero el lockfile no, esta capa se
@@ -49,6 +57,12 @@ FROM node:22-bookworm-slim AS build
 ENV PNPM_HOME=/pnpm
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable && corepack prepare pnpm@11.20.0 --activate
+
+# `prisma generate` vuelve a correr acá y elige el engine con la misma
+# detección: sin openssl reescribiría el cliente para openssl-1.1.x aunque la
+# etapa de deps lo haya generado bien.
+RUN apt-get update && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
