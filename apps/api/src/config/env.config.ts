@@ -62,6 +62,22 @@ const envSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
+  // Observabilidad opcional: sin DSN el reporter es un no-op y la API funciona
+  // igual. El DSN no es secreto (la clave pública solo permite escribir
+  // eventos), pero se valida como URL para fallar al arrancar si está mal
+  // copiado, en vez de descubrirlo cuando ocurre el primer 5xx.
+  SENTRY_DSN: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().url("SENTRY_DSN debe ser una URL válida").optional(),
+  ),
+  SENTRY_ENVIRONMENT: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().optional(),
+  ),
+  SENTRY_RELEASE: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().optional(),
+  ),
   GEMINI_API_KEY: z.preprocess(
     (value) => (value === "" ? undefined : value),
     z.string().optional(),

@@ -91,6 +91,10 @@ services:
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.6-flash}
       GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-text-embedding-004}
       GEMINI_DAILY_LIMIT: ${GEMINI_DAILY_LIMIT:-15}
+      # Opcional: sin DSN no se reporta a Sentry y la API arranca igual.
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       redis:

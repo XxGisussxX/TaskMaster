@@ -46,6 +46,14 @@ function isRedisFailure(error: unknown): boolean {
 export interface UncaughtReporter {
   warn(message: string): void;
   error(message: string): void;
+  /**
+   * Opcional: además de loguear, reportar el error a un servicio externo.
+   *
+   * Está acá y no en un handler aparte para que el rechazo se capture en el
+   * mismo instante en que se decide abortar; con `process.on("uncaughtException")`
+   * se llegaría tarde en algunas versiones de Node.
+   */
+  capture?(error: unknown, context?: { tags?: Record<string, string> }): void;
 }
 
 /**
@@ -82,6 +90,7 @@ export function installUnhandledRejectionGuard(
 ): void {
   process.on("unhandledRejection", (reason) => {
     if (!isRedisFailure(reason)) {
+      reporter.capture?.(reason, { tags: { source: "unhandledRejection" } });
       reporter.error(
         `Rechazo de promesa sin manejar fuera del cliente de Redis: ${
           reason instanceof Error

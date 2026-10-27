@@ -14,6 +14,7 @@ import {
   installUnhandledRejectionGuard,
   type UncaughtReporter,
 } from "./redis/unhandled-rejection-guard";
+import { createSentryReporter } from "./observability/sentry";
 
 /**
  * Escribe directo al proceso, sin pasar por Nest ni por los buffers de Node.
@@ -23,9 +24,26 @@ import {
  * `process.exit()` descarta lo que esté pendiente. Con Redis caído eso producía
  * un fallo mudo: código 1 y ninguna pantalla, que es la peor forma de fallar.
  */
+/**
+ * Reporte temprano, antes de que exista `AppModule`.
+ *
+ * Lee de `process.env` y no de `ConfigService` porque en esta ventana todavía no
+ * hay app. El `.env` local no está cargado acá, así que en desarrollo este
+ * reporter queda apagado salvo que la variable venga del entorno real; los
+ * errores de request sí usan el reporter completo, creado después del config.
+ */
+const bootstrapSentry = createSentryReporter({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV,
+  release: process.env.SENTRY_RELEASE,
+  logger: (message) => writeSync(2, `${message}\n`),
+});
+
 const uncaughtReporter: UncaughtReporter = {
   warn: (message) => writeSync(1, `${message}\n`),
   error: (message) => writeSync(2, `${message}\n`),
+  capture: (error, context) =>
+    bootstrapSentry.captureException(error, { tags: context?.tags }),
 };
 
 async function bootstrap(): Promise<void> {
@@ -57,7 +75,18 @@ async function bootstrap(): Promise<void> {
     ),
   );
 
-  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalFilters(
+    new HttpExceptionFilter(
+      createSentryReporter({
+        dsn: config.get<string>("SENTRY_DSN"),
+        environment:
+          config.get<string>("SENTRY_ENVIRONMENT") ??
+          config.get<string>("NODE_ENV"),
+        release: config.get<string>("SENTRY_RELEASE"),
+        logger: (message) => Logger.warn(message, "Sentry"),
+      }),
+    ),
+  );
   app.use(helmet());
   // Necesario para que `req.cookies` exista: el refresh token viaja en una
   // cookie HttpOnly en lugar de volver en el cuerpo de la respuesta.

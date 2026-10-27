@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import type { Response } from "express";
+import type { ErrorReporter } from "../../observability/sentry";
 
 interface ErrorBody {
   statusCode: number;
@@ -19,6 +20,8 @@ interface ErrorBody {
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger("HttpExceptionFilter");
+
+  constructor(private readonly reporter?: ErrorReporter) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
     // Este filtro está registrado con useGlobalFilters, así que también recibe
@@ -35,7 +38,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<{ url: string; method: string }>();
+    const request = ctx.getRequest<{
+      url: string;
+      method: string;
+      user?: { sub?: string };
+    }>();
 
     const body = this.toBody(exception, request);
 
@@ -44,6 +51,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
         `${request.method} ${request.url} -> ${body.statusCode}`,
         exception instanceof Error ? exception.stack : undefined,
       );
+      // Solo los 5xx van a Sentry: un 401/404 esperado no es un bug y llenaría
+      // el panel de ruido. La query string se descarta porque puede llevar
+      // tokens (los links de reset/verificación viajan en la URL).
+      this.reporter?.captureException(exception, {
+        method: request.method,
+        path: request.url.split("?")[0],
+        statusCode: body.statusCode,
+        userId: request.user?.sub,
+      });
     }
 
     response.status(body.statusCode).json(body);
