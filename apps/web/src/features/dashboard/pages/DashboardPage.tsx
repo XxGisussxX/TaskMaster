@@ -38,10 +38,9 @@ import {
   weekCompleted,
 } from "../lib/dashboardStats";
 import { Priority } from "@taskmaster/contracts";
+import type { DashboardStats } from "@taskmaster/contracts";
 
-type DashboardStatsLike = NonNullable<
-  ReturnType<typeof useDashboardStats>["data"]
->;
+type DashboardStatsLike = DashboardStats;
 
 export function DashboardPage() {
   const navigate = useNavigate();

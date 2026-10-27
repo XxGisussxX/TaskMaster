@@ -14,7 +14,10 @@ import { Input } from "@/components/ui/input";
 import { useCurrentWorkspaceId } from "@/features/tasks/hooks/useTasks";
 import { isLocalWorkspace } from "@/features/tasks/lib/localTasks";
 import { useUiStore } from "@/store/ui.store";
-import { useDashboardStats } from "@/features/dashboard/hooks/useDashboard";
+import {
+  selectAssistantKpis,
+  useDashboardStats,
+} from "@/features/dashboard/hooks/useDashboard";
 import { useAiUsage } from "../hooks/useAiUsage";
 import { useAiCapabilities } from "../hooks/useAiCapabilities";
 import { useTypewriter } from "../hooks/useTypewriter";
@@ -97,7 +100,7 @@ function AiAssistantPanel({
   }, [draft]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { data: usage } = useAiUsage();
-  const { data: dashboard } = useDashboardStats();
+  const { data: kpis } = useDashboardStats({}, selectAssistantKpis);
   const lastActivityRef = useRef(Date.now());
   const proactiveFiredRef = useRef(false);
 
@@ -118,7 +121,7 @@ function AiAssistantPanel({
   }, []);
 
   useEffect(() => {
-    if (!dashboard?.kpis) return;
+    if (!kpis) return;
     const tick = setInterval(() => {
       const idle = Date.now() - lastActivityRef.current;
       if (proactiveFiredRef.current || sending || idle < PROACTIVE_IDLE_MS) {
@@ -127,14 +130,14 @@ function AiAssistantPanel({
       proactiveFiredRef.current = true;
       pushProactive(
         buildProactiveMessage({
-          activeTasks: dashboard.kpis.activeTasks,
-          overdueTasks: dashboard.kpis.overdueTasks,
-          completedToday: dashboard.kpis.completedToday,
+          activeTasks: kpis.activeTasks,
+          overdueTasks: kpis.overdueTasks,
+          completedToday: kpis.completedToday,
         }),
       );
     }, PROACTIVE_TICK_MS);
     return () => clearInterval(tick);
-  }, [dashboard, sending, pushProactive]);
+  }, [kpis, sending, pushProactive]);
 
   function handleSend() {
     const value = text.trim();

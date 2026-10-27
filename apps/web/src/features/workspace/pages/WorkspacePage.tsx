@@ -17,7 +17,10 @@ import { useCurrentWorkspaceId } from "@/features/tasks/hooks/useTasks";
 import { useWorkspaces } from "../hooks/useWorkspaces";
 import { useCurrentMembership, useMembers } from "../hooks/useMembers";
 import { useChannels } from "@/features/tasks/hooks/useChannels";
-import { useDashboardStats } from "@/features/dashboard/hooks/useDashboard";
+import {
+  selectWorkspaceOverview,
+  useDashboardStats,
+} from "@/features/dashboard/hooks/useDashboard";
 import { KpiCard } from "@/features/dashboard/components/KpiCard";
 import { MemberInviteDialog } from "../components/MemberInviteDialog";
 import { MembersTable } from "../components/MembersTable";
@@ -48,7 +51,7 @@ export function WorkspacePage() {
   const channelsQuery = useChannels();
   const channels = channelsQuery.data ?? [];
   const { role } = useCurrentMembership();
-  const { data: dashboard } = useDashboardStats();
+  const { data: dashboard } = useDashboardStats({}, selectWorkspaceOverview);
   const presence = usePresenceStore();
   const workspace = data?.find((w) => w.id === workspaceId);
 

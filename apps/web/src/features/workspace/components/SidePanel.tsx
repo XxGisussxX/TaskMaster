@@ -3,7 +3,10 @@ import { FolderKanban, Radio, History } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ActivityTimeline } from "@/features/dashboard/components/ActivityTimeline";
-import { useDashboardStats } from "@/features/dashboard/hooks/useDashboard";
+import {
+  selectActivity,
+  useDashboardStats,
+} from "@/features/dashboard/hooks/useDashboard";
 import { useMembers } from "../hooks/useMembers";
 import { useChannels } from "@/features/tasks/hooks/useChannels";
 import { useTasks } from "@/features/tasks/hooks/useTasks";
@@ -89,7 +92,7 @@ function HuddleCard() {
 }
 
 function RecentActivityCard() {
-  const { data } = useDashboardStats();
+  const { data: activity } = useDashboardStats({}, selectActivity);
 
   return (
     <Card className="overflow-hidden">
@@ -99,8 +102,8 @@ function RecentActivityCard() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {data && data.activity.length > 0 ? (
-          <ActivityTimeline entries={data.activity} limit={8} />
+        {activity && activity.length > 0 ? (
+          <ActivityTimeline entries={activity} limit={8} />
         ) : (
           <p className="rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground">
             Sin actividad registrada todavía.

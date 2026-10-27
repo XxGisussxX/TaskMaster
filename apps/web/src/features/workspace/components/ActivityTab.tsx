@@ -2,10 +2,17 @@ import { AlertTriangle, History } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
 import { ActivityTimeline } from "@/features/dashboard/components/ActivityTimeline";
-import { useDashboardStats } from "@/features/dashboard/hooks/useDashboard";
+import {
+  selectActivity,
+  useDashboardStats,
+} from "@/features/dashboard/hooks/useDashboard";
 
 export function ActivityTab() {
-  const { data, isLoading, isError } = useDashboardStats();
+  const {
+    data: activity,
+    isLoading,
+    isError,
+  } = useDashboardStats({}, selectActivity);
 
   if (isLoading) {
     return (
@@ -15,7 +22,7 @@ export function ActivityTab() {
     );
   }
 
-  if (isError || !data) {
+  if (isError || !activity) {
     return (
       <EmptyState
         icon={AlertTriangle}
@@ -25,7 +32,7 @@ export function ActivityTab() {
     );
   }
 
-  if (data.activity.length === 0) {
+  if (activity.length === 0) {
     return (
       <EmptyState
         icon={History}
@@ -37,9 +44,9 @@ export function ActivityTab() {
 
   return (
     <div className="space-y-4">
-      <ActivityTimeline entries={data.activity} limit={30} />
+      <ActivityTimeline entries={activity} limit={30} />
       <p className="text-[11px] text-muted-foreground">
-        Últimas {Math.min(30, data.activity.length)} acciones del workspace.
+        Últimas {Math.min(30, activity.length)} acciones del workspace.
       </p>
     </div>
   );
