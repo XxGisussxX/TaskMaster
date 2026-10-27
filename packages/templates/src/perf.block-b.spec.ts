@@ -26,7 +26,13 @@ function tenPageDoc(): string {
 
 const ms = (since: number) => Math.round(performance.now() - since);
 
-describe("perf (block B)", () => {
+// Estos tests solo imprimen métricas y bloquean el event loop durante ~1 min
+// (20 renders síncronos). En CI el worker de Vitest se cae por el timeout de
+// RPC antes de terminar y arrastra el paso `Test` entero. Quedan opt-in:
+//   RUN_PERF_TESTS=1 pnpm --filter @taskmaster/templates test
+const runPerf = process.env.RUN_PERF_TESTS === "1";
+
+describe.skipIf(!runPerf)("perf (block B)", () => {
   it("times 10-page doc renders", async () => {
     const doc = tenPageDoc();
 
