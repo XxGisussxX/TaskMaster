@@ -164,6 +164,7 @@ export function DreamBoardPage() {
               title: data.title,
               description: data.description || "",
               imageUrl: data.imageUrl,
+              imagePublicId: data.imagePublicId,
               sticker: data.sticker,
               linkedTaskId: data.linkedTaskId,
             },

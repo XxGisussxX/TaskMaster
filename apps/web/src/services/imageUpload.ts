@@ -4,8 +4,22 @@ import { refreshAccessToken } from "./session-refresh";
 
 export type UploadProgressCallback = (percent: number) => void;
 
+/**
+ * Resultado de una subida de imagen.
+ *
+ * `publicId` es el identificador del asset en Cloudinary y solo viene cuando el
+ * backend tiene Cloudinary configurado. Se guarda junto a la URL para poder
+ * borrar el asset sin derivar el id desde la URL (y sin intentarlo en el
+ * fallback `data:` base64, que no vive en ningún servidor).
+ */
+export interface ImageUploadResult {
+  url: string;
+  publicId: string | null;
+}
+
 interface ImageUploadPayload {
   url: string;
+  publicId?: string | null;
 }
 
 function readErrorMessage(xhr: XMLHttpRequest): string {
@@ -25,7 +39,7 @@ function sendImage(
   token: string,
   file: File,
   onProgress?: UploadProgressCallback,
-): Promise<string> {
+): Promise<ImageUploadResult> {
   return new Promise((resolve, reject) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -47,7 +61,7 @@ function sendImage(
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
           const payload = JSON.parse(xhr.responseText) as ImageUploadPayload;
-          resolve(payload.url);
+          resolve({ url: payload.url, publicId: payload.publicId ?? null });
         } catch {
           reject(new ApiError(xhr.status, "Respuesta inválida del servidor"));
         }
@@ -62,7 +76,8 @@ function sendImage(
 }
 
 /**
- * Sube una imagen a `/api/uploads/image` y devuelve la URL pública.
+ * Sube una imagen a `/api/uploads/image` y devuelve la URL pública y el
+ * `publicId` del asset (si Cloudinary está configurado).
  *
  * Usa XHR en vez de `fetch` para exponer el progreso real de subida
  * (`upload.onprogress`). Maneja un 401 rotando el access token una vez, igual
@@ -71,7 +86,7 @@ function sendImage(
 export async function uploadImageFile(
   file: File,
   onProgress?: UploadProgressCallback,
-): Promise<string> {
+): Promise<ImageUploadResult> {
   const token = useAuthStore.getState().getAccessToken();
   try {
     return await sendImage(token ?? "", file, onProgress);

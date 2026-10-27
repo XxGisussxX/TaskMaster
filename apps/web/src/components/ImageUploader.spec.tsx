@@ -18,6 +18,7 @@ function makeClipboardData(file: File) {
 }
 
 const uploadedUrl = "https://cdn.fake/taskmaster/images/x.png";
+const uploaded = { url: uploadedUrl, publicId: "taskmaster/images/x" };
 
 describe("ImageUploader", () => {
   beforeEach(() => {
@@ -70,11 +71,17 @@ describe("ImageUploader", () => {
 
   it("sube un archivo válido y reporta la URL por onChange", async () => {
     const upload = vi.fn(
-      async (_file: File, _onProgress: (percent: number) => void) =>
-        uploadedUrl,
+      async (_file: File, _onProgress: (percent: number) => void) => uploaded,
     );
     const onChange = vi.fn();
-    render(<ImageUploader onChange={onChange} uploadImage={upload} />);
+    const onUploaded = vi.fn();
+    render(
+      <ImageUploader
+        onChange={onChange}
+        onUploaded={onUploaded}
+        uploadImage={upload}
+      />,
+    );
 
     fireEvent.change(screen.getByTestId("image-upload-input"), {
       target: { files: [makePngFile()] },
@@ -82,13 +89,31 @@ describe("ImageUploader", () => {
 
     await waitFor(() => expect(upload).toHaveBeenCalledTimes(1));
     expect(onChange).toHaveBeenCalledWith(uploadedUrl);
+    expect(onUploaded).toHaveBeenCalledWith(uploaded);
     const firstCall = upload.mock.calls[0]!;
     expect(firstCall[0].name).toBe("foto.png");
     expect(typeof firstCall[1]).toBe("function");
   });
 
+  it("una URL pegada a mano no reporta publicId", () => {
+    const onUploaded = vi.fn();
+    render(
+      <ImageUploader
+        onChange={vi.fn()}
+        onUploaded={onUploaded}
+        uploadImage={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId("image-url-input"), {
+      target: { value: "https://otra.png" },
+    });
+
+    expect(onUploaded).not.toHaveBeenCalled();
+  });
+
   it("acepta imágenes arrastradas sobre la dropzone", async () => {
-    const upload = vi.fn(async () => uploadedUrl);
+    const upload = vi.fn(async () => uploaded);
     render(<ImageUploader onChange={vi.fn()} uploadImage={upload} />);
 
     fireEvent.drop(screen.getByTestId("image-dropzone"), {
@@ -99,7 +124,7 @@ describe("ImageUploader", () => {
   });
 
   it("acepta imágenes pegadas con Ctrl+V", async () => {
-    const upload = vi.fn(async () => uploadedUrl);
+    const upload = vi.fn(async () => uploaded);
     render(<ImageUploader onChange={vi.fn()} uploadImage={upload} />);
 
     fireEvent.paste(document, {

@@ -695,6 +695,10 @@ model DreamPin {
   x            Float         @default(0)
   y            Float         @default(0)
   imageUrl     String?
+  // `public_id` de Cloudinary del asset de `imageUrl`. Guardarlo evita derivar
+  // el id desde la URL al borrar el pin (y funciona igual si la URL cambia de
+  // formato). Es null en imágenes `data:` (sin Cloudinary) y en pins viejos.
+  imagePublicId String?
   sticker      String?
   linkedTaskId String?
   // Autor del pin: solo él (o un admin del workspace) puede editarlo o borrarlo.

@@ -68,7 +68,7 @@ function makeService(): DreamBoardService {
       return member;
     },
   };
-  const uploads = { destroyImageByUrl: async () => {} };
+  const uploads = { destroyImage: async () => {} };
   return new DreamBoardService(
     scoped as never,
     access as never,

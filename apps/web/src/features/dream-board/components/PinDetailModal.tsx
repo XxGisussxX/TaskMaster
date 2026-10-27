@@ -18,6 +18,7 @@ interface PinDetailModalProps {
     title: string;
     description?: string;
     imageUrl?: string | null;
+    imagePublicId?: string | null;
     sticker?: string | null;
     linkedTaskId?: string | null;
   }) => void;
@@ -39,6 +40,7 @@ export function PinDetailModal({
   const [title, setTitle] = useState(pin?.title ?? "");
   const [description, setDescription] = useState(pin?.description ?? "");
   const [imageUrl, setImageUrl] = useState(pin?.imageUrl ?? "");
+  const [imagePublicId, setImagePublicId] = useState(pin?.imagePublicId ?? "");
   const [sticker, setSticker] = useState(pin?.sticker ?? "");
   const [linkedTaskId, setLinkedTaskId] = useState(pin?.linkedTaskId ?? "");
   const { data: tasksData } = useTasks({ pageSize: 500 });
@@ -48,6 +50,7 @@ export function PinDetailModal({
       setTitle(pin.title);
       setDescription(pin.description);
       setImageUrl(pin.imageUrl ?? "");
+      setImagePublicId(pin.imagePublicId ?? "");
       setSticker(pin.sticker ?? "");
       setLinkedTaskId(pin.linkedTaskId ?? "");
     }
@@ -60,6 +63,7 @@ export function PinDetailModal({
       title,
       description: description || undefined,
       imageUrl: imageUrl,
+      imagePublicId: imageUrl ? imagePublicId || null : null,
       sticker: sticker || null,
       linkedTaskId: linkedTaskId || null,
     });
@@ -131,6 +135,7 @@ export function PinDetailModal({
                   setTitle(pin.title);
                   setDescription(pin.description);
                   setImageUrl(pin.imageUrl ?? "");
+                  setImagePublicId(pin.imagePublicId ?? "");
                   setSticker(pin.sticker ?? "");
                   setLinkedTaskId(pin.linkedTaskId ?? "");
                   setEditing(true);
@@ -161,7 +166,15 @@ export function PinDetailModal({
             </div>
             <div className="space-y-2">
               <Label htmlFor="image-url-input">Imagen</Label>
-              <ImageUploader value={imageUrl} onChange={setImageUrl} />
+              <ImageUploader
+                value={imageUrl}
+                onChange={(url) => {
+                  setImageUrl(url);
+                  // La URL cambió: el publicId anterior ya no corresponde.
+                  setImagePublicId("");
+                }}
+                onUploaded={({ publicId }) => setImagePublicId(publicId ?? "")}
+              />
             </div>
             <div className="space-y-2">
               <span className="text-sm font-medium">Sticker</span>

@@ -36,6 +36,7 @@ export function AddPinModal({
     color: "AMBER" as const,
     description: "",
     imageUrl: "",
+    imagePublicId: "",
     sticker: "",
     linkedTaskId: "",
   });
@@ -49,6 +50,7 @@ export function AddPinModal({
       color: form.color,
       description: form.description,
       imageUrl: form.imageUrl || undefined,
+      imagePublicId: form.imagePublicId || undefined,
       sticker: form.sticker || undefined,
       linkedTaskId: form.linkedTaskId || undefined,
       positionX: Math.floor(Math.random() * 600) + 100,
@@ -62,6 +64,7 @@ export function AddPinModal({
         color: "AMBER",
         description: "",
         imageUrl: "",
+        imagePublicId: "",
         sticker: "",
         linkedTaskId: "",
       });
@@ -137,7 +140,18 @@ export function AddPinModal({
           <Label htmlFor="image-url-input">Imagen</Label>
           <ImageUploader
             value={form.imageUrl}
-            onChange={(url) => setForm({ ...form, imageUrl: url })}
+            onChange={(url) =>
+              setForm((prev) => ({
+                ...prev,
+                imageUrl: url,
+                // Un cambio manual de URL no trae publicId: el asset anterior
+                // deja de ser el de este pin.
+                imagePublicId: "",
+              }))
+            }
+            onUploaded={({ publicId }) =>
+              setForm((prev) => ({ ...prev, imagePublicId: publicId ?? "" }))
+            }
           />
         </div>
         <div className="space-y-2">

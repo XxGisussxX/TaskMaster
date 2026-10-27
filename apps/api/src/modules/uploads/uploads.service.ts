@@ -184,7 +184,7 @@ export class UploadsService {
 
   async uploadImage(
     file: Express.Multer.File | undefined,
-  ): Promise<{ url: string }> {
+  ): Promise<{ url: string; publicId: string | null }> {
     if (!file) throw new BadRequestException("Archivo requerido");
     if (file.size > MAX_IMAGE_SIZE) {
       throw new BadRequestException(
@@ -206,6 +206,7 @@ export class UploadsService {
     // que un nombre con traversal (`../../etc`) o caracteres raros nunca toca el
     // filesystem ni forma parte de la URL pública.
     let url: string;
+    let publicId: string | null = null;
     if (this.cloudinary) {
       try {
         const cld = this.cloudinary as typeof import("cloudinary").v2;
@@ -225,6 +226,7 @@ export class UploadsService {
           stream.end(file.buffer);
         });
         url = result.secure_url;
+        publicId = result.public_id;
       } catch (err) {
         this.logger.error("Error subiendo imagen a Cloudinary", err);
         throw new BadRequestException("Error al subir la imagen");
@@ -233,7 +235,7 @@ export class UploadsService {
       url = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
     }
 
-    return { url };
+    return { url, publicId };
   }
 
   async upload(
@@ -383,27 +385,44 @@ export class UploadsService {
   }
 
   /**
-   * Destruye un asset de Cloudinary a partir de su URL pública.
+   * Destruye el asset de Cloudinary de un pin.
    *
-   * A diferencia de `remove`, acá no hay fila `Attachment` de la que sacar el
-   * `publicId`: el DreamBoard guarda solo la `url` en el pin. Se deriva el
-   * `public_id` de la URL (`.../upload/v<ts>/<folder>/<id>.<ext>` → `<folder>/<id>`)
-   * y se ignora en silencio lo que no sea una URL de Cloudinary: las imágenes en
+   * Si el llamador tiene el `publicId` guardado se usa directo: es la fuente de
+   * verdad y no depende del formato de la URL. Solo cuando falta (pins creados
+   * antes de D3, o imágenes pegadas como URL externa) se deriva de la URL
+   * (`.../upload/v<ts>/<folder>/<id>.<ext>` → `<folder>/<id>`).
+   *
+   * Se ignora en silencio lo que no sea una URL de Cloudinary: las imágenes en
    * `data:` base64 (fallback sin Cloudinary) y las externas no se pueden borrar
    * del origen y no deben romper la operación.
    */
-  async destroyImageByUrl(url: string | null | undefined): Promise<void> {
-    if (!this.cloudinary || !url) return;
-    if (!/res\.cloudinary\.com/.test(url)) return;
+  async destroyImage(
+    url: string | null | undefined,
+    publicId?: string | null,
+  ): Promise<void> {
+    if (!this.cloudinary) return;
 
-    const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[a-z0-9]+)?$/i);
-    if (!match?.[1]) return;
+    const target = publicId || derivePublicId(url);
+    if (!target) return;
 
     try {
       const cld = this.cloudinary as typeof import("cloudinary").v2;
-      await cld.uploader.destroy(match[1], { resource_type: "image" });
+      await cld.uploader.destroy(target, { resource_type: "image" });
     } catch (err) {
       this.logger.warn("Error eliminando imagen de Cloudinary", err);
     }
   }
+}
+
+/**
+ * `.../upload/v<ts>/<folder>/<id>.<ext>` → `<folder>/<id>`.
+ *
+ * Devuelve `null` para URLs que no son de Cloudinary o que no tienen la forma
+ * esperada, así el llamador no intenta borrar un asset que no existe.
+ */
+export function derivePublicId(url: string | null | undefined): string | null {
+  if (!url || !/res\.cloudinary\.com/.test(url)) return null;
+
+  const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[a-z0-9]+)?$/i);
+  return match?.[1] ?? null;
 }

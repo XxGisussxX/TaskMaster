@@ -100,6 +100,7 @@ export class DreamBoardService {
         x: dto.positionX,
         y: dto.positionY,
         imageUrl: dto.imageUrl,
+        imagePublicId: dto.imagePublicId,
         sticker: dto.sticker,
         linkedTaskId: dto.linkedTaskId,
         createdById: userId,
@@ -137,7 +138,14 @@ export class DreamBoardService {
     if (dto.positionX !== undefined) data.x = dto.positionX;
     if (dto.positionY !== undefined) data.y = dto.positionY;
     if (dto.imageUrl !== undefined) {
-      data.imageUrl = dto.imageUrl === "" ? null : dto.imageUrl;
+      const nextUrl = dto.imageUrl === "" ? null : dto.imageUrl;
+      data.imageUrl = nextUrl;
+      // El `publicId` describe a un asset concreto: queda obsoleto si se quita
+      // la imagen o si la URL cambia sin que el cliente mande el id nuevo.
+      if (!nextUrl || nextUrl !== existing.imageUrl) data.imagePublicId = null;
+    }
+    if (dto.imagePublicId !== undefined) {
+      data.imagePublicId = dto.imagePublicId === "" ? null : dto.imagePublicId;
     }
     if (dto.sticker !== undefined) {
       data.sticker = dto.sticker === "" ? null : dto.sticker;
@@ -163,7 +171,7 @@ export class DreamBoardService {
       existing.imageUrl &&
       existing.imageUrl !== pin.imageUrl
     ) {
-      void this.uploads.destroyImageByUrl(existing.imageUrl);
+      void this.uploads.destroyImage(existing.imageUrl, existing.imagePublicId);
     }
 
     await this.touchBoard(workspaceId);
@@ -182,7 +190,7 @@ export class DreamBoardService {
 
     await this.prisma.dreamPin.delete({ where: { id: pinId } });
     if (existing.imageUrl) {
-      void this.uploads.destroyImageByUrl(existing.imageUrl);
+      void this.uploads.destroyImage(existing.imageUrl, existing.imagePublicId);
     }
     await this.touchBoard(workspaceId);
     return { id: pinId };
@@ -283,6 +291,7 @@ export class DreamBoardService {
       x: pin.x,
       y: pin.y,
       imageUrl: pin.imageUrl,
+      imagePublicId: pin.imagePublicId,
       sticker: pin.sticker,
       linkedTaskId: pin.linkedTaskId,
       linkedTask: pin.linkedTask ?? null,

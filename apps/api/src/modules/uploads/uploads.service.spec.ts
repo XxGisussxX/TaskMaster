@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { UploadsService } from "./uploads.service";
+import { UploadsService, derivePublicId } from "./uploads.service";
 
 const WORKSPACE_ID = "ws1";
 const USER_ID = "user1";
@@ -375,6 +375,25 @@ describe("UploadsService.uploadImage", () => {
       });
       const result = await service.uploadImage(file);
       expect(result.url.startsWith(`data:${mime};base64,`)).toBe(true);
+      // Sin Cloudinary no hay asset externo que borrar después.
+      expect(result.publicId).toBeNull();
     },
   );
+});
+
+describe("derivePublicId", () => {
+  it("extrae el public_id de una URL de Cloudinary", () => {
+    expect(
+      derivePublicId(
+        "https://res.cloudinary.com/demo/image/upload/v1712345678/taskmaster/images/x.webp",
+      ),
+    ).toBe("taskmaster/images/x");
+  });
+
+  it("ignora URLs externas, data: y vacías", () => {
+    expect(derivePublicId("https://ejemplo.com/foto.png")).toBeNull();
+    expect(derivePublicId("data:image/png;base64,AAAA")).toBeNull();
+    expect(derivePublicId(null)).toBeNull();
+    expect(derivePublicId(undefined)).toBeNull();
+  });
 });

@@ -75,6 +75,9 @@ export const createDreamPinSchema = z.object({
   positionX: positionSchema,
   positionY: positionSchema,
   imageUrl: z.string().url().optional(),
+  // `public_id` de Cloudinary devuelto por `/uploads/image`. Se persiste para
+  // borrar el asset sin derivarlo de la URL (ver D3 en docs/followups.md).
+  imagePublicId: z.string().max(300).optional(),
   sticker: z.string().max(10).optional(),
   linkedTaskId: namedIdSchema("ID de tarea inválido").optional(),
 });
@@ -118,6 +121,9 @@ export const updateDreamPinSchema = z
     positionX: positionSchema.optional(),
     positionY: positionSchema.optional(),
     imageUrl: z.union([z.string().url(), z.literal(""), z.null()]).optional(),
+    imagePublicId: z
+      .union([z.string().max(300), z.literal(""), z.null()])
+      .optional(),
     sticker: z.union([z.string().max(10), z.literal(""), z.null()]).optional(),
     // Mismo criterio que `createDreamPinSchema`: la forma del id no la exige
     // nadie (el seed usa ids legibles). Exigir `.cuid()` hacía que un pin
@@ -153,6 +159,12 @@ export interface DreamPinDto {
   x: number;
   y: number;
   imageUrl?: string | null;
+  /**
+   * `public_id` del asset en Cloudinary, si la imagen se subió por
+   * `/uploads/image`. Puede faltar en pins viejos: en ese caso el borrado cae a
+   * derivarlo de `imageUrl`.
+   */
+  imagePublicId?: string | null;
   sticker?: string | null;
   linkedTaskId?: string | null;
   linkedTask?: {

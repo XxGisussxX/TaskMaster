@@ -15,6 +15,7 @@ const PIN = {
   x: 10,
   y: 20,
   imageUrl: null as string | null,
+  imagePublicId: null as string | null,
   createdById: "u1",
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
   updatedAt: new Date("2026-01-02T00:00:00.000Z"),
@@ -74,7 +75,7 @@ function setup(options?: {
   };
 
   const uploads = {
-    destroyImageByUrl: vi.fn().mockResolvedValue(undefined),
+    destroyImage: vi.fn().mockResolvedValue(undefined),
   };
 
   const service = new DreamBoardService(
@@ -320,6 +321,7 @@ describe("DreamBoardService.updatePin", () => {
         data: {
           title: "Nuevo",
           imageUrl: null,
+          imagePublicId: null,
           sticker: null,
           linkedTaskId: null,
         },
@@ -337,7 +339,46 @@ describe("DreamBoardService.updatePin", () => {
 
     expect(prisma.dreamPin.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { imageUrl: null, sticker: null },
+        data: { imageUrl: null, imagePublicId: null, sticker: null },
+      }),
+    );
+  });
+
+  it("persiste el publicId que manda la subida", async () => {
+    const url = "https://res.cloudinary.com/c/image/upload/v1/b.jpg";
+    const { service, prisma } = setup();
+
+    await service.updatePin("ws1", "pin1", "u1", {
+      imageUrl: url,
+      imagePublicId: "taskmaster/images/b",
+    });
+
+    expect(prisma.dreamPin.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { imageUrl: url, imagePublicId: "taskmaster/images/b" },
+      }),
+    );
+  });
+
+  it("descarta el publicId viejo si la URL cambia sin uno nuevo", async () => {
+    const { service, prisma } = setup({
+      pin: {
+        ...PIN,
+        imageUrl: "https://res.cloudinary.com/c/image/upload/v1/a.jpg",
+        imagePublicId: "taskmaster/images/a",
+      },
+    });
+
+    await service.updatePin("ws1", "pin1", "u1", {
+      imageUrl: "https://res.cloudinary.com/c/image/upload/v1/b.jpg",
+    });
+
+    expect(prisma.dreamPin.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          imageUrl: "https://res.cloudinary.com/c/image/upload/v1/b.jpg",
+          imagePublicId: null,
+        },
       }),
     );
   });
@@ -439,8 +480,9 @@ describe("DreamBoardService.updatePin", () => {
       imageUrl: "https://res.cloudinary.com/c/image/upload/v1/b.jpg",
     });
 
-    expect(uploads.destroyImageByUrl).toHaveBeenCalledWith(
+    expect(uploads.destroyImage).toHaveBeenCalledWith(
       "https://res.cloudinary.com/c/image/upload/v1/a.jpg",
+      null,
     );
   });
 
@@ -453,7 +495,7 @@ describe("DreamBoardService.updatePin", () => {
 
     await service.updatePin("ws1", "pin1", "u1", { imageUrl: url });
 
-    expect(uploads.destroyImageByUrl).not.toHaveBeenCalled();
+    expect(uploads.destroyImage).not.toHaveBeenCalled();
   });
 });
 
@@ -475,7 +517,21 @@ describe("DreamBoardService.removePin", () => {
 
     await service.removePin("ws1", "pin1", "u1");
 
-    expect(uploads.destroyImageByUrl).toHaveBeenCalledWith(url);
+    expect(uploads.destroyImage).toHaveBeenCalledWith(url, null);
+  });
+
+  it("usa el publicId guardado en vez de derivarlo de la URL", async () => {
+    const url = "https://res.cloudinary.com/c/image/upload/v1/a.jpg";
+    const { service, uploads } = setup({
+      pin: { ...PIN, imageUrl: url, imagePublicId: "taskmaster/images/a" },
+    });
+
+    await service.removePin("ws1", "pin1", "u1");
+
+    expect(uploads.destroyImage).toHaveBeenCalledWith(
+      url,
+      "taskmaster/images/a",
+    );
   });
 
   it("no borra el pin de otro miembro", async () => {

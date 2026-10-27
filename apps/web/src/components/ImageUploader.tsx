@@ -3,7 +3,10 @@ import { ImagePlus, Loader2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { uploadImageFile } from "@/services/imageUpload";
+import {
+  uploadImageFile,
+  type ImageUploadResult,
+} from "@/services/imageUpload";
 import {
   ACCEPTED_IMAGE_TYPES,
   validateImageFile,
@@ -12,12 +15,18 @@ import {
 export type UploadImageFn = (
   file: File,
   onProgress: (percent: number) => void,
-) => Promise<string>;
+) => Promise<ImageUploadResult>;
 
 export interface ImageUploaderProps {
   /** URL actual (o `null` si todavía no hay imagen). */
   value?: string | null;
   onChange: (url: string) => void;
+  /**
+   * Se dispara solo con una subida real, con el `publicId` incluido. Los
+   * consumidores que persisten el asset (el tablero de sueños) lo usan para no
+   * tener que derivar el id desde la URL al borrarlo.
+   */
+  onUploaded?: (image: ImageUploadResult) => void;
   /** Sobrescribible para tests y para otros backends de subida. */
   uploadImage?: UploadImageFn;
   disabled?: boolean;
@@ -31,6 +40,7 @@ export interface ImageUploaderProps {
 export function ImageUploader({
   value,
   onChange,
+  onUploaded,
   uploadImage = uploadImageFile,
   disabled,
 }: ImageUploaderProps) {
@@ -68,8 +78,11 @@ export function ImageUploader({
       setUploading(true);
       setProgress(0);
       try {
-        const url = await uploadImage(file, setProgress);
-        onChange(url);
+        const result = await uploadImage(file, setProgress);
+        // `onChange` primero: el consumidor limpia el publicId viejo al recibir
+        // la URL nueva, y `onUploaded` después lo completa con el de la subida.
+        onChange(result.url);
+        onUploaded?.(result);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "No se pudo subir la imagen",
@@ -78,7 +91,7 @@ export function ImageUploader({
         setUploading(false);
       }
     },
-    [onChange, uploadImage],
+    [onChange, onUploaded, uploadImage],
   );
 
   useEffect(() => {
