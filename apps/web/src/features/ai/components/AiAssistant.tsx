@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BellRing, CheckCircle2, Loader2, Send, X } from "lucide-react";
+import {
+  BellRing,
+  CheckCircle2,
+  Loader2,
+  Plus,
+  Send,
+  Trash2,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -354,43 +362,79 @@ function ActionChip({
   const done = status === "done";
   const running = status === "running";
 
-  if (action.kind === "complete") {
-    return (
-      <Button
-        type="button"
-        variant={done ? "secondary" : "outline"}
-        size="sm"
-        className={cn(
-          "h-7 px-2 text-xs",
-          "rounded-full animate-fade-up",
-          done && "cursor-default",
-        )}
-        disabled={!done && running}
-        onClick={() => {
-          if (!done && !running) onRun();
-        }}
-      >
-        {done ? (
-          <CheckCircle2 className="h-3.5 w-3.5" />
-        ) : running ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <CheckCircle2 className="h-3.5 w-3.5" />
-        )}
-        {done
-          ? "Completada"
-          : running
-            ? "Completando…"
-            : `Marcar "${action.taskTitle}" como hecha`}
-      </Button>
-    );
-  }
+  const meta = (() => {
+    switch (action.kind) {
+      case "complete":
+        return {
+          label: done
+            ? "Completada"
+            : running
+              ? "Completando…"
+              : `Marcar "${action.taskTitle}" como hecha`,
+          tooltip: undefined,
+          icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+        };
+      case "complete-many":
+        return {
+          label: done
+            ? `${action.tasks.length} completadas`
+            : running
+              ? "Completando…"
+              : `Completar ${action.tasks.length} tareas`,
+          tooltip: action.tasks.map((task) => task.taskTitle).join("\n"),
+          icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+        };
+      case "delete":
+        return {
+          label: done
+            ? "Eliminada"
+            : running
+              ? "Eliminando…"
+              : `Eliminar "${action.taskTitle}"`,
+          tooltip: "Esta acción no se puede deshacer",
+          icon: <Trash2 className="h-3.5 w-3.5" />,
+        };
+      case "delete-many":
+        return {
+          label: done
+            ? `${action.tasks.length} eliminadas`
+            : running
+              ? "Eliminando…"
+              : `Eliminar ${action.tasks.length} tareas`,
+          tooltip: `Esta acción no se puede deshacer\n${action.tasks
+            .map((task) => task.taskTitle)
+            .join("\n")}`,
+          icon: <Trash2 className="h-3.5 w-3.5" />,
+        };
+      case "create":
+        return {
+          label: done
+            ? "Tarea creada"
+            : running
+              ? "Creando…"
+              : `Crear "${action.draft.title}"`,
+          tooltip: action.draft.description || undefined,
+          icon: <Plus className="h-3.5 w-3.5" />,
+        };
+      case "reminder":
+        return {
+          label: done
+            ? "Recordatorio creado"
+            : running
+              ? "Creando recordatorio…"
+              : `Recordarme: ${action.title}`,
+          tooltip: undefined,
+          icon: <BellRing className="h-3.5 w-3.5" />,
+        };
+    }
+  })();
 
   return (
     <Button
       type="button"
       variant={done ? "secondary" : "outline"}
       size="sm"
+      title={meta.tooltip}
       className={cn(
         "h-7 px-2 text-xs",
         "rounded-full animate-fade-up",
@@ -401,18 +445,8 @@ function ActionChip({
         if (!done && !running) onRun();
       }}
     >
-      {done ? (
-        <BellRing className="h-3.5 w-3.5" />
-      ) : running ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-      ) : (
-        <BellRing className="h-3.5 w-3.5" />
-      )}
-      {done
-        ? "Recordatorio creado"
-        : running
-          ? "Creando recordatorio…"
-          : `Recordarme: ${action.title}`}
+      {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : meta.icon}
+      {meta.label}
     </Button>
   );
 }

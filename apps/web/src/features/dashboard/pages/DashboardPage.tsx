@@ -116,7 +116,7 @@ export function DashboardPage() {
         }
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-background/60 px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/70 p-3">
         <DashboardRangeSelector value={range} onChange={setRange} />
         {isFetching && (
           <p className="text-xs text-muted-foreground">Actualizando…</p>

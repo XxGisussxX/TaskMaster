@@ -14,6 +14,10 @@ import {
   type AiChatEntry,
   type AiUsage,
   type AssistantCompleteAction,
+  type AssistantCompleteManyAction,
+  type AssistantCreateAction,
+  type AssistantDeleteAction,
+  type AssistantDeleteManyAction,
   type AssistantReminderAction,
   type AssistantRequest,
   type AssistantResponse,
@@ -21,9 +25,13 @@ import {
 } from "@taskmaster/contracts";
 import type { Prisma } from "@prisma/client";
 import {
+  ASSISTANT_BATCH_LIMIT,
   detectAssistantIntent,
+  parseTaskCount,
   resolveCompleteTarget,
   resolveReminderPayload,
+  resolveTaskTargets,
+  stripCreateCommand,
   suggestibleTasks,
   type Suggestion,
 } from "@taskmaster/domain";
@@ -99,6 +107,13 @@ function isQuotaError(message: string): boolean {
  * "completá X" y recordatorios.
  */
 const MAX_ASSISTANT_TASKS = 300;
+
+/**
+ * Cuántas tareas se le muestran al usuario en las respuestas de desambiguación
+ * y en el prompt de consejo. El ranking completo (`MAX_ASSISTANT_TASKS`) se usa
+ * solo para resolver pedidos de lote ("marcá 5 tareas").
+ */
+const ASSISTANT_SUGGESTION_LIMIT = 5;
 
 /**
  * Tope de tags y canales que se listan al modelo al armar un borrador.
@@ -239,7 +254,10 @@ export class AiService {
         status: true,
       },
     });
-    const suggestions = suggestibleTasks(
+
+    // El ranking completo resuelve lotes ("marcá 5 tareas"); para consejos y
+    // preguntas se muestran solo las más urgentes.
+    const ranked = suggestibleTasks(
       rows.map((row) => ({
         id: row.id,
         title: row.title,
@@ -247,7 +265,10 @@ export class AiService {
         priority: row.priority,
         status: row.status,
       })),
+      undefined,
+      MAX_ASSISTANT_TASKS,
     );
+    const suggestions = ranked.slice(0, ASSISTANT_SUGGESTION_LIMIT);
 
     const intent = detectAssistantIntent(text);
 
@@ -284,35 +305,24 @@ export class AiService {
         };
       }
     } else if (intent?.kind === "complete") {
-      const target = resolveCompleteTarget(
+      response = this.resolveCompleteResponse(
+        workspaceId,
+        userId,
         text,
+        ranked,
         suggestions,
         lastAssistantText,
       );
-      if (!target) {
-        this.logEvent(
-          "assistant-complete",
-          workspaceId,
-          userId,
-          "error",
-          "unresolved",
-        );
-        response = {
-          reply: this.pendingListReply(suggestions),
-          actions: [],
-        };
-      } else {
-        const action: AssistantCompleteAction = {
-          kind: "complete",
-          taskId: target.taskId,
-          taskTitle: target.title,
-        };
-        this.logEvent("assistant-complete", workspaceId, userId, "success");
-        response = {
-          reply: `¿Marco "${target.title}" como completada?`,
-          actions: [action],
-        };
-      }
+    } else if (intent?.kind === "delete") {
+      response = this.resolveDeleteResponse(
+        workspaceId,
+        userId,
+        text,
+        ranked,
+        suggestions,
+      );
+    } else if (intent?.kind === "create") {
+      response = await this.createTaskResponse(workspaceId, userId, text);
     } else {
       if (!this.provider.isConfigured) {
         throw new ServiceUnavailableException(
@@ -371,6 +381,253 @@ export class AiService {
 
     await this.persistChatExchange(workspaceId, userId, text, response);
     return response;
+  }
+
+  /**
+   * Resuelve "completá X" / "marcá 5 tareas como hechas".
+   *
+   * Si el usuario nombró tareas, se usan esas. Si pidió una cantidad o un
+   * subconjunto ("las vencidas"), se toma el ranking real de urgencia. El
+   * fallback por pronombre ("ya está") sigue mirando solo la sugerencia
+   * principal del último mensaje del asistente: sin una referencia clara se
+   * pide aclaración en vez de completar algo al azar.
+   */
+  private resolveCompleteResponse(
+    workspaceId: string,
+    userId: string,
+    text: string,
+    ranked: Suggestion[],
+    suggestions: Suggestion[],
+    lastAssistantText: string,
+  ): AssistantResponse {
+    const targets = resolveTaskTargets(text, ranked);
+
+    if (targets.length === 0) {
+      const single = resolveCompleteTarget(
+        text,
+        suggestions,
+        lastAssistantText,
+      );
+      if (!single) {
+        this.logEvent(
+          "assistant-complete",
+          workspaceId,
+          userId,
+          "error",
+          "unresolved",
+        );
+        return { reply: this.pendingListReply(suggestions), actions: [] };
+      }
+      return this.singleCompleteResponse(workspaceId, userId, single);
+    }
+
+    if (targets.length === 1) {
+      return this.singleCompleteResponse(workspaceId, userId, targets[0]!);
+    }
+
+    this.logEvent("assistant-complete-batch", workspaceId, userId, "success");
+    return this.batchCompleteResponse(text, targets);
+  }
+
+  private singleCompleteResponse(
+    workspaceId: string,
+    userId: string,
+    target: Suggestion,
+  ): AssistantResponse {
+    const action: AssistantCompleteAction = {
+      kind: "complete",
+      taskId: target.taskId,
+      taskTitle: target.title,
+    };
+    this.logEvent("assistant-complete", workspaceId, userId, "success");
+    return {
+      reply: `¿Marco "${target.title}" como completada?`,
+      actions: [action],
+    };
+  }
+
+  private batchCompleteResponse(
+    text: string,
+    targets: Suggestion[],
+  ): AssistantResponse {
+    const batch = targets.slice(0, ASSISTANT_BATCH_LIMIT);
+    const action: AssistantCompleteManyAction = {
+      kind: "complete-many",
+      tasks: batch.map((target) => ({
+        taskId: target.taskId,
+        taskTitle: target.title,
+      })),
+    };
+
+    const requested = parseTaskCount(text);
+    const note =
+      requested !== null &&
+      Number.isFinite(requested) &&
+      batch.length < requested
+        ? `\n\nSolo encontré ${batch.length} tarea(s) abierta(s) para ese pedido.`
+        : "";
+
+    return {
+      reply: `¿Marco estas ${batch.length} tareas como completadas?\n\n${this.bulletList(batch)}${note}`,
+      actions: [action],
+    };
+  }
+
+  /**
+   * Resuelve "eliminá X" / "borrá las 3 vencidas".
+   *
+   * A diferencia de completar, acá no hay fallback por pronombre: el borrado es
+   * físico e irreversible, así que solo se propone con títulos, cantidad o
+   * filtro explícitos.
+   */
+  private resolveDeleteResponse(
+    workspaceId: string,
+    userId: string,
+    text: string,
+    ranked: Suggestion[],
+    suggestions: Suggestion[],
+  ): AssistantResponse {
+    const targets = resolveTaskTargets(text, ranked);
+
+    if (targets.length === 0) {
+      this.logEvent(
+        "assistant-delete",
+        workspaceId,
+        userId,
+        "error",
+        "unresolved",
+      );
+      const reply =
+        suggestions.length === 0
+          ? "No tenés tareas abiertas."
+          : `¿Cuál elimino?\n\n${this.pendingList(suggestions)}`;
+      return { reply, actions: [] };
+    }
+
+    if (targets.length === 1) {
+      const target = targets[0]!;
+      const action: AssistantDeleteAction = {
+        kind: "delete",
+        taskId: target.taskId,
+        taskTitle: target.title,
+      };
+      this.logEvent("assistant-delete", workspaceId, userId, "success");
+      return {
+        reply: `¿Elimino "${target.title}"? Esta acción no se puede deshacer.`,
+        actions: [action],
+      };
+    }
+
+    const batch = targets.slice(0, ASSISTANT_BATCH_LIMIT);
+    const action: AssistantDeleteManyAction = {
+      kind: "delete-many",
+      tasks: batch.map((target) => ({
+        taskId: target.taskId,
+        taskTitle: target.title,
+      })),
+    };
+    this.logEvent("assistant-delete-batch", workspaceId, userId, "success");
+    return {
+      reply: `¿Elimino estas ${batch.length} tareas? Esta acción no se puede deshacer.\n\n${this.bulletList(batch)}`,
+      actions: [action],
+    };
+  }
+
+  /**
+   * "Creá una tarea con …": reutiliza el mismo generador de borradores del flujo
+   * NL-task, pero devuelve la tarea como acción para que el usuario la confirme
+   * en el chat. Consume cuota porque sí necesita el modelo.
+   */
+  private async createTaskResponse(
+    workspaceId: string,
+    userId: string,
+    text: string,
+  ): Promise<AssistantResponse> {
+    if (!this.provider.isConfigured) {
+      throw new ServiceUnavailableException(
+        "La IA no está configurada. Agregá GEMINI_API_KEY en el entorno.",
+      );
+    }
+
+    await this.assertDailyQuota(workspaceId, userId);
+
+    const [tags, channels] = await Promise.all([
+      this.prisma.tag.findMany({
+        where: { workspaceId },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+        take: MAX_DRAFT_CONTEXT_ITEMS,
+      }),
+      this.prisma.channel.findMany({
+        where: { workspaceId },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+        take: MAX_DRAFT_CONTEXT_ITEMS,
+      }),
+    ]);
+
+    const description = stripCreateCommand(text);
+
+    try {
+      const result = await this.provider.completeJson(
+        this.buildNlTaskPrompt(redactPii(description).text, {
+          tags: tags.map((tag) => tag.name),
+          channels: channels.map((channel) => channel.name),
+        }),
+        NL_TASK_SPEC,
+      );
+
+      const draft = this.sanitizeDraft(result.data, {
+        tagIds: tags.map((tag) => tag.id),
+        channelIds: channels.map((channel) => channel.id),
+      });
+
+      await this.logGeneration(
+        workspaceId,
+        userId,
+        "assistant-create",
+        result,
+        "success",
+      );
+      this.logEvent("assistant-create", workspaceId, userId, "success");
+
+      const action: AssistantCreateAction = { kind: "create", draft };
+      return {
+        reply: `¿Creo la tarea "${draft.title}"? Revisá los datos antes de confirmar.`,
+        actions: [action],
+      };
+    } catch (error) {
+      if (error instanceof AiProviderError) {
+        await this.logGeneration(
+          workspaceId,
+          userId,
+          "assistant-create",
+          { latencyMs: 0, inputChars: description.length, outputChars: 0 },
+          "error",
+          error.message,
+        );
+        this.logEvent(
+          "assistant-create",
+          workspaceId,
+          userId,
+          "error",
+          error.message,
+        );
+        return {
+          reply:
+            "No pude preparar la tarea con IA. Probá de nuevo o creala desde el botón de tarea.",
+          actions: [],
+        };
+      }
+      throw error;
+    }
+  }
+
+  private bulletList(tasks: Suggestion[]): string {
+    const preview = tasks.slice(0, 5);
+    const rest = tasks.length - preview.length;
+    const lines = preview.map((task) => `- ${task.title}`).join("\n");
+    return rest > 0 ? `${lines}\n- …y ${rest} más` : lines;
   }
 
   /**

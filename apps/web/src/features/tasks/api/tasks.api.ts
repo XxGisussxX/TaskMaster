@@ -95,4 +95,11 @@ export const tasksApi = {
           `/workspaces/${workspaceId}/tasks/bulk/delete`,
           { ids },
         ),
+
+  createSubtask: (workspaceId: string, taskId: string, title: string) =>
+    isLocalWorkspace(workspaceId)
+      ? Promise.resolve()
+      : http.post<void>(`/workspaces/${workspaceId}/tasks/${taskId}/subtasks`, {
+          title,
+        }),
 };

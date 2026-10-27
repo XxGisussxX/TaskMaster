@@ -355,6 +355,125 @@ describe("AiService.assistantStep", () => {
     expect(provider.completeJson).not.toHaveBeenCalled();
   });
 
+  it("propone completar en lote las 5 más urgentes cuando piden 5", async () => {
+    const { service, provider } = setup();
+    const now = Date.now();
+    const tasks = Array.from({ length: 6 }, (_, index) => ({
+      id: `t-${index + 1}`,
+      title: `Tarea ${index + 1}`,
+      dueDate: new Date(now - (6 - index) * 86_400_000),
+      priority: "LOW",
+      status: "TODO",
+    }));
+    (
+      service as unknown as {
+        prisma: { task: { findMany: ReturnType<typeof vi.fn> } };
+      }
+    ).prisma.task.findMany.mockResolvedValue(tasks);
+
+    const res = await service.assistantStep("ws1", "u1", {
+      messages: baseMessages,
+      text: "marca 5 tareas como completadas",
+    });
+
+    expect(res.actions).toEqual([
+      {
+        kind: "complete-many",
+        tasks: tasks.slice(0, 5).map((task) => ({
+          taskId: task.id,
+          taskTitle: task.title,
+        })),
+      },
+    ]);
+    expect(res.reply).toContain("5 tareas");
+    expect(provider.completeJson).not.toHaveBeenCalled();
+  });
+
+  it("propone eliminar todas las vencidas sin gastar cuota de IA", async () => {
+    const { service, provider } = setup();
+    const now = Date.now();
+    const tasks = Array.from({ length: 3 }, (_, index) => ({
+      id: `t-${index + 1}`,
+      title: `Vencida ${index + 1}`,
+      dueDate: new Date(now - (index + 1) * 86_400_000),
+      priority: "LOW",
+      status: "TODO",
+    }));
+    (
+      service as unknown as {
+        prisma: { task: { findMany: ReturnType<typeof vi.fn> } };
+      }
+    ).prisma.task.findMany.mockResolvedValue(tasks);
+
+    const res = await service.assistantStep("ws1", "u1", {
+      messages: baseMessages,
+      text: "borrá las tareas vencidas",
+    });
+
+    expect(res.actions[0]).toMatchObject({ kind: "delete-many" });
+    expect(res.reply).toContain("no se puede deshacer");
+    expect(provider.completeJson).not.toHaveBeenCalled();
+  });
+
+  it("no elimina nada sin una tarea, cantidad o filtro explícito", async () => {
+    const { service } = setup();
+    (
+      service as unknown as {
+        prisma: { task: { findMany: ReturnType<typeof vi.fn> } };
+      }
+    ).prisma.task.findMany.mockResolvedValue([
+      {
+        id: "t-1",
+        title: "Preparar demo",
+        dueDate: new Date(Date.now() + 86_400_000),
+        priority: "HIGH",
+        status: "TODO",
+      },
+    ]);
+
+    const res = await service.assistantStep("ws1", "u1", {
+      messages: baseMessages,
+      text: "eliminá las vencidas",
+    });
+
+    expect(res.actions).toEqual([]);
+    expect(res.reply).toContain("¿Cuál elimino?");
+  });
+
+  it("crea la tarea con IA pero la devuelve como acción a confirmar", async () => {
+    const { service, provider, prisma } = setup();
+    provider.completeJson.mockResolvedValue({
+      data: {
+        title: "Llamar a Juan",
+        description: "",
+        priority: "MEDIUM",
+        dueDate: "2026-11-02",
+        tagIds: [],
+        subtasks: [],
+      },
+      latencyMs: 120,
+      inputChars: 30,
+      outputChars: 120,
+    });
+
+    const res = await service.assistantStep("ws1", "u1", {
+      messages: baseMessages,
+      text: "creá una tarea para llamar a Juan el lunes",
+    });
+
+    expect(provider.completeJson).toHaveBeenCalledTimes(1);
+    expect(res.actions[0]).toMatchObject({
+      kind: "create",
+      draft: { title: "Llamar a Juan" },
+    });
+    expect(prisma.aiGeneration.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        feature: "assistant-create",
+        status: "success",
+      }),
+    });
+  });
+
   it("pide aclarar cuál cuando no puede resolver la completada", async () => {
     const { service, provider } = setup();
     (

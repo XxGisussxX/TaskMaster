@@ -70,10 +70,47 @@ export const assistantRequestSchema = z.object({
   text: z.string().trim().min(1).max(2000),
 });
 
+export const assistantTaskRefSchema = z.object({
+  taskId: z.string(),
+  taskTitle: z.string().trim().min(1).max(200),
+});
+
 export const assistantCompleteActionSchema = z.object({
   kind: z.literal("complete"),
   taskId: z.string(),
   taskTitle: z.string().trim().min(1).max(200),
+});
+
+/**
+ * Completar varias tareas en una sola acción.
+ *
+ * Se modela como un lote (y no como N acciones `complete`) para que el usuario
+ * confirme una sola vez y el frontend haga un único `bulk/status`. El tope de 20
+ * coincide con `ASSISTANT_BATCH_LIMIT` del dominio y evita respuestas enormes.
+ */
+export const assistantCompleteManyActionSchema = z.object({
+  kind: z.literal("complete-many"),
+  tasks: z.array(assistantTaskRefSchema).min(1).max(20),
+});
+
+export const assistantDeleteActionSchema = z.object({
+  kind: z.literal("delete"),
+  taskId: z.string(),
+  taskTitle: z.string().trim().min(1).max(200),
+});
+
+export const assistantDeleteManyActionSchema = z.object({
+  kind: z.literal("delete-many"),
+  tasks: z.array(assistantTaskRefSchema).min(1).max(20),
+});
+
+/**
+ * Crear una tarea con el mismo borrador que produce el flujo de lenguaje
+ * natural, para que el usuario revise antes de confirmar.
+ */
+export const assistantCreateActionSchema = z.object({
+  kind: z.literal("create"),
+  draft: nlTaskDraftSchema,
 });
 
 export const assistantReminderActionSchema = z.object({
@@ -86,20 +123,33 @@ export const assistantReminderActionSchema = z.object({
 
 export const assistantActionSchema = z.discriminatedUnion("kind", [
   assistantCompleteActionSchema,
+  assistantCompleteManyActionSchema,
+  assistantDeleteActionSchema,
+  assistantDeleteManyActionSchema,
+  assistantCreateActionSchema,
   assistantReminderActionSchema,
 ]);
 
 export const assistantResponseSchema = z.object({
   reply: z.string().trim().min(1).max(2000),
-  actions: z.array(assistantActionSchema).max(3).default([]),
+  actions: z.array(assistantActionSchema).max(10).default([]),
 });
 
 export type AssistantRequest = z.infer<typeof assistantRequestSchema>;
 export type AssistantMessage = z.infer<typeof assistantMessageSchema>;
 export type AssistantAction = z.infer<typeof assistantActionSchema>;
+export type AssistantTaskRef = z.infer<typeof assistantTaskRefSchema>;
 export type AssistantCompleteAction = z.infer<
   typeof assistantCompleteActionSchema
 >;
+export type AssistantCompleteManyAction = z.infer<
+  typeof assistantCompleteManyActionSchema
+>;
+export type AssistantDeleteAction = z.infer<typeof assistantDeleteActionSchema>;
+export type AssistantDeleteManyAction = z.infer<
+  typeof assistantDeleteManyActionSchema
+>;
+export type AssistantCreateAction = z.infer<typeof assistantCreateActionSchema>;
 export type AssistantReminderAction = z.infer<
   typeof assistantReminderActionSchema
 >;
