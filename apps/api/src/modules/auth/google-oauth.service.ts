@@ -45,7 +45,6 @@ export interface GoogleProfile {
   email: string;
   emailVerified: boolean;
   name: string;
-  picture: string | null;
 }
 
 @Injectable()
@@ -152,7 +151,6 @@ export class GoogleOAuthService {
       email?: unknown;
       email_verified?: unknown;
       name?: unknown;
-      picture?: unknown;
     };
 
     if (typeof raw.sub !== "string" || raw.sub.length === 0) {
@@ -172,7 +170,6 @@ export class GoogleOAuthService {
       // como no verificado, que es la posición segura.
       emailVerified: raw.email_verified === true,
       name: typeof raw.name === "string" ? raw.name.trim() : "",
-      picture: typeof raw.picture === "string" ? raw.picture : null,
     };
   }
 
@@ -271,7 +268,9 @@ export class GoogleOAuthService {
         // Sin contraseña: esta cuenta solo entra por Google. Nullable en el
         // schema justamente para esto.
         passwordHash: null,
-        avatarUrl: profile.picture,
+        // Deliberadamente sin `avatarUrl`: la foto de Google no se importa. El
+        // producto muestra las iniciales por defecto (igual que en el registro
+        // con email) y la foto es opt-in desde Ajustes → Perfil.
         isEmailVerified: true,
         settings: { create: {} },
         accounts: {

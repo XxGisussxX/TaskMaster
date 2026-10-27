@@ -229,7 +229,11 @@ describe("flujo Google OAuth completo (integración Postgres)", () => {
     expect(stateInCookie).toBeTruthy();
 
     // 2. Google devuelve el callback con el mismo state.
-    stubGoogle({ sub: `sub-${suffix}`, email });
+    stubGoogle({
+      sub: `sub-${suffix}`,
+      email,
+      picture: "https://lh3.googleusercontent.com/a/ana",
+    });
     const cb = makeRes();
     await controller.callback(
       "google",
@@ -255,6 +259,8 @@ describe("flujo Google OAuth completo (integración Postgres)", () => {
     createdUserIds.push(user.id);
     expect(user.passwordHash).toBeNull();
     expect(user.isEmailVerified).toBe(true);
+    // La foto de Google no se importa: el avatar queda igual que en registro.
+    expect(user.avatarUrl).toBeNull();
     expect(user.accounts).toHaveLength(1);
     expect(user.accounts[0]).toMatchObject({
       provider: "google",

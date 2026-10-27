@@ -219,7 +219,6 @@ describe("AuthController OAuth", () => {
         email: "a@b.com",
         emailVerified: true,
         name: "A",
-        picture: null,
       });
       (googleOAuth.resolveUser as ReturnType<typeof vi.fn>).mockRejectedValue(
         new ConflictException("otra cuenta"),
@@ -247,7 +246,6 @@ describe("AuthController OAuth", () => {
         email: "a@b.com",
         emailVerified: false,
         name: "A",
-        picture: null,
       });
       (googleOAuth.resolveUser as ReturnType<typeof vi.fn>).mockRejectedValue(
         new UnauthorizedException("no verificado"),
@@ -274,7 +272,6 @@ describe("AuthController OAuth", () => {
         email: "a@b.com",
         emailVerified: true,
         name: "A",
-        picture: null,
       });
       (googleOAuth.resolveUser as ReturnType<typeof vi.fn>).mockResolvedValue({
         userId: "user-1",
@@ -309,7 +306,6 @@ describe("AuthController OAuth", () => {
         email: "a@b.com",
         emailVerified: true,
         name: "A",
-        picture: null,
       });
       (googleOAuth.resolveUser as ReturnType<typeof vi.fn>).mockResolvedValue({
         userId: "user-1",

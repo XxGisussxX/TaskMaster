@@ -57,7 +57,6 @@ const verifiedProfile = {
   email: "ana@example.com",
   emailVerified: true,
   name: "Ana",
-  picture: "https://lh3.google.com/a/ana",
 };
 
 describe("GoogleOAuthService", () => {
@@ -186,6 +185,11 @@ describe("GoogleOAuthService", () => {
           isEmailVerified: true,
         }),
       });
+      // La foto de Google no se importa: la cuenta arranca sin avatar, igual
+      // que una creada con email.
+      const created = (prisma.user.create as ReturnType<typeof vi.fn>).mock
+        .calls[0]![0] as { data: Record<string, unknown> };
+      expect(created.data).not.toHaveProperty("avatarUrl");
     });
 
     it("cae al prefijo del email cuando Google no manda nombre", async () => {
@@ -329,7 +333,8 @@ describe("GoogleOAuthService", () => {
               // tratarlo como verificado sería aceptar un valor no confirmado.
               email_verified: "true",
               name: "Ana",
-              picture: null,
+              // Google manda la foto, pero el producto no la importa.
+              picture: "https://lh3.googleusercontent.com/a/ana",
             }),
           }),
       );
@@ -338,6 +343,7 @@ describe("GoogleOAuthService", () => {
 
       expect(profile.email).toBe("ana@example.com");
       expect(profile.emailVerified).toBe(false);
+      expect(profile).not.toHaveProperty("picture");
       vi.unstubAllGlobals();
     });
 

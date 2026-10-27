@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export interface AvatarProps {
@@ -17,6 +18,12 @@ function colorHash(name: string): string {
 }
 
 export function Avatar({ name, src, className }: AvatarProps) {
+  // Una URL rota (foto externa vencida, borrada o con el host caído) no debe
+  // dejar el hueco de una imagen rota: se cae a las iniciales, igual que una
+  // cuenta sin avatar. Se guarda la URL que falló para reintentar si cambia.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  useEffect(() => setFailedSrc(null), [src]);
+
   const initials = name
     .split(/\s+/)
     .map((n) => n[0])
@@ -24,6 +31,8 @@ export function Avatar({ name, src, className }: AvatarProps) {
     .slice(0, 2)
     .join("")
     .toUpperCase();
+  const showImage = Boolean(src) && failedSrc !== src;
+  const imageSrc = showImage ? src : null;
 
   return (
     <span
@@ -31,14 +40,15 @@ export function Avatar({ name, src, className }: AvatarProps) {
         "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white",
         className,
       )}
-      style={src ? undefined : { backgroundColor: colorHash(name) }}
+      style={showImage ? undefined : { backgroundColor: colorHash(name) }}
       aria-label={name}
     >
-      {src ? (
+      {imageSrc ? (
         <img
-          src={src}
+          src={imageSrc}
           alt={name}
           className="h-full w-full rounded-full object-cover"
+          onError={() => setFailedSrc(imageSrc)}
         />
       ) : (
         initials
