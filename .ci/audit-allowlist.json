@@ -5,5 +5,12 @@
     "vulnerable_versions": "<8.0.0",
     "patched_versions": ">=8.0.0",
     "reason": "Stack exhaustion al mergear grafos recursivos (GHSA-ggr8-5vv4-36mx). Llega solo por @prisma/config, que a su vez es dependencia del CLI de prisma (prisma migrate/generate), NO del runtime de la API ni del bundle. En npm se reporta como optional:true y dev:false pero el path es herramientas de la CLI. No hay fix aguas arriba: prisma/usar una version mas nueva de deepmerge-ts rompe @prisma/config. Pendiente de re-evaluar cuando prisma libere una version sin @prisma/config vulnerable."
+  },
+  "zod": {
+    "severity": "high",
+    "advisory_ids": ["1243066"],
+    "vulnerable_versions": "<4.6.6",
+    "patched_versions": ">=4.6.6",
+    "reason": "DoS: agotamiento de memoria al validar colecciones enormes con restricciones (GHSA-mrhx-c7xc-m3w5). El fix existe solo en zod 4.6.6+; la rama 3.x no recibio backport y el repo usa ^3.24.1 en api, web y contracts. El salto a zod 4 es un major que obliga a subir @hookform/resolvers a la 5.x y a tocar los dos z.record de una sola firma. Mientras tanto el vector esta acotado: main.ts limita el body JSON a 512kb y las colecciones de los schemas ya tienen maximos explicitos. Pendiente: migrar a zod 4 y borrar esta excepcion."
   }
 }
