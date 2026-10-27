@@ -15,6 +15,7 @@ import { Select } from "@/components/ui/select";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { FileUpload } from "@/features/attachments/components/FileUpload";
 import { CustomFieldForm } from "@/features/custom-fields/components/CustomFieldForm";
+import { NoteChecklist } from "./NoteChecklist";
 
 const formSchema = z.object({
   type: z.nativeEnum(NoteType),
@@ -126,6 +127,16 @@ export function NoteForm({
 
       {note && (
         <>
+          {note.type === NoteType.CHECKLIST && (
+            <>
+              <hr className="my-4 border-border" />
+              <h4 className="mb-3 text-sm font-medium">
+                Elementos de la lista
+              </h4>
+              <NoteChecklist note={note} readOnly={disabled} />
+            </>
+          )}
+
           <hr className="my-4 border-border" />
           <h4 className="mb-3 text-sm font-medium">Archivos adjuntos</h4>
           <FileUpload noteId={note.id} readOnly={disabled} />

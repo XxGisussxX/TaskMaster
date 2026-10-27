@@ -22,6 +22,7 @@ import {
   useCreateNote,
   useUpdateNote,
   useDeleteNote,
+  useToggleNotePin,
 } from "../hooks/useNotes";
 
 const NOTES_PAGE_SIZE = 24;
@@ -49,6 +50,7 @@ export function NotesPage() {
   const createNote = useCreateNote();
   const updateNote = useUpdateNote();
   const deleteNote = useDeleteNote();
+  const togglePin = useToggleNotePin();
 
   const notes = data?.items ?? [];
   const { data: valuesByNote = {} } = useCustomFieldValuesMany(
@@ -72,7 +74,7 @@ export function NotesPage() {
   };
 
   const handleTogglePin = (note: Note) => {
-    updateNote.mutate({ id: note.id, input: { pinned: !note.pinned } });
+    togglePin.mutate(note);
   };
 
   useEffect(() => {

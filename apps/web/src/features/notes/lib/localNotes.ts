@@ -1,4 +1,4 @@
-import type { Note, Paginated } from "@taskmaster/contracts";
+import type { ChecklistItemDto, Note, Paginated } from "@taskmaster/contracts";
 import { NoteType, StickyColor } from "@taskmaster/contracts";
 import { getLocalWorkspaceId } from "@/features/tasks/lib/localTasks";
 import { sanitizeHtml } from "@/lib/sanitize-html";
@@ -194,6 +194,73 @@ export function updateLocalNote(
   notes[index] = updated;
   writeStore(store);
   return cloneNote(updated);
+}
+
+/**
+ * Devuelve la nota mutable del store junto con el store abierto para escritura.
+ *
+ * Las operaciones de checklist son puntuales (agregar, marcar, borrar un ítem)
+ * y no pasan por el formulario, así que comparten este acceso para no repetir
+ * la búsqueda ni olvidarse de tocar `updatedAt`.
+ */
+function openLocalNote(
+  workspaceId: string,
+  noteId: string,
+): { store: StoredNotes; note: Note } {
+  const store = readStore();
+  const notes = ensureWorkspaceNotes(store, workspaceId);
+  const note = notes.find((candidate) => candidate.id === noteId);
+  if (!note) throw new Error("Nota no encontrada");
+  return { store, note };
+}
+
+export function addLocalChecklistItem(
+  workspaceId: string,
+  noteId: string,
+  text: string,
+): ChecklistItemDto {
+  const { store, note } = openLocalNote(workspaceId, noteId);
+  const order =
+    note.items.reduce((max, item) => Math.max(max, item.order), -1) + 1;
+  const item: ChecklistItemDto = {
+    id: crypto.randomUUID(),
+    text,
+    done: false,
+    order,
+  };
+
+  note.items = [...note.items, item];
+  note.updatedAt = new Date().toISOString();
+  writeStore(store);
+  return { ...item };
+}
+
+export function toggleLocalChecklistItem(
+  workspaceId: string,
+  noteId: string,
+  itemId: string,
+  done: boolean,
+): ChecklistItemDto {
+  const { store, note } = openLocalNote(workspaceId, noteId);
+  const item = note.items.find((candidate) => candidate.id === itemId);
+  if (!item) throw new Error("Elemento de checklist no encontrado");
+
+  item.done = done;
+  note.updatedAt = new Date().toISOString();
+  writeStore(store);
+  return { ...item };
+}
+
+export function removeLocalChecklistItem(
+  workspaceId: string,
+  noteId: string,
+  itemId: string,
+): { id: string } {
+  const { store, note } = openLocalNote(workspaceId, noteId);
+  note.items = note.items.filter((item) => item.id !== itemId);
+  note.updatedAt = new Date().toISOString();
+  writeStore(store);
+  return { id: itemId };
 }
 
 export function removeLocalNote(workspaceId: string, noteId: string): void {

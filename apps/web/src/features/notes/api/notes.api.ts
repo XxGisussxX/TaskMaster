@@ -1,11 +1,14 @@
-import type { Note, Paginated } from "@taskmaster/contracts";
+import type { ChecklistItemDto, Note, Paginated } from "@taskmaster/contracts";
 import { http } from "@/services/http";
 import {
+  addLocalChecklistItem,
   createLocalNote,
   getLocalNote,
   isLocalNotesWorkspace,
   listLocalNotes,
+  removeLocalChecklistItem,
   removeLocalNote,
+  toggleLocalChecklistItem,
   updateLocalNote,
 } from "../lib/localNotes";
 
@@ -45,4 +48,45 @@ export const notesApi = {
     isLocalNotesWorkspace(workspaceId)
       ? (removeLocalNote(workspaceId, id), Promise.resolve())
       : http.delete<void>(`/workspaces/${workspaceId}/notes/${id}`),
+
+  // Pin y checklist tienen endpoints propios en la API: evitan reenviar el
+  // formulario completo (y pisar ediciones concurrentes) para un cambio de un
+  // solo campo. En el modo local se resuelven sobre el mismo store.
+  pin: (workspaceId: string, id: string) =>
+    isLocalNotesWorkspace(workspaceId)
+      ? Promise.resolve(updateLocalNote(workspaceId, id, { pinned: true }))
+      : http.post<Note>(`/workspaces/${workspaceId}/notes/${id}/pin`, {}),
+
+  unpin: (workspaceId: string, id: string) =>
+    isLocalNotesWorkspace(workspaceId)
+      ? Promise.resolve(updateLocalNote(workspaceId, id, { pinned: false }))
+      : http.post<Note>(`/workspaces/${workspaceId}/notes/${id}/unpin`, {}),
+
+  addChecklistItem: (workspaceId: string, id: string, text: string) =>
+    isLocalNotesWorkspace(workspaceId)
+      ? Promise.resolve(addLocalChecklistItem(workspaceId, id, text))
+      : http.post<ChecklistItemDto>(
+          `/workspaces/${workspaceId}/notes/${id}/checklist`,
+          { text },
+        ),
+
+  toggleChecklistItem: (
+    workspaceId: string,
+    id: string,
+    itemId: string,
+    done: boolean,
+  ) =>
+    isLocalNotesWorkspace(workspaceId)
+      ? Promise.resolve(toggleLocalChecklistItem(workspaceId, id, itemId, done))
+      : http.patch<ChecklistItemDto>(
+          `/workspaces/${workspaceId}/notes/${id}/checklist/${itemId}`,
+          { done },
+        ),
+
+  removeChecklistItem: (workspaceId: string, id: string, itemId: string) =>
+    isLocalNotesWorkspace(workspaceId)
+      ? Promise.resolve(removeLocalChecklistItem(workspaceId, id, itemId))
+      : http.delete<{ id: string }>(
+          `/workspaces/${workspaceId}/notes/${id}/checklist/${itemId}`,
+        ),
 };
